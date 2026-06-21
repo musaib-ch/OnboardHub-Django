@@ -56,16 +56,24 @@
                 </div>
 
                 <div class="mb-4">
-                    <small class="text-muted d-block mb-2"><strong>Stages ({{ template.stages|length }})</strong></small>
+                    {% with enabled_stages=template.stages|get_enabled_stages %}
+                    <small class="text-muted d-block mb-2"><strong>Stages ({{ enabled_stages|length }})</strong></small>
                     <div class="d-flex flex-wrap gap-2">
-                        {% for stage_key in template.stages %}
+                        {% for stage_key in enabled_stages %}
                         <span class="badge bg-primary">
                             <i class="bi bi-check-circle me-1"></i>{{ stage_key|title }}
                         </span>
                         {% empty %}
-                        <span class="text-muted small">No stages configured</span>
+                        <span class="text-muted small">No active stages in this template</span>
                         {% endfor %}
                     </div>
+                    {% if template.stages|length > enabled_stages|length %}
+                    <small class="text-warning mt-2 d-block">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        {{ template.stages|length|add:"-"|add:enabled_stages|length }} stage(s) currently disabled
+                    </small>
+                    {% endif %}
+                    {% endwith %}
                 </div>
             </div>
 
