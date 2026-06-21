@@ -256,13 +256,21 @@ def template_delete(request, template_id):
 @permission_required("manage_stage_templates")
 @require_http_methods(["POST"])
 def template_set_default(request, template_id):
-    """Set a template as the default for new employees."""
+    """Set a template as the default for new employees (only one can be default)."""
     from ..models import AppSetting
 
     template = get_object_or_404(StageTemplate, id=template_id)
+
+    # Unset all other templates from being global (only one can be default)
+    StageTemplate.objects.exclude(id=template_id).update(is_global=False)
+
+    # Set this template as the default
+    template.is_global = True
+    template.save(update_fields=['is_global'])
+
     AppSetting.set("default_stage_template", template.name)
 
-    messages.success(request, f"'{template.name}' is now the default template.")
+    messages.success(request, f"'{template.name}' is now the default template. All other templates set to non-default.")
     log_activity(request, action="set_default_template", entity_type="template", entity_id=template.id,
-                description=f"Set default template to {template.name}")
+                description=f"Set default template to {template.name} (unset all others)")
     return redirect("admin_templates_list")
