@@ -246,6 +246,9 @@
     }
     // On create, sync permissions to the selected role immediately.
     updateUI(); applyRolePerms();
-    document.getElementById('roleSelect').addEventListener('change', applyRolePerms);
+    document.getElementById('roleSelect').addEventListener('change', function() {
+        updateUI();
+        applyRolePerms();
+    });
 </script>
 {% endblock %}
