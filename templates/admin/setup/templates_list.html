@@ -14,11 +14,18 @@
 <div class="row g-4 animate-fadeIn">
     {% for template in templates %}
     <div class="col-lg-6 col-xl-4">
-        <div class="glass-card h-100 d-flex flex-column">
+        <div class="glass-card h-100 d-flex flex-column {% if template.is_global %}border border-success border-2{% endif %}">
             <div class="card-body flex-grow-1">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div class="flex-grow-1">
-                        <h5 class="mb-1">{{ template.name }}</h5>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <h5 class="mb-0">{{ template.name }}</h5>
+                            {% if template.is_global %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-star-fill me-1"></i>Default
+                            </span>
+                            {% endif %}
+                        </div>
                         {% if template.description %}
                         <p class="text-muted small mb-0">{{ template.description }}</p>
                         {% endif %}
@@ -29,12 +36,14 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'admin_template_edit' template.id %}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                            {% if not template.is_global %}
                             <li>
                                 <form method="POST" action="{% url 'admin_template_set_default' template.id %}" style="display: contents;">
                                     {% csrf_token %}
                                     <button type="submit" class="dropdown-item"><i class="bi bi-star me-2"></i>Set as Default</button>
                                 </form>
                             </li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="POST" action="{% url 'admin_template_delete' template.id %}" style="display: contents;">
@@ -46,7 +55,7 @@
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <small class="text-muted d-block mb-2"><strong>Stages ({{ template.stages|length }})</strong></small>
                     <div class="d-flex flex-wrap gap-2">
                         {% for stage_key in template.stages %}
@@ -60,15 +69,23 @@
                 </div>
             </div>
 
-            <div class="card-footer bg-light border-top d-flex justify-content-between align-items-center">
-                {% if template.is_active %}
-                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
-                {% else %}
-                    <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Inactive</span>
-                {% endif %}
-                {% if template.is_global %}
-                    <span class="badge bg-info"><i class="bi bi-star me-1"></i>Default</span>
-                {% endif %}
+            <div class="card-footer bg-light border-top">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="badge {% if template.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                        <i class="bi {% if template.is_active %}bi-check-circle{% else %}bi-x-circle{% endif %} me-1"></i>
+                        {% if template.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                    {% if not template.is_global %}
+                    <form method="POST" action="{% url 'admin_template_set_default' template.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-star me-1"></i>Make Default
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-success small"><strong>✓ Default for new employees</strong></span>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -81,4 +98,10 @@
     </div>
     {% endfor %}
 </div>
+
+<style>
+.glass-card.border-success {
+    box-shadow: 0 0 15px rgba(25, 135, 84, 0.15);
+}
+</style>
 {% endblock %}

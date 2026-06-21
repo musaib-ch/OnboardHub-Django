@@ -151,22 +151,30 @@
                 <div class="col-12">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="workflow_choice" value="default" id="wf_default" checked onchange="updateWorkflowUI()">
-                        <label class="form-check-label fw-medium" for="wf_default">Use Default Workflow</label>
-                        <div class="form-text">Stages: {% for stage in default_stages %}<span class="badge bg-secondary me-1">{{ stage }}</span>{% endfor %}</div>
+                        <label class="form-check-label fw-medium" for="wf_default">
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>Use Default Workflow
+                        </label>
+                        <div class="form-text mt-1">
+                            <small class="text-success"><strong>✓ Recommended</strong></small> - Uses organization's default template
+                            <br><span class="d-block mt-1">Stages: {% for stage in default_stages %}<span class="badge bg-primary me-1">{{ stage }}</span>{% endfor %}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="workflow_choice" value="template" id="wf_template" onchange="updateWorkflowUI()">
-                        <label class="form-check-label fw-medium" for="wf_template">Use Template</label>
+                        <label class="form-check-label fw-medium" for="wf_template">
+                            <i class="bi bi-layers me-1"></i>Choose a Template
+                        </label>
                     </div>
                     <div id="templateDiv" style="display:none; margin-left: 1.5rem; margin-top: 0.5rem;">
                         <select name="template_name" class="form-select">
                             <option value="">-- Select a template --</option>
                             {% for template in stage_templates %}
-                            <option value="{{ template.name }}">{{ template.name }} - {{ template.description }}</option>
+                            <option value="{{ template.name }}">{{ template.name }}</option>
                             {% endfor %}
                         </select>
+                        <small class="form-text text-muted">Select from pre-built templates for different hire types</small>
                     </div>
                 </div>
                 <div class="col-12">
