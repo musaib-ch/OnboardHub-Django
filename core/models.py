@@ -653,6 +653,7 @@ class Engagement(models.Model):
         ("enrollment", "Program / Training Enrollment"),
         ("goal", "Goal"),
         ("mentorship", "Mentorship"),
+        ("chat_dm", "Direct Message Chat"),
     ]
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, blank=True)
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, db_index=True)

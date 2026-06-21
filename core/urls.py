@@ -128,10 +128,13 @@ urlpatterns = [
     # ── Real-time Chat & Messaging ──
     path("messages/", chat_views.messages_list, name="messages_list"),
     path("messages/<int:user_id>/", chat_views.chat_with_user, name="chat_with_user"),
-    path("messages/<int:user_id>/send/", chat_views.send_message_ajax, name="send_message_ajax"),
     path("messages/<int:user_id>/read/", chat_views.mark_conversation_read, name="mark_conversation_read"),
-    path("api/users/search/", chat_views.search_users, name="search_users"),
-    path("api/messages/unread/", chat_views.get_unread_count, name="get_unread_count"),
+    path("messages/chat/<int:chat_id>/accept/", chat_views.accept_chat_request, name="accept_chat_request"),
+    path("messages/chat/<int:chat_id>/reject/", chat_views.reject_chat_request, name="reject_chat_request"),
+    path("messages/chat/<int:chat_id>/delete/", chat_views.delete_chat_view, name="delete_chat"),
+    path("messages/settings/", chat_views.chat_settings, name="chat_settings"),
+    path("api/users/search/", chat_views.search_users_for_chat, name="search_users"),
+    path("api/messages/unread/", chat_views.get_unread_count_view, name="get_unread_count"),
 
     # ── Content modules (knowledge / training / orientation / presentations) ──
     path("admin/content/<str:kind>/", content_views.manage, name="content_manage"),
