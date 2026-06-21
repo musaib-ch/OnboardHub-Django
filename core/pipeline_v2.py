@@ -62,27 +62,38 @@ def get_employee_stage_path(user):
 def get_global_default_stages():
     """Get the default stage sequence for new employees.
 
+    Returns only ENABLED stages - disabled stages are filtered out.
+
     Reads from:
     1. AppSetting 'default_stage_template' (template name)
     2. Falls back to first StageTemplate with is_global=True
     3. Falls back to hardcoded list if no template exists
+
+    All disabled stages are filtered out from the result.
     """
+    # Get all enabled stage keys
+    enabled_stages = set(StageDefinition.objects.filter(is_enabled=True).values_list("stage_key", flat=True))
+
     template_key = AppSetting.get("default_stage_template", "")
 
     if template_key:
         try:
             template = StageTemplate.objects.get(name=template_key, is_active=True)
-            return template.stages
+            # Filter to only enabled stages
+            return [s for s in template.stages if s in enabled_stages]
         except StageTemplate.DoesNotExist:
             pass
 
     # Fallback: use first global template
     template = StageTemplate.objects.filter(is_global=True, is_active=True).first()
     if template:
-        return template.stages
+        # Filter to only enabled stages
+        return [s for s in template.stages if s in enabled_stages]
 
     # Final fallback: hardcoded standard flow (for backward compatibility)
-    return ["medical", "pre_onboarding", "onboarding", "post_onboarding"]
+    # Also filter to only enabled stages
+    fallback = ["medical", "pre_onboarding", "onboarding", "post_onboarding"]
+    return [s for s in fallback if s in enabled_stages]
 
 
 def create_employee_stage_path(user, stages, change_reason=""):
