@@ -84,8 +84,9 @@
 
     <div class="card-footer bg-light border-top">
         <small class="text-muted">
-            <strong>{{ stages|length }}</strong> stages •
-            <strong>{% widthratio stages|length 100 100 %}</strong> total in system
+            <strong>{{ stages|length }}</strong> total stages •
+            <strong>{{ enabled_count }}</strong> enabled •
+            <strong>{{ disabled_count }}</strong> disabled
         </small>
     </div>
 </div>

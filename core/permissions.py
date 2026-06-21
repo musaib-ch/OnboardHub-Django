@@ -28,6 +28,7 @@ BASE_ROLE_PERMISSIONS = {
         "view_programs", "manage_landing_page",
         "manage_forms", "manage_documents", "export_data",
         "manage_automation_rules", "manage_organization", "manage_appearance",
+        "manage_stages", "manage_stage_templates", "customize_employee_workflow",
         "manage_onboarding_plans",
         "approve_pre_onboarding", "approve_onboarding", "approve_post_onboarding",
         "send_offer", "manage_offers",
@@ -40,6 +41,7 @@ BASE_ROLE_PERMISSIONS = {
         "view_programs", "manage_landing_page",
         "manage_organization", "manage_appearance",
         "manage_automation_rules", "manage_onboarding_plans",
+        "manage_stages", "manage_stage_templates", "customize_employee_workflow",
         "approve_pre_onboarding", "approve_onboarding", "approve_post_onboarding",
         "send_offer", "manage_offers",
     ],
@@ -50,10 +52,11 @@ BASE_ROLE_PERMISSIONS = {
         "manage_medical_requirements", "bypass_stages",
     ],
     "hrbp": [
-        # HRBP: view employees, manage training, view programs, manage 30/60/90 plans
+        # HRBP: view employees, manage training, view programs, manage 30/60/90 plans, customize workflows
         "view_employees",
         "manage_training", "assign_training", "view_training",
         "view_programs", "manage_onboarding_plans",
+        "customize_employee_workflow",
     ],
     "offer_sender": [
         # Offer sender: can only send offers
@@ -106,6 +109,9 @@ PERMISSION_CATEGORIES = [
         ("manage_automation_rules", "Automation rules"),
         ("manage_organization", "Organization setup"),
         ("manage_appearance", "Appearance / branding"),
+        ("manage_stages", "Manage workflow stages"),
+        ("manage_stage_templates", "Manage workflow templates"),
+        ("customize_employee_workflow", "Customize employee workflow"),
     ]),
 ]
 

@@ -377,6 +377,10 @@ def employee_detail(request, user_id):
         return redirect(f"{reverse('admin_medical_review')}?user_id={emp.id}&has_submissions=1")
 
     # Handle workflow update
+    if request.method == "POST" and request.POST.get("action") == "update_workflow" and not request.user.has_perm_key("customize_employee_workflow"):
+        messages.error(request, "You do not have permission to customize employee workflows.")
+        return redirect("admin_employee_detail", emp_id=emp.id)
+
     if request.method == "POST" and request.POST.get("action") == "update_workflow":
         from ..pipeline_v2 import create_employee_stage_path
         from ..models import StageDefinition
@@ -471,10 +475,12 @@ def employee_detail(request, user_id):
 
     # Get employee's custom workflow path
     from ..pipeline_v2 import get_employee_stage_path
-    from ..models import StageDefinition
+    from ..models import StageDefinition, StageTemplate
     employee_stage_path = get_employee_stage_path(emp)
     # Only show enabled stages - disabled stages should not appear anywhere
     stage_definitions = {s.stage_key: s for s in StageDefinition.objects.filter(is_enabled=True)}
+    all_stages_qs = StageDefinition.objects.filter(is_enabled=True).order_by("order")
+    stage_templates_qs = StageTemplate.objects.filter(is_active=True).order_by("name")
 
     return render(request, "admin/employee_detail.html", {
         "emp": emp,
@@ -501,7 +507,10 @@ def employee_detail(request, user_id):
         # Workflow configuration
         "employee_stage_path": employee_stage_path,
         "stage_definitions": stage_definitions,
+        "all_stages": all_stages_qs,
+        "stage_templates": stage_templates_qs,
         "has_custom_path": emp.stage_path is not None,
+        "can_customize_workflow": request.user.has_perm_key("customize_employee_workflow"),
         "thread": thread,
         "convo_stage": convo_stage,
         "convo_stage_label": pipeline.STAGE_LABELS.get(convo_stage, ""),

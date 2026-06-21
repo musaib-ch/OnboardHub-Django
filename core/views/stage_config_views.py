@@ -54,8 +54,11 @@ def stages_list(request):
         return redirect("admin_stages_list")
 
     stages = StageDefinition.objects.order_by("order")
+    enabled_count = stages.filter(is_enabled=True).count()
     return render(request, "admin/setup/stages_list.html", {
         "stages": stages,
+        "enabled_count": enabled_count,
+        "disabled_count": stages.count() - enabled_count,
     })
 
 
