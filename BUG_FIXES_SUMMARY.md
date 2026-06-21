@@ -1,4 +1,66 @@
-# Bug Fixes Summary (2026-06-20)
+# Bug Fixes Summary
+
+## Latest Fixes (2026-06-22) - Critical Issues ✅
+
+### 1. **Employee Edit Page ModuleNotFoundError** ✅
+**Issue:** Error when trying to create or edit employees
+```
+ModuleNotFoundError: No module named 'core.views.models'
+at _user_form_context function
+```
+
+**Root Cause:** Incorrect import paths in `_user_form_context`
+- Was: `from .models import ...` (looking in core.views.models)
+- Fixed: `from ..models import ...` (looking in core.models)
+
+**Files Fixed:** `core/views/admin_views.py`
+
+**Status:** ✅ FIXED - Can now create and edit employees!
+
+---
+
+### 2. **Onboarding Journey Missing Stages** ✅
+**Issue:** Employees weren't seeing all stages (offer_acceptance, orientation, training, 30/60/90 plan)
+
+**Root Cause:** Seed command only created 4 old stages for employees
+
+**Fix Applied:** 
+- Updated `seed_configurable_stages.py` to include all 8 stages
+- Ran seed command: `python manage.py seed_configurable_stages`
+- Result: All employees now have complete stage paths
+
+**Stages Now Available:**
+1. Offer Acceptance ✨ NEW
+2. Medical Clearance
+3. Pre-Onboarding
+4. Onboarding
+5. Post-Onboarding
+6. Orientation ✨ NEW
+7. Training ✨ NEW
+8. 30/60/90 Day Plan ✨ NEW
+
+**Status:** ✅ FIXED - All stages showing in onboarding journey!
+
+---
+
+### 3. **UI/UX Improvements** ✅
+**Issues Fixed:**
+- Workflow Stages page: Redesigned with better styling, clearer information
+- Workflow Templates page: Improved card layout with better visual hierarchy
+- Toggle buttons: Better visibility and improved styling
+- Status badges: Added icons and improved colors
+- Empty states: Better messaging and visual design
+- Stage summary: Added count display
+
+**Files Updated:**
+- `templates/admin/setup/stages_list.html` - Complete redesign
+- `templates/admin/setup/templates_list.html` - Complete redesign
+
+**Status:** ✅ FIXED - Professional looking UI throughout!
+
+---
+
+## Previously Fixed Issues (2026-06-20)
 
 ## Fixed Issues
 
