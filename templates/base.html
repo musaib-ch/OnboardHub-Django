@@ -1645,13 +1645,19 @@
                 {% if nav_perms.manage_appearance or nav_perms.manage_organization or nav_perms.manage_landing_page or nav_perms.manage_automation_rules or role == "super_admin" or nav_perms.manage_email_templates %}
                 {# Setup #}
                 <div class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle {% if ep == 'admin_branding' or ep == 'admin_organization' or ep == 'admin_portal_cms' or ep == 'admin_roles' or ep == 'admin_email_settings' or ep == 'admin_email_templates' or ep == 'admin_automation' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i> Setup</a>
+                    <a href="#" class="nav-link dropdown-toggle {% if ep == 'admin_branding' or ep == 'admin_organization' or ep == 'admin_portal_cms' or ep == 'admin_roles' or ep == 'admin_email_settings' or ep == 'admin_email_templates' or ep == 'admin_automation' or ep == 'admin_stages_list' or ep == 'admin_templates_list' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i> Setup</a>
                     <ul class="dropdown-menu">
                         {% if nav_perms.manage_appearance %}
                         <li><a class="dropdown-item {% if ep == 'admin_branding' %}active{% endif %}" href="{% url 'admin_branding' %}"><i class="bi bi-palette"></i> Branding &amp; Appearance</a></li>
                         {% endif %}
                         {% if nav_perms.manage_organization %}
                         <li><a class="dropdown-item {% if ep == 'admin_organization' %}active{% endif %}" href="{% url 'admin_organization' %}"><i class="bi bi-sliders"></i> Organization Setup</a></li>
+                        {% endif %}
+                        {% if role == "super_admin" or role == "admin" %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item {% if ep == 'admin_stages_list' %}active{% endif %}" href="{% url 'admin_stages_list' %}"><i class="bi bi-diagram-2"></i> Workflow Stages</a></li>
+                        <li><a class="dropdown-item {% if ep == 'admin_templates_list' %}active{% endif %}" href="{% url 'admin_templates_list' %}"><i class="bi bi-layers"></i> Workflow Templates</a></li>
+                        <li><hr class="dropdown-divider"></li>
                         {% endif %}
                         {% if nav_perms.manage_landing_page %}
                         <li><a class="dropdown-item {% if ep == 'admin_portal_cms' %}active{% endif %}" href="{% url 'admin_portal_cms' %}"><i class="bi bi-easel"></i> Landing Page</a></li>
