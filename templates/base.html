@@ -1516,7 +1516,12 @@
             </a>
             <div class="sidebar-meta">
                 <div class="sidebar-greeting">Hello, {{ user.full_name }}</div>
-                <div class="sidebar-actions dropdown">
+                <div class="sidebar-actions d-flex align-items-center gap-2">
+                    <a href="{% url 'messages_list' %}" class="btn btn-glass position-relative" title="Messages" style="border:none;background:transparent;padding:0;color:inherit;">
+                        <i class="bi bi-chat-dots fs-5"></i>
+                        <span id="chatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;display:none;"></span>
+                    </a>
+                    <div class="dropdown">
                     <button class="btn btn-glass position-relative notif-button" type="button" id="notifBell"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
                         style="border:none;background:transparent;padding:0;color:inherit;">
@@ -1538,6 +1543,7 @@
                         </div>
                         <div class="p-2 border-top text-center"><a href="{% url 'notifications_list' %}" class="small text-decoration-none">View all</a></div>
                     </div>
+                </div>
                 </div>
                 <div class="dropdown">
                     <button class="avatar-button" data-bs-toggle="dropdown">
@@ -1698,6 +1704,7 @@
             <div class="mobile-quick-tabs">
                 <a href="{% url 'portal' %}" class="quick-tab {% if ep == 'portal' %}active{% endif %}"><i class="bi bi-house"></i><span>Home</span></a>
                 <a href="{% url 'notifications_list' %}" class="quick-tab {% if ep == 'notifications_list' %}active{% endif %}"><i class="bi bi-bell"></i><span>Alerts</span></a>
+                <a href="{% url 'messages_list' %}" class="quick-tab {% if ep == 'messages_list' %}active{% endif %}"><i class="bi bi-chat-dots"></i><span>Chat</span></a>
                 <a href="{% url 'profile' %}" class="quick-tab {% if ep == 'profile' %}active{% endif %}"><i class="bi bi-person"></i><span>Profile</span></a>
             </div>
         </div>
@@ -1876,6 +1883,26 @@
             bell.addEventListener('click', refresh);
             refresh();
             setInterval(refresh, 30000);  // poll unread count + recent items
+        })();
+
+        // ── Live chat unread badge ─────────────────────────────────────────
+        (function () {
+            var badge = document.getElementById('chatBadge');
+            if (!badge) return;
+            function refresh() {
+                fetch("{% url 'get_unread_count' %}")
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.unread_count > 0) {
+                            badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+                            badge.style.display = '';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }).catch(function() {});
+            }
+            refresh();
+            setInterval(refresh, 15000);  // poll every 15s
         })();
     </script>
     {% endif %}
