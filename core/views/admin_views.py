@@ -379,13 +379,23 @@ def employee_detail(request, user_id):
     # Handle workflow update
     if request.method == "POST" and request.POST.get("action") == "update_workflow":
         from ..pipeline_v2 import create_employee_stage_path
+        from ..models import StageDefinition
+
         new_stages = request.POST.getlist("workflow_stages")
         change_reason = request.POST.get("workflow_change_reason", "Manual update from employee profile")
+
         if new_stages:
-            create_employee_stage_path(emp, new_stages, change_reason=change_reason)
-            log_activity(request, action="update_employee_workflow", entity_type="employee", entity_id=emp.id,
-                        description=f"Updated workflow to {', '.join(new_stages)}")
-            messages.success(request, "Workflow updated successfully.")
+            # Validate: only enabled stages can be assigned
+            enabled_stages = set(StageDefinition.objects.filter(is_enabled=True).values_list("stage_key", flat=True))
+            invalid_stages = set(new_stages) - enabled_stages
+
+            if invalid_stages:
+                messages.error(request, f"Invalid stages (disabled or non-existent): {', '.join(invalid_stages)}")
+            else:
+                create_employee_stage_path(emp, new_stages, change_reason=change_reason)
+                log_activity(request, action="update_employee_workflow", entity_type="employee", entity_id=emp.id,
+                            description=f"Updated workflow to {', '.join(new_stages)}")
+                messages.success(request, "Workflow updated successfully.")
 
     responses = FormResponse.objects.filter(employee=emp).select_related("form")
     medical = MedicalRecord.objects.filter(employee=emp)
@@ -463,7 +473,8 @@ def employee_detail(request, user_id):
     from ..pipeline_v2 import get_employee_stage_path
     from ..models import StageDefinition
     employee_stage_path = get_employee_stage_path(emp)
-    stage_definitions = {s.stage_key: s for s in StageDefinition.objects.all()}
+    # Only show enabled stages - disabled stages should not appear anywhere
+    stage_definitions = {s.stage_key: s for s in StageDefinition.objects.filter(is_enabled=True)}
 
     return render(request, "admin/employee_detail.html", {
         "emp": emp,
@@ -834,27 +845,46 @@ def _apply_permissions(request, user):
 
 def _apply_employee_workflow(request, user):
     """Create custom stage path for employee based on workflow selection."""
-    from .pipeline_v2 import create_employee_stage_path, get_template
+    from ..pipeline_v2 import create_employee_stage_path
+    from ..models import StageDefinition
 
     workflow_choice = request.POST.get("workflow_choice", "default")
 
+    # Get enabled stages for validation
+    enabled_stages = set(StageDefinition.objects.filter(is_enabled=True).values_list("stage_key", flat=True))
+
     if workflow_choice == "template":
         template_name = request.POST.get("template_name")
-        template = get_template(template_name) if template_name else None
-        if template:
-            create_employee_stage_path(
-                user,
-                stages=template.stages,
-                change_reason=f"Created with template: {template.name}"
-            )
+        # Get template from database - it should already only contain enabled stages
+        from ..models import StageTemplate
+        try:
+            template = StageTemplate.objects.get(name=template_name, is_active=True)
+            # Filter template stages to only enabled ones (extra safety)
+            valid_stages = [s for s in template.stages if s in enabled_stages]
+            if valid_stages:
+                create_employee_stage_path(
+                    user,
+                    stages=valid_stages,
+                    change_reason=f"Created with template: {template.name}"
+                )
+        except StageTemplate.DoesNotExist:
+            pass
+
     elif workflow_choice == "custom":
         custom_stages = request.POST.getlist("custom_stages")
         if custom_stages:
-            create_employee_stage_path(
-                user,
-                stages=custom_stages,
-                change_reason="Created with custom stage selection"
-            )
+            # Validate: only enabled stages can be assigned
+            invalid_stages = set(custom_stages) - enabled_stages
+            if invalid_stages:
+                # Silently filter out invalid stages (they shouldn't be in the form anyway)
+                custom_stages = [s for s in custom_stages if s in enabled_stages]
+
+            if custom_stages:
+                create_employee_stage_path(
+                    user,
+                    stages=custom_stages,
+                    change_reason="Created with custom stage selection"
+                )
     # else: "default" or not specified - leave stage_path as NULL (uses global defaults)
 
 
