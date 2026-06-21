@@ -1668,7 +1668,6 @@
                         {% if role == "super_admin" %}
                         <li><a class="dropdown-item {% if ep == 'admin_roles' %}active{% endif %}" href="{% url 'admin_roles' %}"><i class="bi bi-shield-lock"></i> Roles &amp; Permissions</a></li>
                         <li><a class="dropdown-item {% if ep == 'admin_email_settings' %}active{% endif %}" href="{% url 'admin_email_settings' %}"><i class="bi bi-envelope"></i> Email / SMTP</a></li>
-                        <li><a class="dropdown-item {% if ep == 'zoom_settings' %}active{% endif %}" href="{% url 'zoom_settings' %}"><i class="bi bi-camera-video"></i> Zoom Integration</a></li>
                         <li><a class="dropdown-item {% if ep == 'admin_import_employees' %}active{% endif %}" href="{% url 'admin_import_employees' %}"><i class="bi bi-upload"></i> Import Employees</a></li>
                         {% endif %}
                         {% if nav_perms.manage_email_templates %}
