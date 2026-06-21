@@ -81,16 +81,6 @@
                 </div>
             </div>
 
-            {% if not template.is_global %}
-            <div class="card-footer bg-light border-top p-2">
-                <form method="POST" action="{% url 'admin_template_set_default' template.id %}" style="display: block;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-success btn-sm w-100">
-                        <i class="bi bi-star me-1"></i>Make Default
-                    </button>
-                </form>
-            </div>
-            {% endif %}
         </div>
     </div>
     {% empty %}
