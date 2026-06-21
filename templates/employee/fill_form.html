@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ form.name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'employee_home' %}" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0">{{ form.name }}</h4>
+</div>
+<div class="glass-card p-4">
+    {% if form.description %}<p class="text-muted">{{ form.description }}</p>{% endif %}
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% include "components/form_fields.html" with f=form answers=answers files=files %}
+        <div class="d-flex gap-2 pt-2 border-top mt-3">
+            <button type="submit" name="action" value="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Submit</button>
+            <button type="submit" name="action" value="save_draft" formnovalidate class="btn btn-outline-secondary"><i class="bi bi-floppy me-1"></i>Save Draft</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}{% include "components/conditional_logic_js.html" %}{% endblock %}

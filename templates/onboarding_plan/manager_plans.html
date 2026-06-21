@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Manage Onboarding Plans{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-calendar3-range me-2"></i>30/60/90 Onboarding Plans</h1>
+    <p class="text-muted mb-0">Create and manage 30/60/90 day plans for new hires.</p>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <h6 class="mb-4"><i class="bi bi-person-check me-2"></i>Employees with Plans ({{ employees_with_plans|length }})</h6>
+            
+            {% if employees_with_plans %}
+            <div class="list-group list-group-flush">
+                {% for item in employees_with_plans %}
+                <a href="{% url 'employee_plan_detail' item.employee.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-600">{{ item.employee.full_name }}</div>
+                        <small class="text-muted">{{ item.employee.email }}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-600">{{ item.progress.completion_percentage }}%</div>
+                        <small class="text-muted">{{ item.progress.completed_milestones }}/{{ item.progress.total_milestones }}</small>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small">No employees have plans yet. Create one below.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-plus-circle me-2"></i>Create New Plan</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_plan">
+                <label class="form-label small">Select Employee</label>
+                <select name="employee_id" class="form-select form-select-sm mb-3" required>
+                    <option value="">-- Choose an employee --</option>
+                    {% for emp in employees_without_plans %}
+                    <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus me-1"></i>Create Plan</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Active Plans Detailed View -->
+{% if employees_with_plans %}
+<div class="glass-card p-4">
+    <h6 class="mb-4"><i class="bi bi-graph-up me-2"></i>Plan Progress</h6>
+    
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle small">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>30 Days</th>
+                    <th>60 Days</th>
+                    <th>90 Days</th>
+                    <th>Overall</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in employees_with_plans %}
+                <tr onclick="window.location='{% url 'employee_plan_detail' item.employee.id %}'">
+                    <td class="fw-600">{{ item.employee.full_name }}</td>
+                    <td>
+                        {% with phase=item.progress.phases.day_30 %}
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" style="width: {{ phase.percentage }}%">{{ phase.percentage }}%</div>
+                        </div>
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% with phase=item.progress.phases.day_60 %}
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" style="width: {{ phase.percentage }}%">{{ phase.percentage }}%</div>
+                        </div>
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% with phase=item.progress.phases.day_90 %}
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" style="width: {{ phase.percentage }}%">{{ phase.percentage }}%</div>
+                        </div>
+                        {% endwith %}
+                    </td>
+                    <td class="fw-600">{{ item.progress.completion_percentage }}%</td>
+                    <td onclick="event.stopPropagation()">
+                        <a href="{% url 'employee_plan_detail' item.employee.id %}" class="btn btn-xs btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

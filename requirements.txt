@@ -1,0 +1,6 @@
+Django==5.0.1
+Pillow==10.2.0
+whitenoise==6.7.0
+waitress==3.0.0
+celery==5.3.4
+redis==5.0.1

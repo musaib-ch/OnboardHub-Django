@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Notification Preferences{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-bell me-2"></i>Notification Preferences</h1>
+    <p class="text-muted mb-0">Manage which emails and notifications you receive.</p>
+</div>
+
+<form method="POST" class="row g-4">
+    {% csrf_token %}
+    
+    <div class="col-lg-8">
+        <div class="glass-card p-4 mb-4">
+            <h6 class="mb-4"><i class="bi bi-sliders me-2"></i>Global Settings</h6>
+            
+            <div class="mb-4">
+                <label class="form-check form-check-lg">
+                    <input type="checkbox" name="enable_email_notifications" class="form-check-input" {% if enable_email_notifications %}checked{% endif %}>
+                    <span class="form-check-label">
+                        <strong>Email Notifications</strong>
+                        <br><small class="text-muted">Receive email notifications about your onboarding journey</small>
+                    </span>
+                </label>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-check form-check-lg">
+                    <input type="checkbox" name="enable_in_app_notifications" class="form-check-input" {% if enable_in_app_notifications %}checked{% endif %}>
+                    <span class="form-check-label">
+                        <strong>In-App Notifications</strong>
+                        <br><small class="text-muted">Receive notifications in the app (bell icon in header)</small>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="glass-card p-4">
+            <h6 class="mb-4"><i class="bi bi-envelope me-2"></i>Email Types</h6>
+            
+            {% for pref in preferences %}
+            <div class="d-flex align-items-start gap-3 mb-4 pb-4 border-bottom">
+                <label class="form-check mt-1">
+                    <input type="checkbox" name="pref_{{ pref.key }}" class="form-check-input" {% if pref.enabled %}checked{% endif %}>
+                </label>
+                <div class="flex-grow-1">
+                    <div class="fw-600">{{ pref.label }}</div>
+                    <p class="text-muted small mb-0">{{ pref.description }}</p>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Preferences</button>
+                <a href="{% url 'employee_home' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>About These Settings</h6>
+            <p class="small text-muted mb-3">
+                You can control which notifications you receive from OnboardHub. Even if you disable email notifications globally, you can still access all information through your dashboard.
+            </p>
+            
+            <div class="alert alert-info alert-sm" role="alert">
+                <i class="bi bi-lightbulb me-2"></i>
+                <strong>Tip:</strong> We recommend keeping important notifications like session reminders and document requests enabled.
+            </div>
+
+            <h6 class="mb-2 mt-4">Questions?</h6>
+            <p class="small text-muted mb-0">
+                Contact your HR team for help with your onboarding experience.
+            </p>
+        </div>
+    </div>
+</form>
+
+{% endblock %}

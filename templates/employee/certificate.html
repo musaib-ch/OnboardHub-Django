@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Certificate — {{ path.title }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2 d-print-none">
+    <a href="{% url 'my_learning' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <button onclick="window.print()" class="btn btn-sm btn-primary"><i class="bi bi-printer me-1"></i>Print / Save PDF</button>
+</div>
+
+<div class="glass-card p-5 text-center mx-auto" style="max-width:760px;border:2px solid var(--primary);">
+    <i class="bi bi-award" style="font-size:3rem;color:var(--primary)"></i>
+    <div class="text-uppercase text-muted mt-3" style="letter-spacing:.2em;">Certificate of Completion</div>
+    <p class="text-muted mt-4 mb-1">This certifies that</p>
+    <h2 class="fw-bold mb-3">{{ user.full_name }}</h2>
+    <p class="text-muted mb-1">has successfully completed the learning path</p>
+    <h4 class="fw-bold mb-4">{{ path.title }}</h4>
+    <div class="row justify-content-center text-muted small mt-4">
+        <div class="col-auto"><strong>Completed:</strong> {{ enrollment.completed_at|date:"d M Y" }}</div>
+        <div class="col-auto"><strong>Certificate No:</strong> {{ cert_no }}</div>
+    </div>
+    {% if site_settings.site_title %}<div class="text-muted small mt-3">{{ site_settings.site_title }}</div>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ cfg.label }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1><i class="bi {{ cfg.icon }} me-2"></i>{{ cfg.label }}</h1>
+        {% if cfg.completable %}<p class="text-muted mb-0">{{ done_count }} of {{ total }} {{ cfg.noun }}s completed.</p>
+        {% else %}<p class="text-muted mb-0">Browse {{ total }} {{ cfg.noun }}{{ total|pluralize }}.</p>{% endif %}
+    </div>
+    {% if cfg.completable and total %}
+    <div style="min-width:160px;"><div class="progress"><div class="progress-bar" style="width: {% widthratio done_count total 100 %}%"></div></div></div>
+    {% endif %}
+</div>
+
+{% if items %}
+{% for category, group in categories.items %}
+<div class="mb-4">
+    <h6 class="text-muted text-uppercase small mb-2" style="letter-spacing:.06em;">{{ category }}</h6>
+    <div class="row g-3">
+        {% for it in group %}
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'content_read' it.id %}" class="text-decoration-none">
+                <div class="glass-card p-3 h-100 d-flex flex-column">
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <span class="d-flex align-items-center justify-content-center rounded" style="width:38px;height:38px;background:rgba(var(--primary-rgb),.12);color:var(--primary);flex:0 0 auto;"><i class="bi {{ cfg.icon }}"></i></span>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold text-dark">{{ it.title }}</div>
+                            {% if it.video_url %}{% endif %}
+                        </div>
+                        {% if it.id in done %}<span class="badge bg-success"><i class="bi bi-check-lg"></i></span>{% endif %}
+                    </div>
+                    {% if it.body %}<p class="text-muted small mb-0" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ it.body|striptags|truncatechars:120 }}</p>{% endif %}
+                    {% if it.file or it.meta.video_url %}<div class="small text-muted mt-2"><i class="bi {% if it.meta.video_url %}bi-play-circle{% else %}bi-paperclip{% endif %} me-1"></i>{% if it.meta.video_url %}Video{% else %}Attachment{% endif %}</div>{% endif %}
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state glass-card"><i class="bi {{ cfg.icon }}"></i><h3>Nothing here yet</h3><p>No {{ cfg.noun }}s have been published.</p></div>
+{% endif %}
+{% endblock %}

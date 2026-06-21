@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><h1><i class="bi bi-person-badge me-2"></i>Users &amp; Roles</h1></div>
+    <div class="d-flex gap-2">
+        {% if can_export %}<a href="{% url 'admin_export_users' %}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>{% endif %}
+        <a href="{% url 'admin_create_user' %}?next={% url 'admin_users' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add User</a>
+    </div>
+</div>
+
+<div class="table-container">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                {% for u in users %}
+                <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_edit_user' u.id %}?next={% url 'admin_users' %}'">
+                    <td class="fw-medium">{{ u.full_name }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="role-badge role-{{ u.role }}">{{ u.get_role_display }}</span></td>
+                    <td>
+                        {% if u.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="d-flex gap-1" onclick="event.stopPropagation()">
+                        <a href="{% url 'admin_edit_user' u.id %}?next={% url 'admin_users' %}" class="btn btn-xs btn-outline-secondary">Edit</a>
+                        {% if u.id != user.id %}
+                        <form method="POST" action="{% url 'admin_delete_user' u.id %}" style="margin: 0;">{% csrf_token %}
+                            <button class="btn btn-xs btn-outline-danger" data-confirm="Remove {{ u.full_name }}?" type="submit">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No users yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

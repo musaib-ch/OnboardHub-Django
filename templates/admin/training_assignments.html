@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Training Assignments{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-link-45deg me-2"></i>Training Assignments</h1>
+    <p class="text-muted mb-0">Auto-assign learning paths by role / department / grade, or assign one employee manually.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Assignment rules</h6>
+                <form method="POST" class="mb-0">{% csrf_token %}
+                    <input type="hidden" name="action" value="run_now">
+                    <button class="btn btn-sm btn-success"><i class="bi bi-play-fill me-1"></i>Run now</button>
+                </form>
+            </div>
+            {% if rules %}
+            <div class="table-container">
+                <table class="table mb-0 align-middle">
+                    <thead><tr><th>Rule</th><th>Path</th><th>Match</th><th>Due</th><th></th></tr></thead>
+                    <tbody>
+                        {% for r in rules %}
+                        <tr>
+                            <td class="fw-medium">{{ r.name }}{% if not r.active %} <span class="badge bg-secondary">off</span>{% endif %}</td>
+                            <td>{{ path_titles|dict_get:r.path_content_id|default:"—" }}</td>
+                            <td class="small text-muted">
+                                {% for k, v in r.match.items %}{{ k }}={{ v }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            </td>
+                            <td>{% if r.due_days %}{{ r.due_days }}d{% else %}—{% endif %}</td>
+                            <td>
+                                <form method="POST" class="mb-0">{% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_rule">
+                                    <input type="hidden" name="rule_id" value="{{ r.id }}">
+                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No rules yet. Add one below — then <strong>Run now</strong> to apply it to existing employees.</p>
+            {% endif %}
+        </div>
+
+        <div class="glass-card p-4">
+            <h6 class="mb-3">Add rule</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_rule">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Rule name</label>
+                        <input type="text" name="name" class="form-control" required placeholder="All new engineers">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Learning path</label>
+                        <select name="path_content_id" class="form-select" required>
+                            <option value="">Select…</option>
+                            {% for p in paths %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Department</label>
+                        <select name="department_id" class="form-select">
+                            <option value="">Any</option>
+                            {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Grade</label>
+                        <input type="text" name="grade" class="form-control" placeholder="Any">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Due (days)</label>
+                        <input type="number" name="due_days" min="0" class="form-control" value="30">
+                    </div>
+                </div>
+                <button class="btn btn-primary mt-3"><i class="bi bi-plus-lg me-1"></i>Add rule</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="glass-card p-4">
+            <h6 class="mb-3">Assign to one employee</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="manual_assign">
+                <label class="form-label">Learning path</label>
+                <select name="path_content_id" class="form-select mb-2" required>
+                    <option value="">Select…</option>
+                    {% for p in paths %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+                </select>
+                <label class="form-label">Employee</label>
+                <select name="employee_id" class="form-select mb-2" required>
+                    <option value="">Select…</option>
+                    {% for e in employees %}<option value="{{ e.id }}">{{ e.full_name }} ({{ e.email }})</option>{% endfor %}
+                </select>
+                <label class="form-label">Due (days)</label>
+                <input type="number" name="due_days" min="0" class="form-control mb-3" placeholder="optional">
+                <button class="btn btn-outline-primary w-100"><i class="bi bi-person-plus me-1"></i>Assign</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

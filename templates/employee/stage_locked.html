@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Stage Locked - {{ requested_stage_label }}{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-lock-fill text-warning me-2"></i>{{ requested_stage_label }} — Locked</h1>
+    <p class="text-muted mb-0">
+        This stage will unlock after you complete the previous steps.
+    </p>
+</div>
+
+<!-- LOCKED STAGE ALERT -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-1" style="border-left: 4px solid var(--warning);">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Why is this locked?</h5>
+            <p class="text-muted mb-3">
+                You're currently on the <strong>{{ current_stage_label }}</strong> stage.
+                You'll be able to access <strong>{{ requested_stage_label }}</strong>
+                after you complete and submit your {{ current_stage_label|lower }} materials for approval.
+            </p>
+
+            <div class="alert alert-info mb-0">
+                <strong>Next Steps:</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Complete all {{ current_stage_label|lower }} requirements</li>
+                    <li>Submit your materials for review</li>
+                    <li>Wait for approval</li>
+                    <li>{{ requested_stage_label }} will then unlock automatically</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card bg-light border-0">
+                <div class="card-body">
+                    <h6 class="card-title">Progress Overview</h6>
+                    <div class="mb-3">
+                        <small class="text-muted">Overall Completion</small>
+                        <div class="progress mt-1" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: {{ pct }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ pct }}% Complete</small>
+                    </div>
+                    <hr>
+                    <small class="text-muted">Current Stage</small>
+                    <div class="fw-bold mt-1">
+                        <i class="bi bi-hourglass-split text-warning"></i> {{ current_stage_label }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ONBOARDING JOURNEY -->
+<div class="glass-card p-4 animate-fadeIn delay-2">
+    <h5 class="mb-3"><i class="bi bi-card-checklist me-2"></i>Your Onboarding Journey</h5>
+    <p class="text-muted small mb-3">Here's your progress through all onboarding stages:</p>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:44px;"></th>
+                    <th>Stage</th>
+                    <th style="min-width:100px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stages_info %}
+                <tr{% if s.state == 'locked' %} style="opacity: 0.7;"{% endif %}>
+                    <td class="text-center" style="min-height:44px;display:flex;align-items:center;justify-content:center;">
+                        {% if s.state == 'completed' %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                        {% elif s.state == 'locked' %}
+                            <i class="bi bi-lock-fill text-muted"></i>
+                        {% elif s.state == 'submitted' %}
+                            <i class="bi bi-hourglass-split text-warning"></i>
+                        {% else %}
+                            <i class="bi bi-arrow-right-circle-fill" style="color:var(--primary)"></i>
+                        {% endif %}
+                    </td>
+                    <td class="fw-medium">{{ s.label }}</td>
+                    <td>
+                        {% if s.state == 'completed' %}
+                            <span class="badge bg-success">✓ Completed</span>
+                        {% elif s.state == 'submitted' %}
+                            <span class="badge bg-info text-dark">⏳ Awaiting Approval</span>
+                        {% elif s.state == 'locked' %}
+                            <span class="badge bg-secondary">🔒 Locked</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">→ Active</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- GO BACK BUTTON -->
+<div class="mt-4">
+    <a href="{% url 'employee_home' %}" class="btn btn-primary">
+        <i class="bi bi-house me-2"></i>Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}

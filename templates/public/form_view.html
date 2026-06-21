@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ form.name }}{% endblock %}
+{% block auth_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="glass-card p-4 mt-4 animate-fadeIn" style="border-top:4px solid {{ form.theme_color }};">
+            <h3 class="mb-1">{{ form.name }}</h3>
+            {% if form.description %}<p class="text-muted">{{ form.description }}</p>{% endif %}
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% if not form.is_anonymous %}
+                <div class="row g-3 mb-2">
+                    <div class="col-md-6"><label class="form-label">Your Name</label><input type="text" name="respondent_name" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Your Email</label><input type="email" name="respondent_email" class="form-control"></div>
+                </div>
+                {% endif %}
+                {% include "components/form_fields.html" with f=form answers=answers files=files %}
+                <button type="submit" class="btn btn-primary mt-2">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}{% include "components/conditional_logic_js.html" %}{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Progress: {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-graph-up me-2"></i>{{ course.title }} Progress</h1>
+    <p class="text-muted mb-0">Detailed completion tracking</p>
+</div>
+
+<!-- Overall Progress -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-1">
+    <h5 class="mb-4">Overall Progress</h5>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <small class="text-muted">Completion</small>
+                    <strong>{{ completion_percentage }}%</strong>
+                </div>
+                <div class="progress" style="height: 30px;">
+                    <div class="progress-bar bg-success" style="width: {{ completion_percentage }}%">
+                        <small class="fw-600">{{ progress.lessons_completed }} of {{ progress.total_lessons }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="row g-3">
+                <div class="col-6">
+                    <small class="text-muted">Status</small>
+                    <p class="fw-500">
+                        {% if progress.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                        {% else %}
+                            <span class="badge bg-info">In Progress</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted">Time Spent</small>
+                    <p class="fw-500">{{ progress.time_spent_minutes }} min</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lesson-by-Lesson Progress -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-2">
+    <h5 class="mb-4">Lesson Progress</h5>
+
+    <div class="list-group list-group-flush">
+        {% for item in lesson_progress %}
+            <div class="list-group-item px-0 py-4 border-bottom">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="mb-1">{{ item.lesson.title }}</h6>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>{{ item.lesson.duration_minutes }} min
+                            {% if item.lesson.has_assessment %}
+                                • <i class="bi bi-pencil-square me-1"></i>Quiz: {{ item.lesson.assessment.passing_score }}% to pass
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="text-end">
+                        {% if item.completed %}
+                            <span class="badge bg-success mb-2">
+                                <i class="bi bi-check-circle me-1"></i>Complete
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary mb-2">
+                                <i class="bi bi-circle me-1"></i>Pending
+                            </span>
+                        {% endif %}
+                        <br>
+                        {% if item.best_score %}
+                            <small class="text-muted">Best: {{ item.best_score }}%</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if item.attempts > 0 %}
+                    <div class="small text-muted mt-2">
+                        Attempts: {{ item.attempts }}
+                        {% if item.best_score %}
+                            <div class="progress mt-2" style="height: 15px;">
+                                <div class="progress-bar" style="width: {{ item.best_score }}%"></div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Certificate (if earned) -->
+{% if certificate %}
+    <div class="glass-card p-4 mb-4 animate-fadeIn delay-3 border-success">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h5 class="mb-2"><i class="bi bi-award me-2"></i>Certificate Earned!</h5>
+                <p class="text-muted mb-0">You've successfully completed this course.</p>
+            </div>
+            <button class="btn btn-success" onclick="downloadCertificate()">
+                <i class="bi bi-download me-2"></i>Download
+            </button>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Actions -->
+<div class="mt-4 d-flex gap-2">
+    <a href="{% url 'course_lessons' course.id %}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Lessons
+    </a>
+
+    {% if completion_percentage < 100 %}
+        <a href="{% url 'course_lessons' course.id %}" class="btn btn-primary">
+            <i class="bi bi-play-circle me-2"></i>Continue Learning
+        </a>
+    {% endif %}
+</div>
+
+<script>
+function downloadCertificate() {
+    alert('Certificate download would open here.');
+    // In production, this would generate and download a PDF
+}
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ path.title }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+    <a href="{% url 'admin_learning_paths' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0"><i class="bi bi-signpost-split me-2"></i>{{ path.title }}</h4>
+</div>
+
+<form method="POST">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="glass-card p-4">
+                <h6 class="mb-3">Path details</h6>
+                <label class="form-label">Title</label>
+                <input type="text" name="title" class="form-control mb-2" value="{{ path.title }}" required>
+                <label class="form-label">Category</label>
+                <input type="text" name="category" class="form-control mb-2" value="{{ path.category }}">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control mb-3" rows="3">{{ path.body }}</textarea>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label">Due (days)</label>
+                        <input type="number" name="due_days" min="0" class="form-control" value="{{ meta.due_days|default:30 }}">
+                        <small class="text-muted">After assignment.</small>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Repeat (days)</label>
+                        <input type="number" name="recurrence_days" min="0" class="form-control" value="{{ meta.recurrence_days|default:0 }}">
+                        <small class="text-muted">0 = one-time.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="glass-card p-4">
+                <h6 class="mb-2">Modules</h6>
+                <p class="text-muted small">Tick to include, set order, and mark which are required for completion. Modules come from <a href="{% url 'content_manage' 'training' %}">Training</a>.</p>
+                <p class="text-muted small mb-2"><i class="bi bi-grip-vertical me-1"></i>Drag rows to set the order employees follow.</p>
+                <div class="table-container">
+                    <table class="table mb-0 align-middle">
+                        <thead><tr><th style="width:28px"></th><th style="width:50px">Use</th><th style="width:60px">#</th><th>Module</th><th style="width:90px">Required</th></tr></thead>
+                        <tbody id="moduleRows">
+                            {% for m in chosen %}
+                            <tr draggable="true" data-id="{{ m.id }}">
+                                <td class="text-muted" style="cursor:grab"><i class="bi bi-grip-vertical"></i></td>
+                                <td><input class="form-check-input" type="checkbox" name="module_ids" value="{{ m.id }}" checked></td>
+                                <td><input class="form-control form-control-sm js-order" type="number" name="order_{{ m.id }}" value="{{ forloop.counter }}" style="width:56px" readonly></td>
+                                <td>{{ m.title }}{% if m.category %} <span class="badge bg-secondary">{{ m.category }}</span>{% endif %}</td>
+                                <td><input class="form-check-input" type="checkbox" name="required_ids" value="{{ m.id }}" {% if m.id in chosen_required %}checked{% endif %}></td>
+                            </tr>
+                            {% endfor %}
+                            {% for m in available %}
+                            <tr draggable="true" data-id="{{ m.id }}" class="text-muted">
+                                <td style="cursor:grab"><i class="bi bi-grip-vertical"></i></td>
+                                <td><input class="form-check-input" type="checkbox" name="module_ids" value="{{ m.id }}"></td>
+                                <td><input class="form-control form-control-sm js-order" type="number" name="order_{{ m.id }}" value="{{ chosen|length|add:forloop.counter }}" style="width:56px" readonly></td>
+                                <td>{{ m.title }}{% if m.category %} <span class="badge bg-secondary">{{ m.category }}</span>{% endif %}</td>
+                                <td><input class="form-check-input" type="checkbox" name="required_ids" value="{{ m.id }}" checked></td>
+                            </tr>
+                            {% endfor %}
+                            {% if not chosen and not available %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No training modules exist yet. <a href="{% url 'content_manage' 'training' %}">Add some first.</a></td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1"></i>Save path</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const tbody = document.getElementById("moduleRows");
+    if (!tbody) return;
+    let dragRow = null;
+    function renumber() {
+        [...tbody.querySelectorAll("tr[data-id]")].forEach((r, i) => {
+            const o = r.querySelector(".js-order"); if (o) o.value = i + 1;
+        });
+    }
+    tbody.addEventListener("dragstart", e => { dragRow = e.target.closest("tr"); if (dragRow) dragRow.style.opacity = ".4"; });
+    tbody.addEventListener("dragend", () => { if (dragRow) dragRow.style.opacity = ""; dragRow = null; });
+    tbody.addEventListener("dragover", e => {
+        e.preventDefault();
+        const over = e.target.closest("tr");
+        if (!over || over === dragRow || !dragRow) return;
+        const rect = over.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        tbody.insertBefore(dragRow, after ? over.nextSibling : over);
+    });
+    tbody.addEventListener("drop", e => { e.preventDefault(); renumber(); });
+})();
+</script>
+{% endblock %}

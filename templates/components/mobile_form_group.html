@@ -1,0 +1,88 @@
+{% comment %}
+Mobile-optimized form group component with 44px minimum touch targets.
+
+Usage:
+{% include "components/mobile_form_group.html" with label="First Name" name="first_name" type="text" placeholder="Enter first name" required=True %}
+{% endcomment %}
+
+<div class="form-group mb-3">
+    {% if label %}
+        <label for="{{ name }}" class="form-label fw-600">
+            {{ label }}
+            {% if required %}<span class="text-danger">*</span>{% endif %}
+        </label>
+    {% endif %}
+
+    {% if type == "textarea" %}
+        <textarea
+            id="{{ name }}"
+            name="{{ name }}"
+            class="form-control touch-friendly"
+            {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+            {% if required %}required{% endif %}
+            {% if rows %}rows="{{ rows }}"{% else %}rows="4"{% endif %}
+            >{{ value }}</textarea>
+    {% elif type == "select" %}
+        <select
+            id="{{ name }}"
+            name="{{ name }}"
+            class="form-control touch-friendly"
+            {% if required %}required{% endif %}
+            >
+            {% if placeholder %}<option value="">{{ placeholder }}</option>{% endif %}
+            {% if options %}
+                {% for opt_val, opt_label in options %}
+                    <option value="{{ opt_val }}" {% if value == opt_val %}selected{% endif %}>{{ opt_label }}</option>
+                {% endfor %}
+            {% endif %}
+        </select>
+    {% elif type == "checkbox" %}
+        <div class="form-check touch-friendly">
+            <input
+                type="checkbox"
+                id="{{ name }}"
+                name="{{ name }}"
+                class="form-check-input"
+                {% if checked %}checked{% endif %}
+                {% if required %}required{% endif %}
+                >
+            <label class="form-check-label" for="{{ name }}">
+                {{ label }}
+            </label>
+        </div>
+    {% elif type == "radio" %}
+        <div class="form-check touch-friendly">
+            <input
+                type="radio"
+                id="{{ name }}"
+                name="{{ name }}"
+                class="form-check-input"
+                value="{{ value }}"
+                {% if checked %}checked{% endif %}
+                {% if required %}required{% endif %}
+                >
+            <label class="form-check-label" for="{{ name }}">
+                {{ label }}
+            </label>
+        </div>
+    {% else %}
+        <input
+            type="{{ type|default:'text' }}"
+            id="{{ name }}"
+            name="{{ name }}"
+            class="form-control touch-friendly"
+            {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+            {% if value %}value="{{ value }}"{% endif %}
+            {% if required %}required{% endif %}
+            {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+            >
+    {% endif %}
+
+    {% if help_text %}
+        <small class="form-text text-muted d-block mt-2">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error %}
+        <div class="invalid-feedback d-block mt-2">{{ error }}</div>
+    {% endif %}
+</div>

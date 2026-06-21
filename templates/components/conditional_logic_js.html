@@ -1,0 +1,74 @@
+<script>
+// Conditional field visibility. Reads each .cond-field's JSON logic (emitted as
+// <script id="clogic-FIELDNAME" type="application/json">) and shows/hides live.
+(function () {
+    var condFields = [];
+    document.querySelectorAll('.cond-field').forEach(function (el) {
+        var fn = el.getAttribute('data-field');
+        var script = document.getElementById('clogic-' + fn);
+        if (!script) return;
+        try {
+            var logic = JSON.parse(script.textContent);
+            if (logic && logic.enabled) condFields.push({ el: el, logic: logic });
+        } catch (e) { }
+    });
+    if (!condFields.length) return;
+
+    function getVal(name) {
+        var radio = document.querySelector('[name="field_' + name + '"]:checked');
+        if (radio && radio.type === 'radio') return radio.value;
+        var checks = Array.prototype.slice.call(document.querySelectorAll('[name="field_' + name + '"]:checked'))
+            .filter(function (i) { return i.type === 'checkbox'; })
+            .map(function (i) { return i.value; });
+        if (checks.length) return checks.join(', ');
+        var el = document.querySelector('[name="field_' + name + '"]');
+        return el ? (el.value || '') : '';
+    }
+
+    function evalCond(c) {
+        var v = getVal(c.field), cv = c.value || '';
+        switch (c.operator) {
+            case 'equals': return v === cv;
+            case 'not_equals': return v !== cv;
+            case 'contains': return v.toLowerCase().indexOf(cv.toLowerCase()) >= 0;
+            case 'not_contains': return v.toLowerCase().indexOf(cv.toLowerCase()) < 0;
+            case 'is_empty': return v.trim() === '';
+            case 'is_not_empty': return v.trim() !== '';
+            case 'greater_than': return parseFloat(v) > parseFloat(cv);
+            case 'less_than': return parseFloat(v) < parseFloat(cv);
+            default: return true;
+        }
+    }
+
+    function update() {
+        condFields.forEach(function (cf) {
+            var conds = cf.logic.conditions || [];
+            var pass = conds.length
+                ? (cf.logic.match === 'any' ? conds.some(evalCond) : conds.every(evalCond))
+                : true;
+            var show = (cf.logic.action || 'show') === 'show' ? pass : !pass;
+            cf.el.style.display = show ? '' : 'none';
+            // Don't let hidden required fields block submission.
+            cf.el.querySelectorAll('input,select,textarea').forEach(function (el) {
+                if (!show) {
+                    if (el.hasAttribute('required')) { el.dataset._wasreq = '1'; el.removeAttribute('required'); }
+                } else if (el.dataset._wasreq) {
+                    el.setAttribute('required', 'required');
+                }
+            });
+        });
+    }
+
+    var sources = {};
+    condFields.forEach(function (cf) {
+        (cf.logic.conditions || []).forEach(function (c) { if (c.field) sources[c.field] = 1; });
+    });
+    Object.keys(sources).forEach(function (n) {
+        document.querySelectorAll('[name="field_' + n + '"]').forEach(function (el) {
+            el.addEventListener('change', update);
+            el.addEventListener('input', update);
+        });
+    });
+    update();
+})();
+</script>

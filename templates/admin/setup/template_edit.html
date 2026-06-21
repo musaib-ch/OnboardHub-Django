@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ template.name }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex align-items-center">
+        <a href="{% url 'admin_templates_list' %}" class="btn btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Template</h1>
+            <p class="text-muted mb-0">{{ template.name }}</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" class="glass-card p-4 animate-fadeIn">
+    {% csrf_token %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Template Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" value="{{ template.name }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Description</label>
+            <input type="text" name="description" class="form-control" value="{{ template.description }}">
+        </div>
+
+        <div class="col-12">
+            <label class="form-label fw-medium">Select Stages <span class="text-danger">*</span></label>
+            <div class="border rounded p-3" style="background-color: rgba(0,0,0,0.02);">
+                <div class="row g-2">
+                    {% for stage in stages %}
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="stages" value="{{ stage.stage_key }}" id="stage_{{ stage.stage_key }}" {% if stage.stage_key in template.stages %}checked{% endif %}>
+                            <label class="form-check-label" for="stage_{{ stage.stage_key }}">
+                                <strong>{{ stage.label }}</strong>
+                                <small class="text-muted d-block">{{ stage.description }}</small>
+                            </label>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12 text-muted">No stages available.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Save Changes
+        </button>
+        <a href="{% url 'admin_templates_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

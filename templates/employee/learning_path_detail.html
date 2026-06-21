@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ path.title }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+    <a href="{% url 'my_learning' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0"><i class="bi bi-signpost-split me-2"></i>{{ path.title }}</h4>
+    {% if completed %}<span class="badge bg-success ms-1"><i class="bi bi-check-lg me-1"></i>Completed</span>{% endif %}
+</div>
+
+<div class="glass-card p-4 mb-3">
+    {% if path.body %}<p class="text-muted">{{ path.body }}</p>{% endif %}
+    {% if enrollment %}
+    <div class="d-flex justify-content-between small text-muted mb-1">
+        <span>{{ done }}/{{ total }} modules complete</span><span>{{ pct }}%</span>
+    </div>
+    <div class="progress" style="height:8px;"><div class="progress-bar" style="width: {{ pct }}%"></div></div>
+    {% if enrollment.due_date and not completed %}<div class="small text-muted mt-2"><i class="bi bi-calendar-event me-1"></i>Due {{ enrollment.due_date|date:"d M Y" }}</div>{% endif %}
+    {% if completed %}
+    <a href="{% url 'learning_certificate' path.id %}" class="btn btn-primary mt-3"><i class="bi bi-award me-1"></i>View certificate</a>
+    {% endif %}
+    {% else %}
+    <form method="POST" class="mb-0">{% csrf_token %}
+        <input type="hidden" name="action" value="enroll">
+        <button class="btn btn-primary"><i class="bi bi-play-circle me-1"></i>Enroll in this path</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="glass-card p-0 overflow-hidden">
+    <ul class="list-group list-group-flush">
+        {% for row in rows %}
+        <li class="list-group-item d-flex align-items-center gap-3 py-3">
+            <span class="badge rounded-pill {% if row.done %}bg-success{% elif row.locked %}bg-secondary{% else %}bg-primary{% endif %}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
+                {% if row.done %}<i class="bi bi-check-lg"></i>{% elif row.locked %}<i class="bi bi-lock"></i>{% else %}{{ forloop.counter }}{% endif %}
+            </span>
+            <div class="flex-grow-1">
+                <div class="fw-medium">{{ row.module.title }}</div>
+                {% if not row.required %}<span class="badge bg-light text-dark border">Optional</span>{% endif %}
+            </div>
+            {% if row.done %}
+            <a href="{% url 'content_read' row.module.id %}" class="btn btn-sm btn-outline-secondary">Review</a>
+            {% elif row.locked %}
+            <button class="btn btn-sm btn-outline-secondary" disabled><i class="bi bi-lock me-1"></i>Locked</button>
+            {% else %}
+            <a href="{% url 'content_read' row.module.id %}" class="btn btn-sm btn-primary">Start <i class="bi bi-arrow-right ms-1"></i></a>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="list-group-item text-center text-muted py-4">This path has no modules yet.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

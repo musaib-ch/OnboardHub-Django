@@ -1,0 +1,15 @@
+{{ employee.full_name }},
+
+Your onboarding stage "{{ stage_name }}" is due in 7 days ({{ due_date|date:"d M Y" }}).
+
+Please ensure all required forms and documents are submitted by the deadline to keep your onboarding on track.
+
+Stage: {{ stage_name }}
+Due: {{ due_date|date:"d M Y" }}
+
+Visit your onboarding portal to check your progress: {{ portal_link }}
+
+Questions? Contact your HRBP.
+
+Best regards,
+OnboardHub

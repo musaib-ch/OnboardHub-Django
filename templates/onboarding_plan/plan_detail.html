@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ employee.full_name }}'s 30/60/90 Plan{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-calendar3 me-2"></i>{{ employee.full_name }}'s Plan</h1>
+        <p class="text-muted mb-0">30/60/90 day onboarding progress</p>
+    </div>
+    <a href="{% url 'manage_onboarding_plans' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+
+{% if plan_data %}
+<!-- Employee Info & Progress -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <small class="text-muted">Email</small>
+                    <p class="mb-0">{{ employee.email }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <small class="text-muted">Join Date</small>
+                    <p class="mb-0">{{ employee.date_of_joining|date:"d M Y" }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <small class="text-muted">Position</small>
+                    <p class="mb-0">{{ employee.position_title }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <small class="text-muted">Department</small>
+                    <p class="mb-0">{{ employee.department.name }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-percent"></i></div>
+            <div class="stat-info">
+                <h3>{{ progress.completion_percentage }}%</h3>
+                <p>Overall Progress</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phases Timeline -->
+<div class="row g-4">
+    {% for phase_key, phase_data in phases.items %}
+    {% if phase_data %}
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h5 class="mb-3">
+                <i class="bi bi-flag me-2"></i>{{ phase_data.label }}
+                <span class="badge bg-secondary float-end">{{ progress.phases|dict_get:phase_key|dict_get:"completed" }}/{{ progress.phases|dict_get:phase_key|dict_get:"total" }}</span>
+            </h5>
+
+            <p class="small text-muted mb-3">{{ phase_data.description }}</p>
+
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" style="width: {{ progress.phases|dict_get:phase_key|dict_get:"percentage" }}%"></div>
+                </div>
+                <small class="text-muted">{{ progress.phases|dict_get:phase_key|dict_get:"percentage" }}% complete</small>
+            </div>
+
+            <!-- Milestones -->
+            <h6 class="small mb-3">Milestones</h6>
+            {% for milestone in phase_data.milestones %}
+            <div class="d-flex gap-2 mb-2 align-items-start">
+                <input type="checkbox" class="form-check-input milestone-checkbox mt-1" 
+                       data-phase="{{ phase_key }}" data-index="{{ forloop.counter0 }}"
+                       {% if milestone.completed %}checked{% endif %}>
+                <div class="flex-grow-1">
+                    <small class="{% if milestone.completed %}text-decoration-line-through{% endif %}">{{ milestone.title }}</small>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Posts/Feedback -->
+            <div class="mt-4 pt-4 border-top">
+                <h6 class="small mb-3"><i class="bi bi-chat-dots me-1"></i>Feedback</h6>
+                
+                <div style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem;">
+                    {% for post in phase_data.posts %}
+                    <div class="small mb-3 pb-2 border-bottom">
+                        <div class="fw-600">{{ post.author_name }} <span class="badge badge-secondary">{{ post.author_role|title }}</span></div>
+                        <p class="small mb-1 mt-1">{{ post.message }}</p>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ post.posted_at|slice:":10" }}</div>
+                    </div>
+                    {% empty %}
+                    <p class="small text-muted">No feedback yet</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Post Feedback Form -->
+                <form method="POST" action="{% url 'manager_post_feedback' employee.id %}" class="mt-2" data-phase="{{ phase_key }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="phase" value="{{ phase_key }}">
+                    <textarea name="message" class="form-control form-control-sm" rows="2" placeholder="Add feedback..."></textarea>
+                    <button type="submit" class="btn btn-sm btn-primary mt-2"><i class="bi bi-send me-1"></i>Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="glass-card p-5 text-center">
+    <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">
+        <i class="bi bi-calendar3"></i>
+    </div>
+    <h3>No Plan Created Yet</h3>
+    <p class="text-muted mb-3">Create a 30/60/90 day plan for this employee.</p>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_plan">
+        <input type="hidden" name="employee_id" value="{{ employee.id }}">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Create Plan</button>
+    </form>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.milestone-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', async function() {
+        const phase = this.dataset.phase;
+        const index = this.dataset.index;
+        
+        const formData = new FormData();
+        formData.append('phase', phase);
+        formData.append('milestone_index', index);
+        formData.append('completed', this.checked);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        try {
+            const response = await fetch('{% url "manager_mark_milestone" employee.id %}', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                console.log('Milestone updated');
+            }
+        } catch(e) {
+            console.error('Error:', e);
+            this.checked = !this.checked;
+        }
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Branding &amp; Appearance{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Live-preview mock — scoped CSS variables drive everything inside it. */
+    .brand-preview { border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; }
+    .brand-preview .bp-nav { background: var(--bp-sidebar); color: var(--bp-navtext); padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+    .brand-preview .bp-nav .bp-link { color: var(--bp-navtext); opacity: .82; font-weight: 500; font-size: .85rem; padding: 6px 12px; border-radius: 999px; }
+    .brand-preview .bp-nav .bp-link.active { background: var(--bp-active); color: var(--bp-navactive); opacity: 1; }
+    .brand-preview .bp-body { background: var(--bp-page); padding: 20px; }
+    .brand-preview .bp-card { background: var(--bp-cardbg); border: 1px solid #eef; border-radius: var(--bp-radlg); padding: 18px; box-shadow: var(--bp-shadow); }
+    .brand-preview .bp-h { font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .brand-preview .bp-btn { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: var(--bp-radbtn); font-weight: 500; font-size: .85rem; border: none; }
+    .brand-preview .bp-btn-primary { background: var(--bp-primary); color: #fff; }
+    .brand-preview .bp-btn-outline { background: transparent; border: 1px solid var(--bp-primary); color: var(--bp-primary); }
+    .brand-preview .bp-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--bp-primary) 14%, #fff); color: var(--bp-primary); }
+    .brand-preview .bp-input { width: 100%; border: 1px solid #d8dee9; border-radius: var(--bp-radsm); padding: 8px 12px; font-size: .85rem; }
+    .brand-preview, .brand-preview * { font-family: var(--bp-font), sans-serif; }
+    .swatch { width: 38px; height: 38px; border-radius: 8px; border: 1px solid #d8dee9; padding: 0; cursor: pointer; }
+    .preset-chip { cursor: pointer; border: 1px solid #e5e7eb; border-radius: 10px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; }
+    .preset-dots { display: inline-flex; gap: 3px; }
+    .preset-dots i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-palette me-2"></i>Branding &amp; Appearance</h1>
+        <p class="text-muted mb-0">Restyle the whole portal — colors, logo, typography, shape and density. The preview updates live; Save applies it everywhere.</p>
+    </div>
+    <form method="POST">{% csrf_token %}<input type="hidden" name="action" value="reset"><button class="btn btn-outline-secondary" data-confirm="Reset all branding to defaults?"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button></form>
+</div>
+
+<form method="POST" enctype="multipart/form-data" id="brandForm">
+    {% csrf_token %}
+    <div class="row g-4">
+        {# ── Controls ── #}
+        <div class="col-lg-6">
+            <div class="glass-card mb-4">
+                <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#br_identity" aria-expanded="false">
+                    <h6 class="mb-0"><i class="bi bi-card-image me-2"></i>Identity</h6>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <div class="collapse" id="br_identity" data-persist><div class="card-body">
+                <label class="form-label">Portal Name</label>
+                <input type="text" name="site_title" id="f_site_title" class="form-control mb-3" value="{{ b.site_title }}" oninput="preview()">
+                <label class="form-label">Logo</label>
+                {% if logo %}<div class="mb-2 d-flex align-items-center gap-2"><img src="/{{ logo }}" style="height:36px;border-radius:6px;"> <label class="small text-muted"><input type="checkbox" name="remove_logo"> remove</label></div>{% endif %}
+                <input type="file" name="logo" class="form-control" accept="image/*">
+                </div></div>
+            </div>
+
+            <div class="glass-card mb-4">
+                <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#br_colors" aria-expanded="false">
+                    <h6 class="mb-0"><i class="bi bi-palette2 me-2"></i>Colors</h6>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <div class="collapse" id="br_colors" data-persist><div class="card-body">
+                <div class="mb-3">
+                    <div class="small text-muted mb-1">Quick presets</div>
+                    <div class="d-flex flex-wrap gap-2" id="presets"></div>
+                </div>
+                <div class="row g-3">
+                    {% for key, label in color_fields %}
+                    <div class="col-6">
+                        <label class="form-label small mb-1">{{ label }}</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="color" class="swatch" name="{{ key }}" id="c_{{ key }}" value="{{ b|dict_get:key }}" oninput="syncHex('{{ key }}')">
+                            <input type="text" id="h_{{ key }}" value="{{ b|dict_get:key }}" oninput="syncColor('{{ key }}')" class="form-control form-control-sm" style="max-width:100px;">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                </div></div>
+            </div>
+
+            <div class="glass-card mb-4">
+                <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#br_type" aria-expanded="false">
+                    <h6 class="mb-0"><i class="bi bi-type me-2"></i>Typography &amp; Shape</h6>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <div class="collapse" id="br_type" data-persist><div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Font</label>
+                        <select name="font_family" id="f_font_family" class="form-select" onchange="preview()">
+                            {% for f in fonts %}<option value="{{ f }}" {% if b.font_family == f %}selected{% endif %}>{{ f }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Corners</label>
+                        <select name="radius_scale" id="f_radius_scale" class="form-select" onchange="preview()">
+                            {% for r in radius_scales %}<option value="{{ r }}" {% if b.radius_scale == r %}selected{% endif %}>{{ r|capfirst }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Buttons</label>
+                        <select name="button_style" id="f_button_style" class="form-select" onchange="preview()">
+                            {% for s in button_styles %}<option value="{{ s }}" {% if b.button_style == s %}selected{% endif %}>{{ s|capfirst }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Cards</label>
+                        <select name="card_style" id="f_card_style" class="form-select" onchange="preview()">
+                            {% for s in card_styles %}<option value="{{ s }}" {% if b.card_style == s %}selected{% endif %}>{{ s|capfirst }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Density</label>
+                        <select name="density" id="f_density" class="form-select" onchange="preview()">
+                            {% for d in densities %}<option value="{{ d }}" {% if b.density == d %}selected{% endif %}>{{ d|capfirst }}</option>{% endfor %}
+                        </select>
+                    </div>
+                </div>
+                </div></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-check-lg me-1"></i>Save Branding</button>
+        </div>
+
+        {# ── Live preview ── #}
+        <div class="col-lg-6">
+            <div class="position-sticky" style="top:84px;">
+                <div class="small text-muted mb-2"><i class="bi bi-eye me-1"></i>Live preview</div>
+                <div class="brand-preview" id="brandPreview">
+                    <div class="bp-nav">
+                        <strong id="bpTitle" style="font-size:1.05rem;">OnboardHub</strong>
+                        <span class="bp-link active">Dashboard</span>
+                        <span class="bp-link">People</span>
+                        <span class="bp-link">Onboarding</span>
+                    </div>
+                    <div class="bp-body">
+                        <div class="bp-h" style="font-size:1.3rem;">Welcome back 👋</div>
+                        <div class="mb-3" style="color:#6b7280;font-size:.85rem;">Here's a preview of your portal styling.</div>
+                        <div class="bp-card mb-3">
+                            <div class="bp-h">Onboarding progress</div>
+                            <div class="mb-3"><span class="bp-badge">Pre-Onboarding</span></div>
+                            <button type="button" class="bp-btn bp-btn-primary me-2">Continue</button>
+                            <button type="button" class="bp-btn bp-btn-outline">View details</button>
+                        </div>
+                        <div class="bp-card">
+                            <div class="bp-h" style="margin-bottom:10px;">Quick form</div>
+                            <input class="bp-input mb-2" placeholder="Full name">
+                            <button type="button" class="bp-btn bp-btn-primary">Submit</button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="applyToPage()"><i class="bi bi-window-fullscreen me-1"></i>Preview on the whole page (unsaved)</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    var COLOR_KEYS = [{% for key, label in color_fields %}"{{ key }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    var RADIUS_MAP = { sharp:["6px","8px","10px","12px"], rounded:["8px","12px","16px","24px"], pill:["12px","18px","24px","32px"] };
+    var PRESETS = [
+        {name:"Navy", c:{primary_color:"#1d2b4f",accent_color:"#324b8a",sidebar_bg:"#1d2b4f",sidebar_hover:"#2a3a66",sidebar_active:"#324b8a",nav_text_color:"#ffffff",nav_active_text_color:"#ffffff",page_bg_color:"#f8fafc"}},
+        {name:"Emerald", c:{primary_color:"#047857",accent_color:"#10b981",sidebar_bg:"#064e3b",sidebar_hover:"#065f46",sidebar_active:"#10b981",nav_text_color:"#ffffff",nav_active_text_color:"#ffffff",page_bg_color:"#f4fbf6"}},
+        {name:"Indigo", c:{primary_color:"#4f46e5",accent_color:"#818cf8",sidebar_bg:"#312e81",sidebar_hover:"#3730a3",sidebar_active:"#6366f1",nav_text_color:"#ffffff",nav_active_text_color:"#ffffff",page_bg_color:"#f5f5ff"}},
+        {name:"Midnight", c:{primary_color:"#0ea5e9",accent_color:"#38bdf8",sidebar_bg:"#0f172a",sidebar_hover:"#1e293b",sidebar_active:"#0ea5e9",nav_text_color:"#ffffff",nav_active_text_color:"#ffffff",page_bg_color:"#f1f5f9"}},
+        {name:"Rose", c:{primary_color:"#be123c",accent_color:"#fb7185",sidebar_bg:"#881337",sidebar_hover:"#9f1239",sidebar_active:"#f43f5e",nav_text_color:"#ffffff",nav_active_text_color:"#ffffff",page_bg_color:"#fff1f3"}}
+    ];
+
+    function val(id){ var e=document.getElementById(id); return e?e.value:""; }
+    function hexToRgb(h){ h=(h||"").replace("#",""); if(h.length===3){h=h.split("").map(function(c){return c+c;}).join("");} var n=parseInt(h,16); return isNaN(n)?"29,43,79":[(n>>16)&255,(n>>8)&255,n&255].join(","); }
+    function syncHex(k){ document.getElementById("h_"+k).value=document.getElementById("c_"+k).value; preview(); }
+    function syncColor(k){ var v=document.getElementById("h_"+k).value.trim(); if(/^#?[0-9a-fA-F]{6}$/.test(v)){ if(v[0]!=="#")v="#"+v; document.getElementById("c_"+k).value=v; } preview(); }
+
+    function applyVars(target){
+        var p=val("c_primary_color"), a=val("c_accent_color");
+        var s=target.style;
+        s.setProperty("--bp-primary",p); s.setProperty("--bp-accent",a);
+        s.setProperty("--bp-sidebar",val("c_sidebar_bg")); s.setProperty("--bp-active",val("c_sidebar_active"));
+        s.setProperty("--bp-navtext",val("c_nav_text_color")); s.setProperty("--bp-navactive",val("c_nav_active_text_color"));
+        s.setProperty("--bp-page",val("c_page_bg_color"));
+        s.setProperty("--bp-font",val("f_font_family"));
+        var rad=RADIUS_MAP[val("f_radius_scale")]||RADIUS_MAP.rounded;
+        s.setProperty("--bp-radsm",rad[0]); s.setProperty("--bp-radlg",rad[2]);
+        var bs=val("f_button_style"); s.setProperty("--bp-radbtn", bs==="pill"?"999px":bs==="square"?"6px":rad[0]);
+        s.setProperty("--bp-cardbg", val("f_card_style")==="flat"?"#ffffff":"rgba(255,255,255,0.95)");
+        s.setProperty("--bp-shadow", val("f_card_style")==="flat"?"0 1px 3px rgba(15,23,42,.08)":"0 8px 32px rgba(31,38,135,.1)");
+    }
+    function preview(){
+        document.getElementById("bpTitle").textContent = val("f_site_title") || "OnboardHub";
+        applyVars(document.getElementById("brandPreview"));
+    }
+    function applyToPage(){
+        // Apply to the real page so you can see the entire portal (until reload).
+        var root=document.documentElement;
+        root.style.setProperty("--primary",val("c_primary_color"));
+        root.style.setProperty("--accent",val("c_accent_color"));
+        root.style.setProperty("--primary-rgb",hexToRgb(val("c_primary_color")));
+        root.style.setProperty("--accent-rgb",hexToRgb(val("c_accent_color")));
+        root.style.setProperty("--system-primary",val("c_primary_color"));
+        root.style.setProperty("--system-primary-hover",val("c_accent_color"));
+        root.style.setProperty("--sidebar-bg",val("c_sidebar_bg"));
+        root.style.setProperty("--sidebar-active",val("c_sidebar_active"));
+        root.style.setProperty("--nav-text",val("c_nav_text_color"));
+        root.style.setProperty("--page-bg",val("c_page_bg_color"));
+        root.style.setProperty("--app-font",val("f_font_family"));
+        var rad=RADIUS_MAP[val("f_radius_scale")]||RADIUS_MAP.rounded;
+        root.style.setProperty("--radius-sm",rad[0]); root.style.setProperty("--radius-md",rad[1]);
+        root.style.setProperty("--radius-lg",rad[2]); root.style.setProperty("--radius-xl",rad[3]);
+        document.body.className = "theme-density-"+val("f_density")+" theme-btn-"+val("f_button_style")+" theme-card-"+val("f_card_style");
+    }
+
+    // presets UI
+    var pc=document.getElementById("presets");
+    PRESETS.forEach(function(p){
+        var chip=document.createElement("span"); chip.className="preset-chip";
+        chip.innerHTML='<span class="preset-dots"><i style="background:'+p.c.primary_color+'"></i><i style="background:'+p.c.accent_color+'"></i><i style="background:'+p.c.sidebar_bg+'"></i></span>'+p.name;
+        chip.onclick=function(){ Object.keys(p.c).forEach(function(k){ var ci=document.getElementById("c_"+k), hi=document.getElementById("h_"+k); if(ci){ci.value=p.c[k];} if(hi){hi.value=p.c[k];} }); preview(); };
+        pc.appendChild(chip);
+    });
+    preview();
+</script>
+{% endblock %}

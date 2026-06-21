@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Learning Paths{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-signpost-split me-2"></i>Learning Paths</h1>
+    <p class="text-muted mb-0">Ordered sequences of training modules you can assign to employees.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h6 class="mb-3">New learning path</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+                <label class="form-label">Title</label>
+                <input type="text" name="title" class="form-control mb-2" required placeholder="e.g. New Hire Compliance">
+                <label class="form-label">Category</label>
+                <input type="text" name="category" class="form-control mb-2" placeholder="Compliance">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control mb-3" rows="3"></textarea>
+                <button class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>Create &amp; add modules</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        {% if paths %}
+        <div class="table-container">
+            <table class="table mb-0 align-middle">
+                <thead><tr><th>Path</th><th>Modules</th><th>Enrolled</th><th>Completed</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                    {% for p in paths %}
+                    <tr onclick="window.location='{% url 'admin_learning_path_edit' p.id %}'">
+                        <td>
+                            <div class="fw-medium">{{ p.title }}</div>
+                            {% if p.category %}<span class="badge bg-secondary">{{ p.category }}</span>{% endif %}
+                        </td>
+                        <td>{{ counts|dict_get:p.id|dict_get:"modules" }}</td>
+                        <td>{{ counts|dict_get:p.id|dict_get:"enrolled" }}</td>
+                        <td>{{ counts|dict_get:p.id|dict_get:"completed" }}</td>
+                        <td onclick="event.stopPropagation()">
+                            <form method="POST" class="mb-0">{% csrf_token %}
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="path_id" value="{{ p.id }}">
+                                <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi {% if p.is_active %}bi-eye{% else %}bi-eye-slash{% endif %}"></i></button>
+                            </form>
+                        </td>
+                        <td class="d-flex gap-1" onclick="event.stopPropagation()">
+                            <a href="{% url 'admin_learning_path_edit' p.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
+                            <form method="POST" class="mb-0" onsubmit="return confirm('Delete this learning path?');">{% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="path_id" value="{{ p.id }}">
+                                <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <a href="{% url 'admin_training_assignments' %}" class="btn btn-outline-secondary mt-3"><i class="bi bi-link-45deg me-1"></i>Manage assignments</a>
+        {% else %}
+        <div class="empty-state glass-card"><i class="bi bi-signpost-split"></i><h3>No learning paths yet</h3><p class="text-muted">Create one on the left, then add training modules.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

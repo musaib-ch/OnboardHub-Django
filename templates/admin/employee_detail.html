@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ emp.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'admin_employees' %}" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0">{{ emp.full_name }}</h4>
+    <span class="badge badge-status-{{ emp.status }} ms-3">{{ emp.status|humanize_status }}</span>
+    <div class="ms-auto d-flex gap-2">
+        {% if can_export %}
+        <a href="{% url 'admin_export_employee_detail' emp.id }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Export</a>
+        {% endif %}
+        {% if emp.status != 'deleted' %}
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="bi bi-trash me-1"></i>Delete
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% if awaiting_review and can_review %}
+<div class="glass-card p-4 mb-4" style="border-left:4px solid var(--warning);">
+    <h6 class="mb-1"><i class="bi bi-clipboard-check me-2"></i>{{ review_stage_label }} — Awaiting Review</h6>
+    <p class="text-muted small mb-3">This employee has submitted their <strong>{{ review_stage_label }}</strong>. Review their submission below, then choose an action. Approving advances them to the next step.</p>
+    <form method="POST" action="{% url 'admin_review_employee' emp.id %}">
+        {% csrf_token %}
+        <label class="form-label">Note to employee (optional)</label>
+        <textarea name="note" class="form-control mb-3" rows="2" placeholder="Add a comment they'll see with your decision..."></textarea>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if review_actions.approve %}<button name="action" value="approve" class="btn btn-success" data-confirm="Approve and advance this employee to the next stage?"><i class="bi bi-check-lg me-1"></i>Approve</button>{% endif %}
+            {% if review_actions.request_changes %}<button name="action" value="request_changes" class="btn btn-warning text-white"><i class="bi bi-arrow-repeat me-1"></i>Request Changes</button>{% endif %}
+            {% if review_actions.request_info %}<button name="action" value="request_info" class="btn btn-info text-white"><i class="bi bi-chat-dots me-1"></i>Request Info</button>{% endif %}
+            {% if review_actions.reject %}<button name="action" value="reject" class="btn btn-danger" data-confirm="Reject this submission?"><i class="bi bi-x-octagon me-1"></i>Reject</button>{% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- EMPLOYEE DETAILS - TOP FULL WIDTH -->
+<div class="glass-card p-4 mb-4">
+    <div class="row g-4">
+        <div class="col-lg-3">
+            <div class="text-center">
+                <div class="user-avatar mx-auto mb-2" style="width:80px;height:80px;font-size:1.8rem;">{{ emp.full_name|first }}{{ emp.full_name|last }}</div>
+                <h5 class="mb-1">{{ emp.full_name }}</h5>
+                <div class="text-muted small mb-3">{{ emp.position_title }}</div>
+                {% if user.role == 'super_admin' or user.role == 'admin' %}
+                <a href="{% url 'admin_edit_user' emp.id %}?next={% url 'admin_employee_detail' emp.id %}" class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-pencil me-1"></i>Edit</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-9">
+            <div class="row g-3">
+                <div class="col-md-6"><div><span class="text-muted small">Email</span></div><div class="fw-medium">{{ emp.email }}</div></div>
+                <div class="col-md-6"><div><span class="text-muted small">Employee ID</span></div><div class="fw-medium">{{ emp.employee_id }}</div></div>
+                <div class="col-md-6"><div><span class="text-muted small">Department</span></div><div class="fw-medium">{{ emp.department.name }}</div></div>
+                <div class="col-md-6"><div><span class="text-muted small">Type</span></div><div class="fw-medium">{{ emp.employee_type }}</div></div>
+                <div class="col-md-6"><div><span class="text-muted small">Date of Joining</span></div><div class="fw-medium">{{ emp.date_of_joining|date:'d M Y' }}</div></div>
+                <div class="col-md-6"><div><span class="text-muted small">Progress</span></div><div class="fw-medium">{{ pct }}%</div><div class="progress mt-1" style="height:6px;"><div class="progress-bar" style="width:{{ pct }}%"></div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PHASE 1: PROGRESS VISUALIZATION -->
+<div class="glass-card mb-4 p-4">
+    <h6 class="mb-3">Current Stage: <strong>{{ stage_progress.stage_name }}</strong></h6>
+    {% include "components/status_badge.html" with status=stage_progress.status %}
+    {% if stage_progress.due_date %}
+    <div class="row g-3 text-sm mt-3">
+        <div class="col-md-6">
+            <small class="text-muted">Due Date</small>
+            <div class="fw-medium">{{ stage_progress.due_date|date:'d M Y H:i' }}</div>
+        </div>
+        <div class="col-md-6">
+            <small class="text-muted">Days Remaining</small>
+            <div class="fw-medium">
+                {% if stage_progress.is_overdue %}
+                    <span class="text-danger">Overdue</span>
+                {% else %}
+                    {{ stage_progress.days_remaining }} day{{ stage_progress.days_remaining|pluralize }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- APPROVAL SECTION - If awaiting review -->
+    {% if awaiting_review and can_review %}
+    <div class="alert alert-warning mt-4 mb-0">
+        <h6 class="mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Awaiting Your Review</h6>
+        <p class="small mb-3">This employee has submitted their <strong>{{ review_stage_label }}</strong> for approval. Review their submission and take action below.</p>
+
+        <form method="POST" action="{% url 'admin_review_employee' emp.id %}" class="mb-0">
+            {% csrf_token %}
+            <label class="form-label small">Your note (optional)</label>
+            <textarea name="note" class="form-control form-control-sm mb-2" rows="2" placeholder="Add feedback they'll see with your decision..."></textarea>
+
+            <div class="d-flex gap-2 flex-wrap">
+                {% if review_actions.approve %}<button name="action" value="approve" class="btn btn-sm btn-success" data-confirm="Approve and advance to next stage?"><i class="bi bi-check-lg me-1"></i>Approve</button>{% endif %}
+                {% if review_actions.request_changes %}<button name="action" value="request_changes" class="btn btn-sm btn-warning text-white"><i class="bi bi-arrow-repeat me-1"></i>Request Changes</button>{% endif %}
+                {% if review_actions.request_info %}<button name="action" value="request_info" class="btn btn-sm btn-info text-white"><i class="bi bi-chat-dots me-1"></i>Request Info</button>{% endif %}
+                {% if review_actions.reject %}<button name="action" value="reject" class="btn btn-sm btn-danger" data-confirm="Reject this submission?"><i class="bi bi-x-circle me-1"></i>Reject</button>{% endif %}
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- UNIFIED ONBOARDING JOURNEY - ALL STAGES WITH ACTIVITIES -->
+{% if unified_stages %}
+<div class="glass-card mb-4 p-4">
+    <h6 class="mb-4"><i class="bi bi-map me-2"></i>Onboarding Journey</h6>
+    <div class="row g-3">
+        {% for stage in unified_stages %}
+        <div class="col-lg-6">
+            <div class="p-3 rounded border" style="background:rgba(0,0,0,0.02);">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi {{ stage.icon }} me-2" style="color:var(--{{ stage.color }})"></i>
+                    <h6 class="mb-0">{{ stage.label }}</h6>
+                    {% if stage.status == 'completed' %}
+                    <i class="bi bi-check-circle-fill text-success ms-auto"></i>
+                    <span class="badge bg-success ms-2" style="font-size:0.75rem;">Completed</span>
+                    {% elif stage.status == 'locked' %}
+                    <i class="bi bi-lock text-warning ms-auto"></i>
+                    <span class="badge bg-warning ms-2" style="font-size:0.75rem;">Locked</span>
+                    {% elif stage.status == 'pending' %}
+                    <i class="bi bi-hourglass-split text-info ms-auto"></i>
+                    <span class="badge bg-info ms-2" style="font-size:0.75rem;">Pending</span>
+                    {% elif stage.status == 'in_progress' %}
+                    <i class="bi bi-hourglass-split text-primary ms-auto"></i>
+                    <span class="badge bg-primary ms-2" style="font-size:0.75rem;">In Progress</span>
+                    {% elif stage.status == 'unassigned' %}
+                    <i class="bi bi-dash-circle text-secondary ms-auto"></i>
+                    <span class="badge bg-secondary ms-2" style="font-size:0.75rem;">Unassigned</span>
+                    {% elif stage.status == 'active' %}
+                    <span class="badge bg-primary ms-auto">Active</span>
+                    {% elif stage.status == 'unlocked' %}
+                    <span class="badge bg-success ms-auto">Unlocked</span>
+                    {% elif stage.status == 'not_assigned' %}
+                    <span class="badge bg-secondary ms-auto">Not Assigned</span>
+                    {% else %}
+                    <i class="bi bi-circle text-muted ms-auto"></i>
+                    {% endif %}
+                </div>
+                <p class="small text-muted mb-2">{{ stage.description }}</p>
+
+                {% if stage.progress %}
+                <div class="progress mb-2" style="height:6px;">
+                    <div class="progress-bar" style="width: {{ stage.progress.percentage|default:0 }}%"></div>
+                </div>
+                <small class="text-muted">
+                    {% if stage.progress.total %}
+                    {{ stage.progress.completed }}/{{ stage.progress.total }} ({{ stage.progress.percentage }}%)
+                    {% else %}
+                    {{ stage.progress.percentage }}%
+                    {% endif %}
+                </small>
+                {% endif %}
+
+                {% if stage.activities %}
+                <div class="mt-3">
+                    <div class="small fw-600 mb-2">Activities:</div>
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        {% for activity in stage.activities|slice:":5" %}
+                        <div class="d-flex align-items-start gap-2 mb-2 pb-2 border-bottom" style="font-size:0.85rem;">
+                            <div class="flex-grow-1">
+                                <div class="fw-500">{{ activity.title }}</div>
+                                {% if activity.status %}
+                                <span class="badge badge-status-{{ activity.status }}" style="font-size:0.75rem;">{{ activity.status|title }}</span>
+                                {% endif %}
+                                {% if activity.progress %}
+                                <div class="small text-muted">{{ activity.progress }}% complete</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if stage.activities|length > 5 %}
+                        <small class="text-muted">+{{ stage.activities|length|add:"-5" }} more</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% elif stage.status != 'not_assigned' %}
+                <div class="small text-muted mt-2">No activities yet</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- CONVERSATIONS & ACTIONS SECTION -->
+{% if is_onboarding_active %}
+<div class="glass-card p-4 mb-4" style="background:rgba(59,130,246,0.05);border-left:3px solid #3b82f6;">
+    <div class="collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#ed_convo" aria-expanded="false">
+        <h6 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Stage Conversation</h6>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+    </div>
+    <div class="collapse" id="ed_convo" data-persist><div class="mt-3">
+    {% include "components/conversation_thread.html" %}
+    <form method="POST" action="{% url 'admin_message_employee' emp.id %}" class="mt-3">{% csrf_token %}
+        {% if msg_templates %}
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <label class="small text-muted mb-0"><i class="bi bi-envelope-paper me-1"></i>Template:</label>
+            <select class="form-select form-select-sm" id="msgTemplatePicker" style="max-width:250px">
+                <option value="">— none —</option>
+                {% for t in msg_templates %}<option value="{{ t.key }}">{{ t.label }}</option>{% endfor %}
+            </select>
+        </div>
+        {{ msg_templates|json_script:"msgTemplates" }}
+        {% endif %}
+        <div class="input-group input-group-sm">
+            <textarea name="message" id="msgBox" class="form-control" rows="2" placeholder="Message..." required></textarea>
+            <button class="btn btn-primary">Send</button>
+        </div>
+    </form>
+    </div></div>
+</div>
+{% endif %}
+
+<!-- ACTIONS AT BOTTOM -->
+{% if can_on_behalf %}
+<div class="glass-card p-4 mb-4" style="border-left:4px solid var(--info);">
+    <h6 class="mb-1"><i class="bi bi-cloud-upload me-2"></i>Upload Document on Behalf</h6>
+    <p class="text-muted small mb-3">Upload a document for this employee (e.g. a medical report they sent offline).</p>
+    <form method="POST" action="{% url 'admin_upload_on_behalf' emp.id %}" enctype="multipart/form-data" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-4">
+            <label class="form-label small mb-1">Attach to</label>
+            <select name="requirement" class="form-select form-select-sm" onchange="document.getElementById('obCustom').style.display=this.value=='new'?'block':'none'">
+                {% for m in medical %}<option value="{{ m.id }}">{{ m.requirement_name }}</option>{% endfor %}
+                <option value="new">— Other (new document) —</option>
+            </select>
+        </div>
+        <div class="col-md-3" id="obCustom" style="{% if medical %}display:none;{% endif %}">
+            <label class="form-label small mb-1">Document name</label>
+            <input type="text" name="custom_name" class="form-control form-control-sm" placeholder="e.g. Offer Letter">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">File</label>
+            <input type="file" name="file" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-2">
+            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="approved" id="obAppr"><label class="form-check-label small" for="obAppr">Mark approved</label></div>
+            <button class="btn btn-sm btn-info text-white w-100">Upload</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if can_bypass and is_onboarding_active %}
+<div class="glass-card p-4" style="border-left:4px solid var(--info);">
+    <h6 class="mb-1"><i class="bi bi-fast-forward-circle me-2"></i>Stage Bypass — Complete on Behalf</h6>
+    <p class="text-muted small mb-3">Override the normal flow for this employee. Current step: <strong>{{ current_stage_label }}</strong>. Bypassing marks the step's required items as done on their behalf and advances them.</p>
+    <div class="d-flex gap-2 flex-wrap">
+        <form method="POST" action="{% url 'admin_bypass_stage' emp.id %}" class="mb-0">{% csrf_token %}
+            <button class="btn btn-outline-info" data-confirm="Bypass {{ current_stage_label }} on behalf and advance?"><i class="bi bi-skip-forward me-1"></i>Bypass Current Stage</button>
+        </form>
+        <form method="POST" action="{% url 'admin_bypass_all' emp.id %}" class="mb-0">{% csrf_token %}
+            <button class="btn btn-info text-white" data-confirm="Bypass ALL remaining stages?"><i class="bi bi-fast-forward me-1"></i>Bypass All Remaining</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- WORKFLOW CONFIGURATION -->
+<div class="glass-card p-4 mb-4 animate-fadeIn" style="border-left: 4px solid var(--info);">
+    <h5 class="mb-3"><i class="bi bi-diagram-2 me-2"></i>Onboarding Workflow</h5>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <h6 class="mb-2">Current Stage Path:</h6>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                {% for stage_key in employee_stage_path %}
+                    {% with stage_def=stage_definitions|dict_get:stage_key %}
+                    <span class="badge bg-primary" style="padding: 0.5rem 0.75rem; font-size: 0.9rem;">
+                        {{ stage_def.label|default:stage_key }}
+                    </span>
+                    {% if not forloop.last %}<i class="bi bi-arrow-right" style="align-self: center; color: var(--muted);"></i>{% endif %}
+                    {% endwith %}
+                {% endfor %}
+            </div>
+
+            <small class="text-muted d-block mb-2">
+                {% if has_custom_path %}
+                <i class="bi bi-info-circle me-1"></i>This employee has a custom workflow path.
+                {% else %}
+                <i class="bi bi-info-circle me-1"></i>This employee uses the default workflow.
+                {% endif %}
+            </small>
+        </div>
+
+        <div class="col-lg-4 text-end">
+            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workflowEditModal">
+                <i class="bi bi-pencil me-1"></i>Edit Workflow
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- WORKFLOW EDIT MODAL -->
+<div class="modal fade" id="workflowEditModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Edit Onboarding Workflow</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'admin_employee_detail' emp.id %}" id="workflowForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_workflow">
+
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Reorder or customize this employee's onboarding stages.</p>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label fw-medium">Workflow Stages:</label>
+                        <small class="text-muted d-block mb-2">Drag to reorder, uncheck to remove</small>
+                        <div id="stageList" style="border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem;">
+                            {% for stage_key in employee_stage_path %}
+                                {% with stage_def=stage_definitions|dict_get:stage_key %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="workflow_stages" value="{{ stage_key }}" id="ws_{{ stage_key }}" checked>
+                                    <label class="form-check-label" for="ws_{{ stage_key }}">
+                                        <strong>{{ stage_def.label|default:stage_key }}</strong>
+                                        <small class="text-muted d-block">{{ stage_def.description }}</small>
+                                    </label>
+                                </div>
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label fw-medium">Reason for change (optional)</label>
+                        <textarea name="workflow_change_reason" class="form-control" rows="2" placeholder="e.g., Employee type changed, Custom request from HR..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var picker = document.getElementById("msgTemplatePicker");
+    var box = document.getElementById("msgBox");
+    var dataEl = document.getElementById("msgTemplates");
+    if (!picker || !box || !dataEl) return;
+    var tpls = {};
+    try { JSON.parse(dataEl.textContent).forEach(function (t) { tpls[t.key] = t; }); } catch (e) {}
+    picker.addEventListener("change", function () {
+        var t = tpls[picker.value];
+        if (t) box.value = (t.subject ? t.subject + "\n\n" : "") + (t.body || "");
+        box.focus();
+    });
+})();
+</script>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger">Delete Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Are you sure you want to delete <strong>{{ emp.full_name }}</strong>?</p>
+                <p class="text-muted small mb-0">This will mark them as inactive. Their data will be preserved for audit purposes.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{% url 'admin_delete_employee' emp.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Back arrow breadcrumb - go back to previous page
+document.querySelectorAll('a[href*="admin_employees"]').forEach(function(link) {
+    if (link.classList.contains('btn-outline-secondary') && link.innerHTML.includes('arrow-left')) {
+        link.onclick = function(e) {
+            e.preventDefault();
+            if (document.referrer && document.referrer.includes(window.location.hostname)) {
+                window.history.back();
+            } else {
+                window.location = this.href;
+            }
+        };
+    }
+});
+</script>
+{% endblock %}

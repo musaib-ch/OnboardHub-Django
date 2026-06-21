@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Email / SMTP Settings{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-envelope"></i> Email / SMTP Settings</h1>
+    <p class="text-muted mb-0">Configure the mail server used for password resets and notifications.
+        Status: {% if configured %}<span class="badge bg-success">Configured</span>{% else %}<span class="badge bg-secondary">Not configured</span>{% endif %}</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card">
+            <div class="card-header"><h5 class="mb-0">SMTP Server</h5></div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">SMTP Host</label>
+                            <input type="text" name="smtp_host" class="form-control" value="{{ smtp.smtp_host }}" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Port</label>
+                            <input type="number" name="smtp_port" class="form-control" value="{{ smtp.smtp_port|default:'587' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Username</label>
+                            <input type="text" name="smtp_user" class="form-control" value="{{ smtp.smtp_user }}" autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input type="password" name="smtp_password" class="form-control" autocomplete="new-password" placeholder="{% if smtp.has_password %}•••••••• (leave blank to keep){% else %}app password{% endif %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">From Name</label>
+                            <input type="text" name="smtp_from_name" class="form-control" value="{{ smtp.smtp_from_name }}" placeholder="OnboardHub">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">From Email</label>
+                            <input type="email" name="smtp_from_email" class="form-control" value="{{ smtp.smtp_from_email }}" placeholder="noreply@company.com">
+                        </div>
+                        <div class="col-12 d-flex gap-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="smtp_use_tls" id="tls" {% if smtp.smtp_use_tls %}checked{% endif %}>
+                                <label class="form-check-label" for="tls">Use TLS (STARTTLS, port 587)</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="smtp_use_ssl" id="ssl" {% if smtp.smtp_use_ssl %}checked{% endif %}>
+                                <label class="form-check-label" for="ssl">Use SSL (port 465)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i>Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="glass-card">
+            <div class="card-header"><h5 class="mb-0">Send Test Email</h5></div>
+            <div class="card-body">
+                <p class="text-muted small">Sends a test message to your address ({{ user.email }}) using the saved settings.</p>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="test">
+                    <button type="submit" class="btn btn-outline-primary w-100" {% if not configured %}disabled{% endif %}><i class="bi bi-send me-1"></i>Send Test</button>
+                </form>
+                {% if not configured %}<div class="form-text mt-2">Save SMTP host first to enable testing.</div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

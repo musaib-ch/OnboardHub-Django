@@ -1,0 +1,73 @@
+{# Status badge component - shows task/stage status #}
+{# Usage: {% include "components/status_badge.html" with status="completed" %} #}
+{# Status options: completed, in_progress, pending, overdue #}
+
+{% if status == "completed" %}
+    <span class="badge status-badge status-completed" title="Completed">
+        <i class="bi bi-check-circle-fill"></i> Complete
+    </span>
+{% elif status == "in_progress" %}
+    <span class="badge status-badge status-in-progress" title="In Progress">
+        <i class="bi bi-hourglass-split"></i> In Progress
+    </span>
+{% elif status == "overdue" %}
+    <span class="badge status-badge status-overdue" title="Overdue">
+        <i class="bi bi-exclamation-circle-fill"></i> Overdue
+    </span>
+{% else %}
+    <span class="badge status-badge status-pending" title="Pending">
+        <i class="bi bi-circle"></i> Pending
+    </span>
+{% endif %}
+
+<style>
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    .status-badge i {
+        font-size: 13px;
+    }
+
+    .status-completed {
+        background-color: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+
+    .status-in-progress {
+        background-color: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+    }
+
+    .status-pending {
+        background-color: #f3f4f6;
+        color: #4b5563;
+        border: 1px solid #e5e7eb;
+    }
+
+    .status-overdue {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    @media (max-width: 576px) {
+        .status-badge {
+            padding: 5px 8px;
+            font-size: 11px;
+        }
+
+        .status-badge i {
+            font-size: 12px;
+        }
+    }
+</style>

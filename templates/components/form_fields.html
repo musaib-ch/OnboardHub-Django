@@ -1,0 +1,88 @@
+{% load onboard_extras %}
+{# Renders a form's JSON schema. Expects: f (Form), answers (dict), files (dict), is_editable #}
+{% for section in f.schema.sections %}
+<div class="border rounded p-3 mb-3 bg-light bg-opacity-50">
+    <div class="mb-2">
+        <h6 class="mb-0 text-primary">{{ section.title }}</h6>
+        {% if section.description %}<p class="text-muted small mb-0 mt-1">{{ section.description }}</p>{% endif %}
+    </div>
+    <div class="row g-3">
+        {% for field in section.fields %}
+        {% with cur=answers|dict_get:field.field_name %}
+        <div class="col-12 cond-field" data-field="{{ field.field_name }}">
+            {% if field.conditional_logic.enabled %}{% with lid="clogic-"|add:field.field_name %}{{ field.conditional_logic|json_script:lid }}{% endwith %}{% endif %}
+            <label class="form-label fw-medium">{{ field.label }}{% if field.is_required %} <span class="text-danger">*</span>{% endif %}</label>
+
+            {% if field.field_type == "textarea" %}
+            <textarea name="field_{{ field.field_name }}" class="form-control" rows="3"
+                placeholder="{{ field.placeholder|default:'' }}" {% if field.is_required %}required{% endif %}>{{ cur }}</textarea>
+
+            {% elif field.field_type == "dropdown" %}
+            <select name="field_{{ field.field_name }}" class="form-select" {% if field.is_required %}required{% endif %}>
+                <option value="">-- Select --</option>
+                {% for opt in field.options %}
+                <option value="{{ opt }}" {% if cur == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+            </select>
+
+            {% elif field.field_type == "radio" %}
+            {% for opt in field.options %}
+            <div class="form-check">
+                <input type="radio" name="field_{{ field.field_name }}" value="{{ opt }}" class="form-check-input"
+                    id="r_{{ field.field_name }}_{{ forloop.counter }}" {% if cur == opt %}checked{% endif %}
+                    {% if field.is_required %}required{% endif %}>
+                <label class="form-check-label" for="r_{{ field.field_name }}_{{ forloop.counter }}">{{ opt }}</label>
+            </div>
+            {% endfor %}
+
+            {% elif field.field_type == "checkbox" %}
+            {% for opt in field.options %}
+            <div class="form-check">
+                <input type="checkbox" name="field_{{ field.field_name }}" value="{{ opt }}" class="form-check-input"
+                    id="c_{{ field.field_name }}_{{ forloop.counter }}" {% if opt in cur %}checked{% endif %}>
+                <label class="form-check-label" for="c_{{ field.field_name }}_{{ forloop.counter }}">{{ opt }}</label>
+            </div>
+            {% endfor %}
+
+            {% elif field.field_type == "yesno" %}
+            <div class="form-check form-switch">
+                <input type="checkbox" name="field_{{ field.field_name }}" class="form-check-input"
+                    id="yn_{{ field.field_name }}" {% if cur == "yes" %}checked{% endif %}>
+                <label class="form-check-label" for="yn_{{ field.field_name }}">Yes</label>
+            </div>
+
+            {% elif field.field_type == "file" %}
+            <input type="file" name="field_{{ field.field_name }}" class="form-control"
+                {% if field.is_required and not cur %}required{% endif %}>
+            {% if cur %}<small class="text-success d-block mt-1">Uploaded: {{ cur }}</small>{% endif %}
+
+            {% elif field.field_type == "date" %}
+            <input type="date" name="field_{{ field.field_name }}" class="form-control" value="{{ cur }}"
+                {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == "number" %}
+            <input type="number" name="field_{{ field.field_name }}" class="form-control" value="{{ cur }}"
+                placeholder="{{ field.placeholder|default:'' }}" {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == "email" %}
+            <input type="email" name="field_{{ field.field_name }}" class="form-control" value="{{ cur }}"
+                placeholder="{{ field.placeholder|default:'email@example.com' }}" {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == "phone" %}
+            <input type="tel" name="field_{{ field.field_name }}" class="form-control" value="{{ cur }}"
+                placeholder="{{ field.placeholder|default:'+92-300-0000000' }}" {% if field.is_required %}required{% endif %}>
+
+            {% else %}
+            <input type="text" name="field_{{ field.field_name }}" class="form-control" value="{{ cur }}"
+                placeholder="{{ field.placeholder|default:'' }}" {% if field.is_required %}required{% endif %}>
+            {% endif %}
+
+            {% if field.help_text %}<small class="text-muted">{{ field.help_text }}</small>{% endif %}
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<p class="text-muted">This form has no fields yet.</p>
+{% endfor %}

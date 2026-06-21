@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Zoom Integration{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h4><i class="bi bi-camera-video me-2"></i>Zoom Integration Settings</h4>
+    <p class="text-muted mb-0">Configure Zoom OAuth for automatic meeting creation in sessions.</p>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="glass-card p-4 mb-4">
+    <h6 class="mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        Status:
+        {% if zoom_enabled %}
+        <span class="badge bg-success">Connected</span>
+        {% else %}
+        <span class="badge bg-warning">Not Configured</span>
+        {% endif %}
+    </h6>
+    <p class="small text-muted mb-0">
+        When configured, Zoom meetings are automatically created for orientation sessions and invitations include direct Zoom links.
+    </p>
+</div>
+
+<form method="POST" class="glass-card p-4 mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save">
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label">Client ID *</label>
+            <input type="text" name="client_id" class="form-control"
+                   value="{{ zoom_settings.client_id }}" placeholder="Your Zoom Client ID">
+            <small class="text-muted">Found in Zoom App Marketplace</small>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Client Secret *</label>
+            <input type="password" name="client_secret" class="form-control"
+                   value="{{ zoom_settings.client_secret }}" placeholder="Your Zoom Client Secret">
+            <small class="text-muted">Keep this secret and secure</small>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label">Account ID *</label>
+            <input type="text" name="account_id" class="form-control"
+                   value="{{ zoom_settings.account_id }}" placeholder="Your Zoom Account ID">
+            <small class="text-muted">Your Zoom account identifier</small>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Host Email *</label>
+            <input type="email" name="host_email" class="form-control"
+                   value="{{ zoom_settings.host_email }}" placeholder="zoom@company.com">
+            <small class="text-muted">Zoom account email for creating meetings</small>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Save Settings
+        </button>
+        <button type="submit" formaction="{% url 'zoom_settings' %}" name="action" value="test" class="btn btn-outline-secondary">
+            <i class="bi bi-play-circle me-1"></i>Test Connection
+        </button>
+    </div>
+</form>
+
+<div class="glass-card p-4">
+    <h6 class="mb-3"><i class="bi bi-question-circle me-2"></i>Setup Instructions</h6>
+
+    <div class="accordion" id="zoomHelp">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#step1">
+                    Step 1: Create Zoom OAuth App
+                </button>
+            </h2>
+            <div id="step1" class="accordion-collapse collapse show" data-bs-parent="#zoomHelp">
+                <div class="accordion-body">
+                    <ol>
+                        <li>Go to <a href="https://marketplace.zoom.us/" target="_blank">Zoom App Marketplace</a></li>
+                        <li>Click "Build App" → "OAuth"</li>
+                        <li>Fill in the app details (name, short description)</li>
+                        <li>For "Redirect URLs", enter: <code>{{ zoom_callback_url }}</code></li>
+                        <li>Accept terms and create app</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2">
+                    Step 2: Copy Credentials
+                </button>
+            </h2>
+            <div id="step2" class="accordion-collapse collapse" data-bs-parent="#zoomHelp">
+                <div class="accordion-body">
+                    <p>In your Zoom app settings:</p>
+                    <ol>
+                        <li>Copy the <strong>Client ID</strong> from "App Credentials"</li>
+                        <li>Copy the <strong>Client Secret</strong> from "App Credentials"</li>
+                        <li>Copy your <strong>Account ID</strong> from "Basic Information"</li>
+                        <li>Paste them into the fields above</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3">
+                    Step 3: Set Permissions
+                </button>
+            </h2>
+            <div id="step3" class="accordion-collapse collapse" data-bs-parent="#zoomHelp">
+                <div class="accordion-body">
+                    <p>In "Scopes", add these permissions:</p>
+                    <ul>
+                        <li><code>meeting:write:admin</code> - Create meetings</li>
+                        <li><code>user:read:admin</code> - Read user info</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step4">
+                    Step 4: Test Connection
+                </button>
+            </h2>
+            <div id="step4" class="accordion-collapse collapse" data-bs-parent="#zoomHelp">
+                <div class="accordion-body">
+                    <ol>
+                        <li>Fill in all the fields above</li>
+                        <li>Click "Test Connection" button</li>
+                        <li>You should see a success message</li>
+                        <li>If error, verify your credentials are correct</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

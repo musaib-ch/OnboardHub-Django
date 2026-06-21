@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1>{{ session.title }}</h1>
+            <p class="text-muted mb-0">{{ session_data.session_type|upper }}</p>
+        </div>
+        <div>
+            {% if session_data.zoom.join_url %}
+                <a href="{{ session_data.zoom.join_url }}" target="_blank" class="btn btn-success">
+                    <i class="bi bi-camera-video me-2"></i>Join Zoom
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Main Info -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4 animate-fadeIn delay-1">
+            <h5 class="mb-3">Details</h5>
+
+            {% if session.body %}
+                <p class="mb-4">{{ session.body }}</p>
+            {% endif %}
+
+            <div class="row g-4">
+                <div class="col-6">
+                    <small class="text-muted">Date & Time</small>
+                    <p class="fw-500">{{ session_data.scheduled_date|date:"M d, Y H:i" }}</p>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted">Duration</small>
+                    <p class="fw-500">{{ session_data.duration_minutes }} minutes</p>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted">Organized By</small>
+                    <p class="fw-500">{{ session.created_by.full_name }}</p>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted">Status</small>
+                    <p class="fw-500">
+                        {% if session_data.status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif session_data.status == 'pending_approval' %}
+                            <span class="badge bg-warning">Pending Approval</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ session_data.status|upper }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendees List -->
+        <div class="glass-card p-4 mt-4 animate-fadeIn delay-2">
+            <h5 class="mb-3">Attendees ({{ attendees|length }})</h5>
+
+            <div class="list-group list-group-flush">
+                {% for attendee in attendees %}
+                    <div class="list-group-item px-0 py-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-1 fw-500">{{ attendee.user.full_name }}</p>
+                                <small class="text-muted">{{ attendee.user.get_role_display }}</small>
+                            </div>
+                            <div class="text-end">
+                                {% if attendee.status == 'approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% elif attendee.status == 'pending_approval' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                    {% if is_organizer %}
+                                        <form method="post" action="{% url 'approve_attendee' session.id attendee.user.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-xs btn-success ms-2">Approve</button>
+                                        </form>
+                                    {% endif %}
+                                {% elif attendee.status == 'attended' %}
+                                    <span class="badge bg-info">Attended</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ attendee.status|upper }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        {% if is_organizer and session_data.status == 'pending_approval' %}
+            <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+                <h6 class="mb-3">Approval Needed</h6>
+                <form method="post" action="{% url 'approve_session' session.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-circle me-2"></i>Approve Session
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+
+        <!-- My Registration -->
+        {% if not my_registration and user.role == 'employee' and session_data.status in 'approved,scheduled' %}
+            <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+                <form method="post" action="{% url 'register_session' session.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-circle me-2"></i>Register
+                    </button>
+                </form>
+            </div>
+        {% elif my_registration %}
+            <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+                <h6 class="mb-3">Your Registration</h6>
+                <p class="small text-muted mb-2">Status:</p>
+                <p class="fw-500">
+                    {% if my_registration.status == 'approved' %}
+                        <span class="badge bg-success">Approved</span>
+                    {% elif my_registration.status == 'pending_approval' %}
+                        <span class="badge bg-warning">Pending Approval</span>
+                    {% elif my_registration.status == 'attended' %}
+                        <span class="badge bg-info">Attended</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ my_registration.status|upper }}</span>
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+
+        <!-- Session Stats -->
+        <div class="glass-card p-4 animate-fadeIn delay-4">
+            <h6 class="mb-3"><i class="bi bi-graph-up me-2"></i>Session Stats</h6>
+
+            <div class="mb-3">
+                <small class="text-muted">Registered</small>
+                <p class="fw-500">{{ attendees|length }} attendees</p>
+            </div>
+
+            <div>
+                <small class="text-muted">Approved</small>
+                <p class="fw-500">{% widthratio attendees|dictsort:"status"|length attendees|length 100 %}%</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'sessions_dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Sessions
+    </a>
+</div>
+{% endblock %}

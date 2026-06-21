@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Create Live Session{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-plus-circle me-2"></i>Create Live Session</h1>
+    <p class="text-muted mb-0">Schedule a new session for your team</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4 animate-fadeIn delay-1">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group mb-4">
+                    <label for="title" class="form-label fw-500">Session Title *</label>
+                    <input type="text" id="title" name="title" class="form-control touch-friendly" placeholder="e.g., Company Culture Overview" required>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label for="description" class="form-label fw-500">Description (Optional)</label>
+                    <textarea id="description" name="description" class="form-control touch-friendly" rows="4" placeholder="What will be covered in this session?"></textarea>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label for="session_type" class="form-label fw-500">Session Type *</label>
+                    <select id="session_type" name="session_type" class="form-control touch-friendly" required>
+                        {% for value, label in session_types %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="scheduled_date" class="form-label fw-500">Date & Time *</label>
+                        <input type="datetime-local" id="scheduled_date" name="scheduled_date" class="form-control touch-friendly" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="duration_minutes" class="form-label fw-500">Duration (minutes) *</label>
+                        <input type="number" id="duration_minutes" name="duration_minutes" class="form-control touch-friendly" value="60" min="15" max="480" required>
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="use_zoom" name="use_zoom" checked>
+                        <label class="form-check-label" for="use_zoom">
+                            Create Zoom meeting automatically
+                        </label>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i>Create Session
+                    </button>
+                    <a href="{% url 'sessions_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4 animate-fadeIn delay-2">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Info</h6>
+            <p class="small text-muted mb-3">
+                Creating a live session will:
+            </p>
+            <ul class="small text-muted">
+                <li>Create a Zoom meeting automatically</li>
+                <li>Send calendar invites to attendees</li>
+                <li>Record the session by default</li>
+                {% if user.role == 'employee' %}
+                    <li>Send to HRBP for approval</li>
+                {% endif %}
+            </ul>
+
+            {% if user.role == 'employee' %}
+                <div class="alert alert-info mt-4 mb-0">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <strong>Note:</strong> As an employee, your session will need approval from an HRBP before it's scheduled.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
