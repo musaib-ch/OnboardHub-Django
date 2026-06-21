@@ -187,11 +187,16 @@ class Command(BaseCommand):
         """Create stage paths for existing employees (backward compatibility)."""
         employees = User.objects.filter(role="employee")
 
+        # Use the full Standard Onboarding template stages
         default_stages = [
+            "offer_acceptance",
             "medical",
             "pre_onboarding",
             "onboarding",
             "post_onboarding",
+            "orientation",
+            "training",
+            "onboarding_30_60_90",
         ]
 
         created_count = 0

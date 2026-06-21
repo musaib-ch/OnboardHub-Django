@@ -859,8 +859,8 @@ def _apply_employee_workflow(request, user):
 
 
 def _user_form_context(selected_perms=None, **extra):
-    from .models import StageDefinition, StageTemplate
-    from .pipeline_v2 import get_global_default_stages
+    from ..models import StageDefinition, StageTemplate
+    from ..pipeline_v2 import get_global_default_stages
 
     ctx = {
         "roles": _creatable_roles(),
