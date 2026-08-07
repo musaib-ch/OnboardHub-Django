@@ -203,11 +203,12 @@ def get_conversation(user: User, other_user: User) -> List[Dict]:
 
 def get_conversations_list(user: User) -> List[Dict]:
     """
-    Get all ACTIVE conversations for a user.
+    Get all conversations for a user, including pending and active chats.
     Two-sided: shows both sent and received conversations.
     """
     chats = Engagement.objects.filter(
-        kind="chat_dm", status="active"
+        kind="chat_dm",
+        status__in=["pending", "active"],
     ).filter(
         Q(user=user) | Q(counterparty=user)
     )

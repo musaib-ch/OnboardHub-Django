@@ -11,7 +11,7 @@
 <div class="glass-card mb-4 animate-fadeIn delay-1">
     <div class="nav nav-tabs flex-wrap" role="tablist">
         {% for kind, label in kinds %}
-        <button class="nav-link {% if forloop.first %}active{% endif %}" id="tab-{{ kind }}" data-bs-toggle="tab" data-bs-target="#content-{{ kind }}" type="button" role="tab">
+        <button class="nav-link {% if active_tab == kind or not active_tab and forloop.first %}active{% endif %}" id="tab-{{ kind }}" data-bs-toggle="tab" data-bs-target="#content-{{ kind }}" type="button" role="tab">
             {{ label }}
             <span class="badge bg-secondary ms-2">{{ options|dict_get:kind|length }}</span>
         </button>
@@ -22,14 +22,29 @@
 <!-- Tab Content -->
 <div class="tab-content">
     {% for kind, label in kinds %}
-    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="content-{{ kind }}" role="tabpanel">
+    <div class="tab-pane fade {% if active_tab == kind or not active_tab and forloop.first %}show active{% endif %}" id="content-{{ kind }}" role="tabpanel">
         <div class="glass-card animate-fadeIn delay-2">
             <!-- Header with Title and Add Button -->
-            <div class="d-flex justify-content-between align-items-center p-4 border-bottom">
+            <div class="d-flex justify-content-between align-items-center p-4 border-bottom gap-2 flex-wrap">
                 <h5 class="mb-0">{{ label }}</h5>
-                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" onclick="setKind('{{ kind }}', '{{ label }}')">
-                    <i class="bi bi-plus-lg me-1"></i>Add
-                </button>
+                <div class="d-flex gap-2 flex-wrap">
+                    <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap align-items-center">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="import_options">
+                        <input type="hidden" name="kind" value="{{ kind }}">
+                        <input type="file" name="import_file" accept=".xlsx,.csv" class="form-control form-control-sm" style="max-width: 220px;">
+                        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-upload me-1"></i>Import</button>
+                    </form>
+                    <form method="POST" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="export_options">
+                        <input type="hidden" name="kind" value="{{ kind }}">
+                        <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-download me-1"></i>Export</button>
+                    </form>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" onclick="setKind('{{ kind }}', '{{ label }}')">
+                        <i class="bi bi-plus-lg me-1"></i>Add
+                    </button>
+                </div>
             </div>
 
             <!-- Table or Empty State -->
@@ -61,6 +76,7 @@
                                         <form method="POST" class="d-inline" style="margin: 0;">
                                             {% csrf_token %}
                                             <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="kind" value="{{ kind }}">
                                             <input type="hidden" name="option_id" value="{{ o.id }}">
                                             <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete &quot;{{ o.name }}&quot;?')" title="Delete">
                                                 <i class="bi bi-trash"></i>
@@ -88,6 +104,14 @@
         </div>
     </div>
     {% endfor %}
+</div>
+
+<div class="p-3 border-bottom bg-light">
+    <form method="POST" class="d-flex justify-content-end">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="download_template">
+        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Download Import Template</button>
+    </form>
 </div>
 
 <!-- Add Modal -->
@@ -137,6 +161,7 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="kind" id="editKindInput">
                     <input type="hidden" name="option_id" id="editOptionId">
 
                     <div class="form-group mb-3">
@@ -202,6 +227,7 @@ function setKind(kind, label) {
 
 function editItem(id, name, description, kind) {
     document.getElementById('editOptionId').value = id;
+    document.getElementById('editKindInput').value = kind;
     document.getElementById('editNameInput').value = name;
     document.getElementById('editDescInput').value = description;
     document.getElementById('editNameInput').focus();

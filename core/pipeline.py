@@ -18,9 +18,10 @@ where possible. New code should prefer pipeline_v2 functions.
 from .services import stage_flags
 from . import pipeline_v2  # New configurable stage system
 
-STAGE_ORDER = ["medical", "pre_onboarding", "onboarding", "post_onboarding"]
+STAGE_ORDER = ["offer", "medical", "pre_onboarding", "onboarding", "post_onboarding"]
 
 STAGE_LABELS = {
+    "offer": "Offer Acceptance",
     "medical": "Medical Clearance",
     "pre_onboarding": "Pre-Onboarding",
     "onboarding": "Onboarding",
@@ -31,6 +32,7 @@ STAGE_LABELS = {
 ENTRY_STATUS = {
     "medical": "medical_upload",
     "pre_onboarding": "pre_onboarding",
+    "offer": "offer",
     "onboarding": "onboarding",
     "post_onboarding": "post_onboarding",
 }
@@ -39,6 +41,7 @@ ENTRY_STATUS = {
 SUBMIT_STATUS = {
     "medical": "medical_under_review",
     "pre_onboarding": "pre_onboarding_submitted",
+    "offer": "offer_submitted",
     "onboarding": "onboarding_submitted",
     "post_onboarding": "post_onboarding_submitted",
 }
@@ -95,6 +98,7 @@ def stage_flag_key(stage):
     return {
         "medical": "medical_enabled",
         "pre_onboarding": "pre_onboarding_enabled",
+        "offer": "offer_enabled",
         "onboarding": "onboarding_enabled",
         "post_onboarding": "post_onboarding_enabled",
     }[stage]
@@ -110,35 +114,54 @@ def stage_of_status(status):
 
 
 def progress_index(user):
-    """Index (in enabled_stages) of the stage the employee is currently in.
+    """Index (in the employee''s path) of the stage the employee is currently in.
 
-    Equals len(enabled_stages) when the employee has completed everything.
+    Equals len(path) when the employee has completed everything.
     """
-    stages = enabled_stages()
-    st = stage_of_status(user.status)
-    if st == "__done__":
-        return len(stages)
-    if st is None:  # pending / not started -> first stage
+    stages = get_employee_stage_path(user) or enabled_stages()
+    if not stages:
         return 0
+    if user.status == "completed":
+        return len(stages)
+    current = current_stage(user)
+    if current in stages:
+        return stages.index(current)
+    st = stage_of_status(user.status)
     if st in stages:
         return stages.index(st)
-    # Stage exists but is now disabled — treat as already passed.
-    return STAGE_ORDER.index(st) if st in STAGE_ORDER else 0
+    if user.status == "pending":
+        return 0
+    return 0
 
 
 def stage_state(user, stage):
     """One of: locked, active, submitted, changes_requested, info_requested,
     rejected, completed, disabled."""
-    stages = enabled_stages()
+    stages = get_employee_stage_path(user) or enabled_stages()
     if stage not in stages:
         return "disabled"
+    if stage == "offer":
+        from .models_offers import Offer
+        offer = Offer.objects.filter(candidate_user=user).order_by("-created_at").first()
+        if offer and offer.status == "accepted":
+            return "completed"
+        elif offer and offer.status in ("revoked", "rejected", "expired"):
+            return "rejected"
+        return "active"
+    if stage == "medical":
+        if "offer" in stages:
+            offer_state = stage_state(user, "offer")
+            if offer_state != "completed":
+                return "locked"
+        return pipeline_v2._medical_stage_state(user)
     idx = stages.index(stage)
     pidx = progress_index(user)
+    if user.status == "completed":
+        return "completed"
     if idx < pidx:
         return "completed"
     if idx > pidx:
         return "locked"
-    # current stage — classify the sub-state
     s = user.status
     if s in SUBMITTED_STATUSES:
         return "submitted"
@@ -170,27 +193,27 @@ def current_stage_hardcoded(user):
     """OLD: Get current stage using hardcoded pipeline (kept for backward compat).
     NEW code should use current_stage() which uses the configurable system.
     """
-    stages = enabled_stages()
+    stages = get_employee_stage_path(user) or enabled_stages()
     pidx = progress_index(user)
     return stages[pidx] if pidx < len(stages) else None
 
 
 def remaining_stages(user):
     """Stages from the employee's current point through the end (inclusive)."""
-    stages = enabled_stages()
+    stages = get_employee_stage_path(user) or enabled_stages()
     pidx = progress_index(user)
     return stages[pidx:] if pidx < len(stages) else []
 
 
 def entry_status_for_user(user):
     """Status to assign a freshly-started (pending) employee."""
-    stages = enabled_stages()
+    stages = pipeline_v2.get_employee_stage_path(user) or enabled_stages()
     return ENTRY_STATUS[stages[0]] if stages else "completed"
 
 
 def next_status_after(stage):
     """Where approval of `stage` sends the employee."""
-    stages = enabled_stages()
+    stages = STAGE_ORDER
     if stage not in stages:
         return "completed"
     idx = stages.index(stage)
@@ -213,3 +236,4 @@ def review_actions_for(status):
         "request_info": (f"{stage}_info_requested", "asked for more information"),
         "reject": (f"{stage}_rejected", "rejected"),
     }
+

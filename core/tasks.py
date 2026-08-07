@@ -59,6 +59,13 @@ def send_document_reminders():
 
 
 @shared_task
+def send_raw_email_async(to_email, subject, html_message, from_email=None):
+    """Send a pre-rendered HTML email asynchronously."""
+    from .services.email_service import EmailService
+    return EmailService.send_raw_html(to_email=to_email, subject=subject, html_message=html_message, from_email=from_email, log_event=True)
+
+
+@shared_task
 def send_email_async(to_email, template_key, context, from_email=None):
     """Send an email asynchronously."""
     from .services.email_service import EmailService
@@ -70,3 +77,32 @@ def send_email_async(to_email, template_key, context, from_email=None):
         from_email=from_email,
         log_event=True,
     )
+
+
+@shared_task
+def check_expired_offers_task():
+    """Find sent or pending_approval offers past expiry_date and mark them expired."""
+    from django.utils import timezone
+    from .models_offers import Offer, OfferStatusHistory, OfferSendToken
+
+    now = timezone.now()
+    count = 0
+    qs = Offer.objects.filter(status__in=['sent', 'pending_approval', 'draft'])
+    for offer in qs:
+        expiry = offer.expiry_date
+        if expiry and expiry < now:
+            prev_status = offer.status
+            offer.status = 'expired'
+            offer.save()
+            OfferStatusHistory.objects.create(
+                offer=offer,
+                from_status=prev_status,
+                to_status='expired',
+                changed_by=None,
+                reason='Automatically expired by background task schedule'
+            )
+            OfferSendToken.objects.filter(offer=offer).update(used=True)
+            count += 1
+
+    return {'task': 'check_expired_offers_task', 'expired_count': count}
+

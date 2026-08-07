@@ -5,16 +5,87 @@ Replaces hardcoded STAGE_ORDER with StageDefinition model.
 Supports per-employee custom stage paths via EmployeeStagePath.
 """
 from functools import lru_cache
+from typing import List
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta
 
-from .models import StageDefinition, StageTemplate, EmployeeStagePath, User, AppSetting
+from .models import StageDefinition, StageTemplate, EmployeeStagePath, User, AppSetting, MedicalRecord
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE DEFINITIONS & RETRIEVAL
 # ─────────────────────────────────────────────────────────────────────────────
+
+PORTAL_STAGE_KEYS = ["offer", "medical", "pre_onboarding", "onboarding", "post_onboarding"]
+
+
+def _merge_stage_paths(base: List[str], defaults: List[str]) -> List[str]:
+    """Keep a custom path in order, but reinsert any missing default stages."""
+    base = [s for s in (base or []) if s]
+    defaults = [s for s in (defaults or []) if s]
+    result = list(base)
+    for stage in defaults:
+        if stage in result:
+            continue
+        insert_at = len(result)
+        for idx, existing in enumerate(result):
+            try:
+                if defaults.index(existing) > defaults.index(stage):
+                    insert_at = idx
+                    break
+            except ValueError:
+                continue
+        result.insert(insert_at, stage)
+    deduped = []
+    seen = set()
+    for stage in result:
+        if stage in seen:
+            continue
+        seen.add(stage)
+        deduped.append(stage)
+    return deduped
+
+
+def _enabled_portal_stage_keys() -> List[str]:
+    enabled = []
+    for stage_key in PORTAL_STAGE_KEYS:
+        stage = get_stage_definition(stage_key)
+        if stage and stage.is_enabled:
+            enabled.append(stage_key)
+    return enabled
+
+
+def _sync_current_stage_status(user, path: List[str]) -> None:
+    """Keep the stored user.status aligned with the live workflow path."""
+    if not path or not user.status or user.status in ("completed", "deleted", "on_hold"):
+        return
+
+    if "medical" not in path:
+        return
+
+    medical_state = _medical_stage_state(user)
+    if medical_state == "completed":
+        return
+
+    desired_status = {
+        "active": "medical_upload",
+        "submitted": "medical_under_review",
+        "info_requested": "medical_info_requested",
+        "rejected": "medical_rejected",
+    }.get(medical_state, "medical_upload")
+
+    if user.status == desired_status:
+        return
+
+    user.status = desired_status
+    if not user.stage_entered_at:
+        user.stage_entered_at = timezone.now()
+    stage_def = get_stage_definition("medical")
+    if stage_def:
+        user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
+    user.stage_due_date_override = None
+    user.save(update_fields=["status", "stage_entered_at", "stage_due_date", "stage_due_date_override"])
 
 def get_stage_definitions(enabled_only=True):
     """Fetch all stage definitions, optionally filtered to enabled only.
@@ -45,6 +116,29 @@ def clear_stage_cache():
     cache.delete('stage_definitions_all')
 
 
+def _medical_stage_state(user):
+    """Derive medical status from the employee's medical records."""
+    records = list(MedicalRecord.objects.filter(employee=user, is_catalog=False))
+    if not records:
+        return "active"
+
+    statuses = [r.status for r in records]
+    required_records = [r for r in records if r.is_required]
+    required_statuses = [r.status for r in required_records] or statuses
+
+    if any(status == "rejected" for status in statuses):
+        return "rejected"
+    if any(status == "info_requested" for status in statuses):
+        return "info_requested"
+    if any(status == "under_review" for status in statuses):
+        return "submitted"
+    if all(status == "approved" for status in required_statuses):
+        return "completed"
+    if any(record.file for record in records):
+        return "active"
+    return "active"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE PATH MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
@@ -55,8 +149,11 @@ def get_employee_stage_path(user):
     Returns: List of stage_keys in order. Example: ["offer_acceptance", "medical", "pre_onboarding", ...]
     """
     if user.stage_path:
-        return user.stage_path.stages
-    return get_global_default_stages()
+        path = _merge_stage_paths(user.stage_path.stages or [], _enabled_portal_stage_keys())
+    else:
+        path = get_global_default_stages()
+    _sync_current_stage_status(user, path)
+    return path
 
 
 def get_global_default_stages():
@@ -79,24 +176,30 @@ def get_global_default_stages():
     if template_key:
         try:
             template = StageTemplate.objects.get(name=template_key, is_active=True)
-            # Filter to only enabled stages
-            return [s for s in template.stages if s in enabled_stages]
+            # Keep template order but reinsert any enabled portal stages that were omitted.
+            return _merge_stage_paths(
+                [s for s in template.stages if s in enabled_stages],
+                _enabled_portal_stage_keys(),
+            )
         except StageTemplate.DoesNotExist:
             pass
 
     # Fallback: use first global template
     template = StageTemplate.objects.filter(is_global=True, is_active=True).first()
     if template:
-        # Filter to only enabled stages
-        return [s for s in template.stages if s in enabled_stages]
+        # Keep template order but reinsert any enabled portal stages that were omitted.
+        return _merge_stage_paths(
+            [s for s in template.stages if s in enabled_stages],
+            _enabled_portal_stage_keys(),
+        )
 
     # Final fallback: hardcoded standard flow (for backward compatibility)
     # Also filter to only enabled stages
     fallback = ["medical", "pre_onboarding", "onboarding", "post_onboarding"]
-    return [s for s in fallback if s in enabled_stages]
+    return _merge_stage_paths([s for s in fallback if s in enabled_stages], _enabled_portal_stage_keys())
 
 
-def create_employee_stage_path(user, stages, change_reason=""):
+def create_employee_stage_path(user, stages, change_reason="", modified_by=None):
     """Create or update an employee's custom stage path.
 
     Args:
@@ -106,14 +209,37 @@ def create_employee_stage_path(user, stages, change_reason=""):
 
     Returns: EmployeeStagePath instance
     """
+    stages = list(stages or [])
+    if not stages:
+        current_path = getattr(user, "stage_path", None)
+        if current_path:
+            current_path.delete()
+        if getattr(user, "stage_path_id", None) is not None:
+            user.stage_path = None
+            user.save(update_fields=["stage_path"])
+        return None
+
     path, created = EmployeeStagePath.objects.update_or_create(
         employee=user,
         defaults={
             'stages': stages,
             'change_reason': change_reason,
-            'modified_by': None,  # Could be set from request.user
+            'modified_by': modified_by,
         }
     )
+    if getattr(user, "stage_path_id", None) != path.id:
+        user.stage_path = path
+        user.save(update_fields=["stage_path"])
+    mapped_stage = STATUS_TO_STAGE.get(user.status)
+    if user.status not in ("completed", "deleted", "on_hold") and (user.status == "pending" or mapped_stage not in stages):
+        first_stage = stages[0]
+        user.status = ENTRY_STATUS.get(first_stage, f"{first_stage}_submitted")
+        user.stage_entered_at = timezone.now()
+        stage_def = get_stage_definition(first_stage)
+        if stage_def:
+            user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
+        user.stage_due_date_override = None
+        user.save(update_fields=["status", "stage_entered_at", "stage_due_date", "stage_due_date_override"])
     return path
 
 
@@ -185,18 +311,27 @@ def current_stage_for_user(user):
 
     Returns: stage_key string or None if no active stage
     """
-    if not user.status or user.status in ('pending', 'completed', 'deleted', 'on_hold'):
+    if not user.status or user.status in ('completed', 'deleted', 'on_hold'):
         return None
+
+    path = get_employee_stage_path(user)
+    if not path:
+        return None
+
+    if "medical" in path and _medical_stage_state(user) != "completed":
+        return "medical"
+
+    if user.status == "pending":
+        return path[0]
 
     # Look up stage from status
     stage_key = STATUS_TO_STAGE.get(user.status)
     if not stage_key:
-        return None
+        return path[0]
 
     # Verify it's in the employee's stage path (optional check)
-    path = get_employee_stage_path(user)
     if stage_key not in path:
-        return None
+        return path[0]
 
     return stage_key
 
@@ -210,7 +345,6 @@ def next_stage_for_user(user):
     current = current_stage_for_user(user)
 
     if not current:
-        # If no current stage, return first stage
         return path[0] if path else None
 
     try:
@@ -261,6 +395,32 @@ def advance_employee_to_next_stage(user, modified_by=None):
     user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
     user.stage_due_date_override = None  # Clear any override
     user.save(update_fields=['status', 'stage_entered_at', 'stage_due_date', 'stage_due_date_override'])
+
+    # Trigger welcome email for the new stage
+    try:
+        from .services.email_service import EmailService, _small_portal_link
+        from django.conf import settings
+        
+        template_key = f"{next_stage}_welcome"
+        if next_stage == "medical":
+            template_key = "medical_stage_welcome"
+            
+        base_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+        portal_link = _small_portal_link(f"{base_url}/employee/home/")
+        
+        # Don't fail if the template isn't registered, EmailService handles gracefully
+        EmailService.send_email(
+            to_email=user.email,
+            template_key=template_key,
+            context={
+                "employee_name": user.full_name or user.email,
+                "small_portal_link_onboarding": portal_link
+            },
+            log_event=True
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to send welcome email for stage {next_stage}: {str(e)}")
 
     return True
 

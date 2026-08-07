@@ -40,33 +40,33 @@
 
 <!-- SUPER ADMIN / ADMIN: People tiles -->
 {% elif show_people_tiles %}
-<div class="row g-3 mb-3">
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn delay-1">
+<div class="dashboard-tile-grid mb-3">
+    <div class="dashboard-tile animate-fadeIn delay-1">
         <div class="stat-card cursor-pointer" onclick="filterTable('status', 'all')" style="opacity: 0.8;" title="Click to filter table">
             <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-people"></i></div>
             <div class="stat-info"><h3>{{ stats.total }}</h3><p>Total Employees</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn delay-2">
+    <div class="dashboard-tile animate-fadeIn delay-2">
         <div class="stat-card cursor-pointer" onclick="filterTable('status', 'in_progress')" style="opacity: 0.8;" title="Click to filter table">
             <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#d97706"><i class="bi bi-hourglass-split"></i></div>
             <div class="stat-info"><h3>{{ stats.in_progress }}</h3><p>In Progress</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn delay-3">
+    <div class="dashboard-tile animate-fadeIn delay-3">
         <div class="stat-card cursor-pointer" onclick="filterTable('status', 'completed')" style="opacity: 0.8;" title="Click to filter table">
             <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-check-circle"></i></div>
             <div class="stat-info"><h3>{{ stats.completed }}</h3><p>Completed</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn delay-4">
+    <div class="dashboard-tile animate-fadeIn delay-4">
         <div class="stat-card cursor-pointer" onclick="filterTable('status', 'on_hold')" style="opacity: 0.8;" title="Click to filter table">
             <div class="stat-icon" style="background:rgba(108,117,125,0.15);color:#6c757d"><i class="bi bi-pause-circle"></i></div>
             <div class="stat-info"><h3>{{ stats.on_hold }}</h3><p>On Hold</p></div>
         </div>
     </div>
     {% if stats.overdue %}
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn delay-5">
+    <div class="dashboard-tile animate-fadeIn delay-5">
         <div class="stat-card cursor-pointer" style="opacity: 0.8; border-left:4px solid #dc2626;" title="Employees with overdue stage deadlines">
             <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-circle"></i></div>
             <div class="stat-info"><h3>{{ stats.overdue }}</h3><p>Overdue Stages</p></div>
@@ -74,7 +74,7 @@
     </div>
     {% endif %}
     {% if stats.joining_soon %}
-    <div class="col-lg-2 col-md-3 col-6 animate-fadeIn {% if stats.overdue %}delay-6{% else %}delay-5{% endif %}">
+    <div class="dashboard-tile animate-fadeIn {% if stats.overdue %}delay-6{% else %}delay-5{% endif %}">
         <div class="stat-card cursor-pointer" onclick="filterTable('joining_soon', 'true')" style="opacity: 0.8;" title="Click to filter table">
             <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#2563eb"><i class="bi bi-calendar-event"></i></div>
             <div class="stat-info"><h3>{{ stats.joining_soon }}</h3><p>Joining in 10 Days</p></div>
@@ -87,26 +87,26 @@
 
 <!-- SUPER ADMIN / ADMIN: Learning tiles -->
 {% if show_learning_tiles %}
-<div class="row g-3 mb-3">
-    <div class="col-lg-2 col-md-3 col-6">
+<div class="dashboard-tile-grid mb-3">
+    <div class="dashboard-tile">
         <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_learning_paths' %}'" style="opacity: 0.8;" title="Click to view learning paths">
             <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-signpost-split"></i></div>
             <div class="stat-info"><h3>{{ learning_stats.paths }}</h3><p>Learning Paths</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6">
+    <div class="dashboard-tile">
         <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_training_assignments' %}'" style="opacity: 0.8;" title="Click to view enrollments">
             <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#2563eb"><i class="bi bi-mortarboard"></i></div>
             <div class="stat-info"><h3>{{ learning_stats.active }}</h3><p>Active Enrollments</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6">
+    <div class="dashboard-tile">
         <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_learning_paths' %}'" style="opacity: 0.8;" title="Click to view completed">
             <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-award"></i></div>
             <div class="stat-info"><h3>{{ learning_stats.completed }}</h3><p>Completed</p></div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-3 col-6">
+    <div class="dashboard-tile">
         <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_training_assignments' %}'" style="opacity: 0.8;" title="Click to view overdue">
             <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-triangle"></i></div>
             <div class="stat-info"><h3>{{ learning_stats.overdue }}</h3><p>Overdue</p></div>
@@ -147,7 +147,10 @@
                 <tr data-status="{{ e.status }}" data-joining-soon="{% if e.date_of_joining %}{{ e.date_of_joining }}{% endif %}" onclick="window.location='{% if is_medical_approver %}{% url 'admin_medical_review' %}?user_id={{ e.id }}{% else %}{% url 'admin_employee_detail' e.id %}{% endif %}'">
                     <td class="fw-medium">{{ e.full_name }}</td>
                     <td>{{ e.email }}</td>
-                    <td><span class="badge badge-status-{{ e.status|slugify }}">{{ e.status|humanize_status }}</span></td>
+                    <td>
+                        <div class="fw-medium">{{ e.current_stage_label|default:"Not started" }}</div>
+                        <small class="text-muted">{{ e.current_stage_state|default:e.status|humanize_status }}</small>
+                    </td>
                     <td>{{ e.date_of_joining|date:"d M Y"|default:"—" }}</td>
                     <td onclick="event.stopPropagation()">
                         {% if is_medical_approver %}
@@ -166,8 +169,33 @@
 </div>
 
 <style>
+    .dashboard-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .bi-chat-dots {
+        color: #FFC107 !important; /* Change to any color */
+    }
+    .dashboard-tile {
+        min-width: 0;
+        height: 100%;
+    }
     .stat-card {
+        height: 100%;
+        min-height: 108px;
         transition: all 0.2s ease;
+    }
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 56px;
+    }
+    .stat-info h3,
+    .stat-info p {
+        white-space: nowrap;
     }
     .stat-card:hover {
         transform: translateY(-2px);
@@ -176,6 +204,11 @@
     }
     .cursor-pointer {
         cursor: pointer;
+    }
+    @media (max-width: 576px) {
+        .dashboard-tile-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 

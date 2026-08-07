@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (auth_views, employee_views, admin_views, public_views,
                     common_views, content_views, training_views, analytics_views, signature_views,
                     assessment_views, session_views, onboarding_plan_views, chat_views, zoom_settings_views,
-                    stage_config_views)
+                    stage_config_views, quiz_views, offer_views, offer_api_views, public_offer_views, buddy_views)
 
 urlpatterns = [
     # ── Public / dispatch ───────────────────────────────────────────────
@@ -32,26 +32,68 @@ urlpatterns = [
     # ── Admin ───────────────────────────────────────────────────────────
     path("admin/dashboard/", admin_views.dashboard, name="admin_dashboard"),
     path("admin/analytics/", analytics_views.analytics_dashboard, name="admin_analytics"),
+    path("admin/analytics/training/", analytics_views.training_analytics, name="admin_analytics_training"),
+    path("admin/analytics/sessions/", analytics_views.session_analytics, name="admin_analytics_sessions"),
+    path("admin/analytics/export/<str:report_type>/", analytics_views.export_analytics_csv, name="admin_analytics_export"),
     path("admin/employees/", admin_views.employees, name="admin_employees"),
     path("admin/employees/export/", admin_views.export_employees, name="admin_export_employees"),
     path("admin/employees/import/", admin_views.import_employees, name="admin_import_employees"),
     path("admin/employees/<int:user_id>/upload-on-behalf/", admin_views.upload_on_behalf, name="admin_upload_on_behalf"),
     path("admin/users/export/", admin_views.export_users, name="admin_export_users"),
     path("admin/employees/<int:user_id>/export/", admin_views.export_employee_detail, name="admin_export_employee_detail"),
+    path("admin/employees/<int:user_id>/export-package/", admin_views.export_employee_package, name="admin_export_employee_package"),
+    path("admin/users/<int:user_id>/reset-password/", admin_views.reset_user_password, name="admin_reset_user_password"),
     path("admin/forms/<int:form_id>/responses/export/", admin_views.export_form_responses_view, name="admin_export_form_responses"),
     path("admin/employees/<int:user_id>/", admin_views.employee_detail, name="admin_employee_detail"),
     path("admin/employees/<int:user_id>/review/", admin_views.review_employee, name="admin_review_employee"),
     path("admin/employees/<int:user_id>/bypass-stage/", admin_views.bypass_stage, name="admin_bypass_stage"),
     path("admin/employees/<int:user_id>/bypass-all/", admin_views.bypass_all_stages, name="admin_bypass_all"),
     path("admin/employees/<int:user_id>/message/", admin_views.message_employee, name="admin_message_employee"),
+    path("admin/employees/bulk-delete/", admin_views.bulk_delete_employees, name="admin_bulk_delete_employees"),
     path("admin/employees/<int:user_id>/delete/", admin_views.delete_employee, name="admin_delete_employee"),
     path("admin/users/", admin_views.users, name="admin_users"),
+    path("admin/users/bulk-delete/", admin_views.bulk_delete_users, name="admin_bulk_delete_users"),
     path("admin/users/create/", admin_views.create_user, name="admin_create_user"),
     path("admin/users/<int:user_id>/edit/", admin_views.edit_user, name="admin_edit_user"),
     path("admin/users/<int:user_id>/delete/", admin_views.delete_user, name="admin_delete_user"),
+    path("admin/offers/", admin_views.offers, name="admin_offers"),
+    path("admin/offers/send/", admin_views.send_offer, name="admin_send_offer"),
+    path("admin/offers/analytics/", offer_api_views.offer_analytics, name="admin_offers_analytics"),
+    path("admin/offers/analytics/view/", admin_views.offers_analytics_page, name="admin_offers_analytics_page"),
+    path("admin/offers/export/", offer_api_views.export_offers_csv, name="admin_offers_export"),
+    path("employee/offers/", offer_views.my_offers, name="my_offers"),
+    path("employee/offers/<int:offer_id>/respond/", offer_views.respond_to_offer, name="respond_to_offer"),
+    # Public offer token-based views
+    path("offers/view/<str:token>/", public_offer_views.public_offer_view, name="public_offer_view"),
+    path("offers/<str:token>/accept/", public_offer_views.public_offer_accept, name="public_offer_accept"),
+    path("offers/<str:token>/reject/", public_offer_views.public_offer_reject, name="public_offer_reject"),
+    # Offer API endpoints (templates & email templates)
+    path("api/offers/templates/", offer_api_views.offer_templates_list, name="api_offer_templates"),
+    path("api/offers/templates/<int:template_id>/", offer_api_views.offer_template_detail, name="api_offer_template_detail"),
+    path("api/offers/email-templates/", offer_api_views.email_templates_list, name="api_offer_email_templates"),
+    path("api/offers/email-templates/<int:template_id>/", offer_api_views.email_template_detail, name="api_offer_email_template_detail"),
+    path("api/offers/email-template-choices/", offer_api_views.offer_email_template_choices, name="api_offer_email_template_choices"),
+    path("api/offers/", offer_api_views.offers_list, name="api_offers"),
+    path("api/offers/<int:offer_id>/", offer_api_views.offer_detail, name="api_offer_detail"),
+    path("api/offers/preview/", offer_api_views.offer_render_preview, name="api_offer_render_preview"),
+    path("api/offers/<int:offer_id>/preview/", offer_api_views.offer_render_preview, name="api_offer_render_preview_offer"),
+    path("api/offers/<int:offer_id>/snapshot/", offer_api_views.offer_snapshot_send, name="api_offer_snapshot_send"),
+    path("api/offers/<int:offer_id>/approvals/<int:approval_id>/approve/", offer_api_views.approve_offer_approval, name="api_offer_approval_approve"),
+    path("api/offers/<int:offer_id>/approvals/<int:approval_id>/reject/", offer_api_views.reject_offer_approval, name="api_offer_approval_reject"),
+    path("api/offers/<int:offer_id>/approvals/", offer_api_views.offer_approvals_list, name="api_offer_approvals_list"),
+    path("api/offers/<int:offer_id>/approvals/<int:approval_id>/", offer_api_views.offer_approval_detail, name="api_offer_approval_detail"),
+    path("api/offers/fields/", offer_api_views.offer_fields_list, name="api_offer_fields"),
+    path("api/offers/fields/<int:field_id>/", offer_api_views.offer_field_detail, name="api_offer_field_detail"),
+    path("api/offers/uploads/image/", offer_api_views.offer_image_upload, name="api_offer_image_upload"),
+    path("api/offers/templates/<int:template_id>/preview/", offer_api_views.offer_template_preview, name="api_offer_template_preview"),
+    path("api/offers/<int:offer_id>/pdf/", offer_api_views.offer_pdf_export_api_view, name="api_offer_pdf_export"),
+    path("admin/offers/<int:offer_id>/pdf/", admin_views.admin_offer_pdf_export, name="admin_offer_pdf_export"),
+    path("admin/offers/export/zip/", admin_views.offers_bulk_zip_export_view, name="admin_offers_bulk_zip_export"),
     path("admin/forms/", admin_views.forms_list, name="admin_forms"),
     path("admin/forms/create/", admin_views.create_form, name="admin_create_form"),
     path("admin/forms/<int:form_id>/edit/", admin_views.edit_form, name="admin_edit_form"),
+    path("admin/forms/<int:form_id>/analytics/", admin_views.form_analytics_view, name="admin_form_analytics"),
+    path("admin/forms/<int:form_id>/toggle/", admin_views.toggle_form_active, name="admin_toggle_form"),
     path("admin/forms/<int:form_id>/delete/", admin_views.delete_form, name="admin_delete_form"),
     path("admin/documents/", admin_views.onboarding_documents, name="admin_onboarding_documents"),
     path("admin/medical-requirements/", admin_views.medical_requirements, name="admin_medical_requirements"),
@@ -64,6 +106,11 @@ urlpatterns = [
     path("admin/settings/email-templates/", admin_views.email_templates, name="admin_email_templates"),
     path("admin/settings/email-logs/", admin_views.email_logs, name="admin_email_logs"),
     path("admin/settings/email-statistics/", admin_views.email_statistics, name="admin_email_statistics"),
+    path("admin/settings/offer-templates/", admin_views.offer_templates_manage, name="admin_offer_templates"),
+    path("admin/settings/offer-templates/<int:template_id>/delete/", admin_views.offer_template_delete, name="admin_offer_template_delete"),
+    path("admin/settings/offer-email-templates/", admin_views.offer_email_templates_manage, name="admin_offer_email_templates"),
+    path("admin/settings/offer-email-templates/<int:template_id>/delete/", admin_views.offer_email_template_delete, name="admin_offer_email_template_delete"),
+    path("admin/settings/reset/", admin_views.portal_reset, name="admin_portal_reset"),
     path("admin/settings/zoom/", zoom_settings_views.zoom_settings, name="zoom_settings"),
     path("admin/automation/", admin_views.automation, name="admin_automation"),
     path("settings/notifications/", auth_views.notification_preferences, name="notification_preferences"),
@@ -86,6 +133,8 @@ urlpatterns = [
     path("sessions/<int:session_id>/register/", session_views.register_session, name="register_session"),
     path("sessions/<int:session_id>/approve-attendee/<int:attendee_id>/", session_views.approve_attendee, name="approve_attendee"),
     path("sessions/<int:session_id>/approve/", session_views.approve_session, name="approve_session"),
+    path("sessions/<int:session_id>/mark-attendance/", session_views.mark_attendance, name="session_mark_attendance"),
+    path("sessions/<int:session_id>/feedback/", session_views.session_feedback, name="session_feedback"),
 
     # ── Assessments & Courses ────────────────────────────────────────────────────
     path("course/<int:course_id>/lessons/", assessment_views.course_lessons, name="course_lessons"),
@@ -94,6 +143,7 @@ urlpatterns = [
     path("course/<int:course_id>/lesson/<str:lesson_id>/submit/", assessment_views.submit_quiz, name="submit_quiz"),
     path("course/<int:course_id>/lesson/<str:lesson_id>/results/", assessment_views.quiz_results, name="quiz_results"),
     path("course/<int:course_id>/progress/", assessment_views.course_progress, name="course_progress"),
+    path("course/<int:course_id>/lesson/<str:lesson_id>/video-position/", assessment_views.save_video_position, name="save_video_position"),
 
     # ── Notifications & Documents ───────────────────────────────────────────────────
     path("document/<int:doc_id>/", common_views.document_view, name="document_view"),
@@ -111,6 +161,7 @@ urlpatterns = [
     # ── Training & Learning Paths (specific routes before generic learn/<kind>) ──
     path("admin/training/paths/", training_views.learning_paths, name="admin_learning_paths"),
     path("admin/training/paths/<int:pk>/edit/", training_views.learning_path_edit, name="admin_learning_path_edit"),
+    path("admin/training/paths/<int:pk>/analytics/", training_views.learning_path_analytics_view, name="admin_learning_path_analytics"),
     path("admin/training/assignments/", training_views.training_assignments, name="admin_training_assignments"),
     path("learn/my-learning/", training_views.my_learning, name="my_learning"),
     path("learn/path/<int:pk>/", training_views.learning_path_detail, name="learning_path_detail"),
@@ -140,8 +191,26 @@ urlpatterns = [
     path("admin/content/<str:kind>/", content_views.manage, name="content_manage"),
     path("learn/<str:kind>/", content_views.browse, name="content_list"),
     path("learn/item/<int:item_id>/", content_views.read, name="content_read"),
+    path("learn/orientation/<int:item_id>/ics/", content_views.orientation_ics_export, name="orientation_ics_export"),
+
+    # ── Buddy / Mentorship Program ──
+    path("admin/buddy-program/", buddy_views.admin_buddy_program, name="admin_buddy_program"),
+    path("employee/buddy/", buddy_views.employee_buddy_dashboard, name="employee_buddy_dashboard"),
+    path("buddy/plan/propose/", buddy_views.propose_buddy_plan, name="propose_buddy_plan"),
+    path("buddy/milestone/signoff/", buddy_views.signoff_buddy_milestone, name="signoff_buddy_milestone"),
+    path("buddy/checkin/log/", buddy_views.signoff_buddy_milestone, name="log_buddy_checkin"),
 
     # ── Public forms ────────────────────────────────────────────────────
     path("public/form/<str:token>/", public_views.public_form, name="public_form_view"),
     path("public/thank-you/", public_views.thank_you, name="public_thank_you"),
+
+    # ── Quiz module ──────────────────────────────────────────────────────
+    # Admin
+
+    path("admin/quizzes/<int:quiz_id>/responses/", quiz_views.quiz_responses, name="quiz_responses"),
+    path("admin/quizzes/<int:quiz_id>/preview/", quiz_views.quiz_preview, name="quiz_preview"),
+    # Employee
+    path("quiz/", quiz_views.my_quizzes, name="my_quizzes"),
+    path("quiz/<int:quiz_id>/take/", quiz_views.take_quiz, name="take_quiz_standalone"),
+    path("quiz/<int:quiz_id>/result/<int:response_id>/", quiz_views.quiz_result, name="quiz_result"),
 ]

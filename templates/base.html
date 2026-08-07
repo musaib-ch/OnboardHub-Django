@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" style="--primary: {{ site_settings.primary_color }}; --accent: {{ site_settings.accent_color }}; --primary-rgb: {{ site_settings.primary_rgb }}; --accent-rgb: {{ site_settings.accent_rgb }}; --sidebar-bg: {{ site_settings.sidebar_bg }}; --sidebar-hover: {{ site_settings.sidebar_hover }}; --sidebar-active: {{ site_settings.sidebar_active }}; --nav-text: {{ site_settings.nav_text_color }}; --nav-active-text: {{ site_settings.nav_active_text_color }}; --page-bg: {{ site_settings.page_bg_color }}; --glass-sidebar: rgba({{ site_settings.primary_rgb }}, 0.95); --system-primary: {{ site_settings.primary_color }}; --system-primary-hover: {{ site_settings.accent_color }}; --radius-sm: {{ site_settings.rad_sm }}; --radius-md: {{ site_settings.rad_md }}; --radius-lg: {{ site_settings.rad_lg }}; --radius-xl: {{ site_settings.rad_xl }}; --app-font: '{{ site_settings.font_family }}';">
+<html lang="en"
+    style="--primary: {{ site_settings.primary_color }}; --accent: {{ site_settings.accent_color }}; --primary-rgb: {{ site_settings.primary_rgb }}; --accent-rgb: {{ site_settings.accent_rgb }}; --sidebar-bg: {{ site_settings.sidebar_bg }}; --sidebar-hover: {{ site_settings.sidebar_hover }}; --sidebar-active: {{ site_settings.sidebar_active }}; --nav-text: {{ site_settings.nav_text_color }}; --nav-active-text: {{ site_settings.nav_active_text_color }}; --page-bg: {{ site_settings.page_bg_color }}; --glass-sidebar: rgba({{ site_settings.primary_rgb }}, 0.95); --system-primary: {{ site_settings.primary_color }}; --system-primary-hover: {{ site_settings.accent_color }}; --radius-sm: {{ site_settings.rad_sm }}; --radius-md: {{ site_settings.rad_md }}; --radius-lg: {{ site_settings.rad_lg }}; --radius-xl: {{ site_settings.rad_xl }}; --app-font: '{{ site_settings.font_family }}';">
 
 <head>
     <meta charset="UTF-8">
@@ -10,31 +11,105 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link href="{% static 'css/mobile-optimized.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
     <style>
         /* ── Theme knobs (driven by Branding settings) ── */
-        body { font-family: var(--app-font, 'Inter'), -apple-system, BlinkMacSystemFont, sans-serif; }
-        body.theme-density-compact .card-body { padding: 14px 16px; }
-        body.theme-density-compact .glass-card.p-4 { padding: 1rem !important; }
+        body {
+            font-family: var(--app-font, 'Inter'), -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body.theme-density-compact .card-body {
+            padding: 14px 16px;
+        }
+
+        body.theme-density-compact .glass-card.p-4 {
+            padding: 1rem !important;
+        }
+
         body.theme-density-compact .table tbody td,
-        body.theme-density-compact .table thead th { padding: 10px 12px; }
-        body.theme-density-compact .page-header { padding: 14px 18px; }
-        body.theme-btn-pill .btn { border-radius: 999px !important; }
-        body.theme-btn-square .btn { border-radius: 6px !important; }
+        body.theme-density-compact .table thead th {
+            padding: 10px 12px;
+        }
+
+        body.theme-density-compact .page-header {
+            padding: 14px 18px;
+        }
+
+        body.theme-btn-pill .btn {
+            border-radius: 999px !important;
+        }
+
+        body.theme-btn-square .btn {
+            border-radius: 6px !important;
+        }
+
         body.theme-card-flat .glass-card,
         body.theme-card-flat .card,
-        body.theme-card-flat .stat-card { backdrop-filter: none !important; box-shadow: 0 1px 3px rgba(15,23,42,.08) !important; background: #fff !important; }
+        body.theme-card-flat .stat-card {
+            backdrop-filter: none !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .08) !important;
+            background: #fff !important;
+        }
 
         /* ── Collapsible cards (portal-wide) ── */
-        .collapsible-header { cursor: pointer; user-select: none; transition: background-color .15s ease; }
-        .collapsible-header:hover { background: rgba(var(--primary-rgb), .05); }
-        .collapse-chevron { transition: transform .3s cubic-bezier(.4,0,.2,1); color: var(--text-secondary); }
-        .collapsible-header.collapsed .collapse-chevron { transform: rotate(-90deg); }
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color .15s ease;
+        }
+
+        .collapsible-header:hover {
+            background: rgba(var(--primary-rgb), .05);
+        }
+
+        .collapse-chevron {
+            transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+            color: var(--text-secondary);
+        }
+
+        .collapsible-header.collapsed .collapse-chevron {
+            transform: rotate(-90deg);
+        }
+
+        /* ── Portal-Themed Flash Alerts ── */
+        .portal-themed-alert {
+            background: rgba(var(--primary-rgb, 79, 70, 229), 0.08) !important;
+            border: 1px solid rgba(var(--primary-rgb, 79, 70, 229), 0.22) !important;
+            color: #1e293b !important;
+            border-radius: var(--radius-sm, 8px) !important;
+            box-shadow: 0 2px 8px rgba(var(--primary-rgb, 79, 70, 229), 0.05) !important;
+            margin: 16px 24px 8px 24px !important;
+            padding: 10px 18px !important;
+            min-height: 42px !important;
+        }
+        .portal-themed-alert .alert-icon {
+            color: var(--primary, #4f46e5);
+            font-size: 1rem !important;
+        }
+        .portal-themed-alert .alert-content {
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+        }
+        .portal-themed-alert .btn-close {
+            position: static !important;
+            padding: 0.25rem !important;
+            margin: 0 0 0 auto !important;
+            opacity: 0.6;
+            transition: all 0.2s ease-in-out;
+            background-size: 0.65rem;
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+        .portal-themed-alert .btn-close:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
     </style>
     <style>
-
         :root {
             /* Static Glassy Design System */
             --glass-bg: rgba(255, 255, 255, 0.85);
@@ -451,6 +526,11 @@
             white-space: nowrap;
         }
 
+        .sidebar button.nav-link {
+            border: 0;
+            background: transparent;
+        }
+
         .sidebar .nav-link:hover {
             background: rgba(255, 255, 255, 0.12);
             color: var(--nav-text);
@@ -544,12 +624,12 @@
             padding-bottom: 0;
         }
 
-        .sidebar-nav-scroll > .nav-link,
-        .sidebar-nav-scroll > .sidebar-section {
+        .sidebar-nav-scroll>.nav-link,
+        .sidebar-nav-scroll>.sidebar-section {
             flex: 0 0 auto;
         }
 
-        .sidebar-nav-scroll > .collapse {
+        .sidebar-nav-scroll>.collapse {
             flex-basis: auto;
             width: auto;
         }
@@ -567,6 +647,41 @@
             max-height: 60vh;
             overflow-y: auto;
             min-width: 260px;
+        }
+
+        .sidebar .nav-menu {
+            padding: 8px;
+            border: 1px solid rgba(var(--primary-rgb), 0.14);
+            border-radius: var(--radius-md);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+        }
+
+        .sidebar .nav-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .sidebar .nav-menu .dropdown-item i {
+            width: 18px;
+            text-align: center;
+            color: var(--primary);
+        }
+
+        .sidebar .nav-menu .dropdown-item:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+        }
+
+        .sidebar .nav-menu .dropdown-header {
+            padding: 7px 10px 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
         }
 
         .sidebar-meta .dropdown-menu {
@@ -640,6 +755,38 @@
         }
 
         .sidebar-meta .notif-button .badge {
+            background: var(--accent) !important;
+        }
+
+        /* Header actions intentionally use the same visual language as navbar
+           controls; btn-glass would otherwise force its black page-text color. */
+        .sidebar-meta .header-action-button {
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--nav-text) !important;
+            transition: var(--transition);
+        }
+
+        .sidebar-meta .header-action-button:hover,
+        .sidebar-meta .header-action-button:focus,
+        .sidebar-meta .header-action-button.show {
+            background: var(--sidebar-active);
+            color: var(--nav-active-text) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar-meta .header-action-button i {
+            color: inherit !important;
+        }
+
+        .sidebar-meta .header-action-button .badge {
             background: var(--accent) !important;
         }
 
@@ -1289,9 +1436,9 @@
                 gap: 8px;
             }
 
-            .sidebar-nav-scroll > .nav-link,
-            .sidebar-nav-scroll > .sidebar-section,
-            .sidebar-nav-scroll > .collapse {
+            .sidebar-nav-scroll>.nav-link,
+            .sidebar-nav-scroll>.sidebar-section,
+            .sidebar-nav-scroll>.collapse {
                 width: 100%;
                 flex: 1 1 auto;
             }
@@ -1496,7 +1643,6 @@
         table tbody tr[onclick] form {
             pointer-events: auto;
         }
-
     </style>
 </head>
 
@@ -1517,46 +1663,60 @@
             <div class="sidebar-meta">
                 <div class="sidebar-greeting">Hello, {{ user.full_name }}</div>
                 <div class="sidebar-actions d-flex align-items-center gap-2">
-                    <a href="{% url 'messages_list' %}" class="btn btn-glass position-relative" title="Messages" style="border:none;background:transparent;padding:0;color:inherit;">
+                    <a href="{% url 'messages_list' %}" class="header-action-button position-relative" title="Messages"
+                        aria-label="Messages">
                         <i class="bi bi-chat-dots fs-5"></i>
-                        <span id="chatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;display:none;"></span>
+                        <span id="chatBadge"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                            style="font-size:0.6rem;display:none;"></span>
                     </a>
                     <div class="dropdown">
-                    <button class="btn btn-glass position-relative notif-button" type="button" id="notifBell"
-                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-                        style="border:none;background:transparent;padding:0;color:inherit;">
-                        <i class="bi bi-bell fs-5"></i>
-                        <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                            style="font-size:0.6rem;{% if not unread_notif_count %}display:none;{% endif %}">{{ unread_notif_count }}</span>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end notification-dropdown shadow border-0 p-0"
-                        aria-labelledby="notifBell" style="width:min(340px, calc(100vw - 16px)); overflow:hidden;">
-                        <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0 fw-bold">Notifications</h6>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-link p-0 small text-decoration-none" onclick="notifMarkAll(event)">Mark all read</button>
-                                <button class="btn btn-sm btn-link p-0 small text-danger text-decoration-none" onclick="notifClear(event)">Clear</button>
+                        <button class="header-action-button position-relative notif-button" type="button" id="notifBell"
+                            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                            aria-label="Notifications">
+                            <i class="bi bi-bell fs-5"></i>
+                            <span id="notifBadge"
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                style="font-size:0.6rem;{% if not unread_notif_count %}display:none;{% endif %}">{{
+                                unread_notif_count }}</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end notification-dropdown shadow border-0 p-0"
+                            aria-labelledby="notifBell" style="width:min(340px, calc(100vw - 16px)); overflow:hidden;">
+                            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold">Notifications</h6>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-link p-0 small text-decoration-none"
+                                        onclick="notifMarkAll(event)">Mark all read</button>
+                                    <button class="btn btn-sm btn-link p-0 small text-danger text-decoration-none"
+                                        onclick="notifClear(event)">Clear</button>
+                                </div>
                             </div>
+                            <div id="notifList" style="max-height:340px; overflow-y:auto;">
+                                <div class="text-center p-4 text-muted small">Loading…</div>
+                            </div>
+                            <div class="p-2 border-top text-center"><a href="{% url 'notifications_list' %}"
+                                    class="small text-decoration-none">View all</a></div>
                         </div>
-                        <div id="notifList" style="max-height:340px; overflow-y:auto;">
-                            <div class="text-center p-4 text-muted small">Loading…</div>
-                        </div>
-                        <div class="p-2 border-top text-center"><a href="{% url 'notifications_list' %}" class="small text-decoration-none">View all</a></div>
                     </div>
-                </div>
                 </div>
                 <div class="dropdown">
                     <button class="avatar-button" data-bs-toggle="dropdown">
                         {% if user.avatar %}
-                        <img src="/media/avatars/{{ user.avatar }}" class="avatar-img" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
+                        <img src="/media/avatars/{{ user.avatar }}" class="avatar-img"
+                            style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
                         {% else %}
                         {{ user.full_name|slice:":2"|upper }}
                         {% endif %}
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end mt-2 shadow-sm border-0" style="border-radius: var(--radius-md);">
-                        <li><a class="dropdown-item py-2" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>My Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item py-2 text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    <ul class="dropdown-menu dropdown-menu-end mt-2 shadow-sm border-0"
+                        style="border-radius: var(--radius-md);">
+                        <li><a class="dropdown-item py-2" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>My
+                                Profile</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item py-2 text-danger" href="{% url 'logout' %}"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -1564,131 +1724,215 @@
 
         <div class="mt-2 sidebar-nav-scroll">
             {% if is_employee_role %}
-                <a href="{% url 'employee_home' %}" class="nav-link {% if ep == 'employee_home' %}active{% endif %}"><i class="bi bi-house"></i> Dashboard</a>
-                {% if stage_settings.medical_enabled %}
-                <a href="{% url 'employee_medical' %}" class="nav-link {% if ep == 'employee_medical' %}active{% endif %}"><i class="bi bi-heart-pulse"></i> Medical</a>
-                {% endif %}
-                {% if stage_settings.pre_onboarding_enabled %}
-                <a href="{% url 'employee_pre_onboarding' %}" class="nav-link {% if ep == 'employee_pre_onboarding' %}active{% endif %}"><i class="bi bi-file-earmark-text"></i> Pre-Onboarding</a>
-                {% endif %}
-                {% if stage_settings.onboarding_enabled %}
-                <a href="{% url 'employee_onboarding' %}" class="nav-link {% if ep == 'employee_onboarding' %}active{% endif %}"><i class="bi bi-folder-check"></i> Onboarding Docs</a>
-                {% endif %}
-                {% if stage_settings.post_onboarding_enabled %}
-                <a href="{% url 'employee_post_onboarding' %}" class="nav-link {% if ep == 'employee_post_onboarding' %}active{% endif %}"><i class="bi bi-check2-square"></i> Post-Onboarding</a>
-                {% endif %}
-                <a href="{% url 'content_list' 'knowledge' %}" class="nav-link {% if ep == 'content_list' or ep == 'content_read' %}active{% endif %}"><i class="bi bi-journal-bookmark"></i> Knowledge</a>
-                {% if stage_settings.learning_enabled %}
-                <a href="{% url 'my_learning' %}" class="nav-link {% if ep == 'my_learning' or ep == 'learning_path_detail' or ep == 'learning_certificate' %}active{% endif %}"><i class="bi bi-mortarboard"></i> My Learning</a>
-                {% endif %}
+            <a href="{% url 'employee_home' %}" class="nav-link {% if ep == 'employee_home' %}active{% endif %}"><i
+                    class="bi bi-house"></i> Dashboard</a>
+            <a href="{% url 'my_offers' %}" class="nav-link {% if ep == 'my_offers' %}active{% endif %}"><i
+                    class="bi bi-envelope-paper-heart"></i> My Offers</a>
+            {% if stage_settings.medical_enabled and "medical" in employee_stage_path %}
+            <a href="{% url 'employee_medical' %}"
+                class="nav-link {% if ep == 'employee_medical' %}active{% endif %}"><i class="bi bi-heart-pulse"></i>
+                Medical Clearance</a>
+            {% endif %}
+            {% if stage_settings.pre_onboarding_enabled %}
+            <a href="{% url 'employee_pre_onboarding' %}"
+                class="nav-link {% if ep == 'employee_pre_onboarding' %}active{% endif %}"><i
+                    class="bi bi-file-earmark-text"></i> Pre-Onboarding</a>
+            {% endif %}
+            {% if stage_settings.onboarding_enabled %}
+            <a href="{% url 'employee_onboarding' %}"
+                class="nav-link {% if ep == 'employee_onboarding' %}active{% endif %}"><i
+                    class="bi bi-folder-check"></i> Onboarding Docs</a>
+            {% endif %}
+            {% if stage_settings.post_onboarding_enabled %}
+            <a href="{% url 'employee_post_onboarding' %}"
+                class="nav-link {% if ep == 'employee_post_onboarding' %}active{% endif %}"><i
+                    class="bi bi-check2-square"></i> Post-Onboarding</a>
+            {% endif %}
+            <a href="{% url 'content_list' 'knowledge' %}"
+                class="nav-link {% if ep == 'content_list' or ep == 'content_read' %}active{% endif %}"><i
+                    class="bi bi-journal-bookmark"></i> Knowledge</a>
+            {% if stage_settings.learning_enabled and has_learning_paths %}
+            <a href="{% url 'my_learning' %}"
+                class="nav-link {% if ep == 'my_learning' or ep == 'learning_path_detail' or ep == 'learning_certificate' %}active{% endif %}"><i
+                    class="bi bi-mortarboard"></i> My Learning</a>
+            {% endif %}
+            {% if has_quizzes %}
+            <a href="{% url 'my_quizzes' %}"
+                class="nav-link {% if ep == 'my_quizzes' or ep == 'take_quiz_standalone' or ep == 'quiz_result' %}active{% endif %}"><i
+                    class="bi bi-patch-question"></i> My Quizzes</a>
+            {% endif %}
+            {% if has_success_plan %}
+            <a href="{% url 'my_onboarding_plan' %}"
+                class="nav-link {% if ep == 'my_onboarding_plan' or ep == 'manage_onboarding_plans' or ep == 'employee_plan_detail' %}active{% endif %}"><i
+                    class="bi bi-signpost-2"></i> Success Plan</a>
+            {% endif %}
+            <a href="{% url 'employee_buddy_dashboard' %}"
+                class="nav-link {% if ep == 'employee_buddy_dashboard' %}active{% endif %}"><i class="bi bi-people"></i>
+                Onboarding Buddy</a>
             {% elif is_staff_role %}
-                <a href="{% url 'admin_dashboard' %}" class="nav-link {% if ep == 'admin_dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
-                <a href="{% url 'admin_analytics' %}" class="nav-link {% if ep == 'admin_analytics' %}active{% endif %}"><i class="bi bi-graph-up"></i> Analytics</a>
+            <a href="{% url 'admin_dashboard' %}" class="nav-link {% if ep == 'admin_dashboard' %}active{% endif %}"><i
+                    class="bi bi-speedometer2"></i> Dashboard</a>
 
-                {# People #}
-                {% if nav_perms.view_employees or nav_perms.manage_users %}
-                <div class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle {% if ep == 'admin_employees' or ep == 'admin_employee_detail' or ep == 'admin_users' or ep == 'admin_create_user' or ep == 'admin_edit_user' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-people"></i> People</a>
-                    <ul class="dropdown-menu">
-                        {% if nav_perms.view_employees %}
-                        <li><a class="dropdown-item {% if ep == 'admin_employees' or ep == 'admin_employee_detail' %}active{% endif %}" href="{% url 'admin_employees' %}"><i class="bi bi-people"></i> Employees</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_users %}
-                        <!-- <li><a class="dropdown-item {% if ep == 'admin_import_employees' %}active{% endif %}" href="{% url 'admin_import_employees' %}"><i class="bi bi-upload"></i> Import Employees</a></li> -->
-                        <li><a class="dropdown-item {% if ep == 'admin_users' or ep == 'admin_create_user' or ep == 'admin_edit_user' %}active{% endif %}" href="{% url 'admin_users' %}"><i class="bi bi-person-badge"></i> Users &amp; Roles</a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
+            {% if nav_perms.view_employees or nav_perms.manage_users %}
+            <div class="dropdown">
+                <button type="button"
+                    class="nav-link dropdown-toggle {% if ep == 'admin_employees' or ep == 'admin_employee_detail' or ep == 'admin_users' or ep == 'admin_create_user' or ep == 'admin_edit_user' %}active{% endif %}"
+                    data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-people"></i> People</button>
+                <ul class="dropdown-menu nav-menu">
+                    <li class="dropdown-header">People</li>
+                    {% if nav_perms.view_employees %}<li><a
+                            class="dropdown-item {% if ep == 'admin_employees' or ep == 'admin_employee_detail' %}active{% endif %}"
+                            href="{% url 'admin_employees' %}"><i class="bi bi-person-lines-fill"></i> Employees</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_users %}<li><a
+                            class="dropdown-item {% if ep == 'admin_users' or ep == 'admin_create_user' or ep == 'admin_edit_user' %}active{% endif %}"
+                            href="{% url 'admin_users' %}"><i class="bi bi-person-gear"></i> Users &amp; Roles</a></li>
+                    {% endif %}
+                    {% if nav_perms.manage_offers or nav_perms.send_offer %}
+                    <li><a class="dropdown-item {% if ep == 'admin_offers' %}active{% endif %}"
+                            href="{% url 'admin_offers' %}"><i class="bi bi-send-check"></i> Offers</a></li>
+                    {% endif %}
+                    <li><a class="dropdown-item {% if ep == 'admin_buddy_program' %}active{% endif %}"
+                            href="{% url 'admin_buddy_program' %}"><i class="bi bi-person-badge"></i> Buddy Program</a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
 
-                {% if nav_perms.manage_forms or nav_perms.manage_documents or nav_perms.manage_medical_requirements or nav_perms.manage_training or nav_perms.manage_orientation or nav_perms.view_knowledge %}
-                {# Onboarding #}
-                <div class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle {% if 'form' in ep or ep == 'admin_onboarding_documents' or ep == 'admin_medical_requirements' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-mortarboard"></i> Onboarding</a>
-                    <ul class="dropdown-menu">
-                        {% if nav_perms.manage_forms %}
-                        <li><a class="dropdown-item {% if 'form' in ep %}active{% endif %}" href="{% url 'admin_forms' %}"><i class="bi bi-file-earmark-text"></i> Forms / Builder</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_documents %}
-                        <li><a class="dropdown-item {% if ep == 'admin_onboarding_documents' %}active{% endif %}" href="{% url 'admin_onboarding_documents' %}"><i class="bi bi-folder"></i> Documents</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_medical_requirements %}
-                        <li><a class="dropdown-item {% if ep == 'admin_medical_requirements' %}active{% endif %}" href="{% url 'admin_medical_requirements' %}"><i class="bi bi-clipboard-pulse"></i> Medical Requirements Setup</a></li>
-                        {% endif %}
-                        {% if nav_perms.medical_review and user.role in 'super_admin,admin' %}
-                        <li><a class="dropdown-item {% if ep == 'admin_medical_review' %}active{% endif %}" href="{% url 'admin_medical_review' %}"><i class="bi bi-heart-pulse"></i> Medical Review</a></li>
-                        {% endif %}
-                        <li><hr class="dropdown-divider"></li>
-                        {% if nav_perms.view_knowledge %}
-                        <li><a class="dropdown-item" href="{% url 'content_manage' 'knowledge' %}"><i class="bi bi-journal-bookmark"></i> Knowledge Hub</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_training %}
-                        <li><a class="dropdown-item" href="{% url 'content_manage' 'training' %}"><i class="bi bi-mortarboard"></i> Training</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_orientation %}
-                        <li><a class="dropdown-item" href="{% url 'content_manage' 'orientation' %}"><i class="bi bi-compass"></i> Orientation</a></li>
-                        {% endif %}
-                        {% if nav_perms.view_presentation %}
-                        <li><a class="dropdown-item" href="{% url 'content_manage' 'presentation' %}"><i class="bi bi-easel2"></i> Presentations</a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
+            {% if nav_perms.manage_forms or nav_perms.manage_documents or nav_perms.manage_medical_requirements or nav_perms.medical_review or nav_perms.approve_medical %}
+            <div class="dropdown">
+                <button type="button"
+                    class="nav-link dropdown-toggle {% if 'form' in ep or ep == 'admin_onboarding_documents' or ep == 'admin_medical_requirements' or ep == 'admin_medical_review' %}active{% endif %}"
+                    data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-person-workspace"></i>
+                    Onboarding</button>
+                <ul class="dropdown-menu nav-menu">
+                    <li class="dropdown-header">Onboarding operations</li>
+                    {% if nav_perms.manage_offers or nav_perms.send_offer %}<li><a
+                            class="dropdown-item {% if ep == 'admin_offers' %}active{% endif %}"
+                            href="{% url 'admin_offers' %}"><i class="bi bi-send-check"></i> 1. Offers</a></li>{% endif %}
+                    {% if nav_perms.medical_review or nav_perms.approve_medical %}<li><a
+                            class="dropdown-item {% if ep == 'admin_medical_review' %}active{% endif %}"
+                            href="{% url 'admin_medical_review' %}"><i class="bi bi-heart-pulse"></i> 2. Medical Review</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_medical_requirements %}<li><a
+                            class="dropdown-item {% if ep == 'admin_medical_requirements' %}active{% endif %}"
+                            href="{% url 'admin_medical_requirements' %}"><i class="bi bi-clipboard2-pulse"></i> Medical
+                            Requirements</a></li>{% endif %}
+                    {% if nav_perms.manage_forms %}<li><a class="dropdown-item {% if 'form' in ep %}active{% endif %}"
+                            href="{% url 'admin_forms' %}"><i class="bi bi-ui-checks-grid"></i> 3. Pre-Onboarding Forms</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_documents %}<li><a
+                            class="dropdown-item {% if ep == 'admin_onboarding_documents' %}active{% endif %}"
+                            href="{% url 'admin_onboarding_documents' %}"><i class="bi bi-folder2-open"></i>
+                            4. Onboarding Documents</a></li>{% endif %}
+                </ul>
+            </div>
+            {% endif %}
 
-                {% if stage_settings.learning_enabled and nav_perms.manage_training %}
-                {# Learning #}
-                <div class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle {% if ep == 'admin_learning_paths' or ep == 'admin_learning_path_edit' or ep == 'admin_training_assignments' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-signpost-split"></i> Learning</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item {% if ep == 'admin_learning_paths' or ep == 'admin_learning_path_edit' %}active{% endif %}" href="{% url 'admin_learning_paths' %}"><i class="bi bi-signpost-split"></i> Learning Paths</a></li>
-                        <li><a class="dropdown-item {% if ep == 'admin_training_assignments' %}active{% endif %}" href="{% url 'admin_training_assignments' %}"><i class="bi bi-link-45deg"></i> Assignments</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{% url 'content_manage' 'training' %}"><i class="bi bi-mortarboard"></i> Training Modules</a></li>
-                    </ul>
-                </div>
-                {% endif %}
+            {% if stage_settings.learning_enabled %}
+            {% if nav_perms.manage_training or nav_perms.assign_training or nav_perms.manage_onboarding_plans %}
+            <div class="dropdown">
+                <button type="button"
+                    class="nav-link dropdown-toggle {% if ep == 'admin_learning_paths' or ep == 'admin_learning_path_edit' or ep == 'admin_training_assignments' or ep == 'manage_onboarding_plans' or ep == 'employee_plan_detail' or ep == 'content_manage' %}active{% endif %}"
+                    data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-mortarboard"></i> Learning</button>
+                <ul class="dropdown-menu nav-menu">
+                    <li class="dropdown-header">Learning management</li>
+                    {% if nav_perms.manage_training %}<li><a
+                            class="dropdown-item {% if ep == 'admin_learning_paths' or ep == 'admin_learning_path_edit' %}active{% endif %}"
+                            href="{% url 'admin_learning_paths' %}"><i class="bi bi-signpost-split"></i> Learning
+                            Paths</a></li>
+                    <li><a class="dropdown-item" href="{% url 'content_manage' 'training' %}"><i
+                                class="bi bi-collection-play"></i> Training Library</a></li>{% endif %}
+                    {% if nav_perms.assign_training %}<li><a
+                            class="dropdown-item {% if ep == 'admin_training_assignments' %}active{% endif %}"
+                            href="{% url 'admin_training_assignments' %}"><i class="bi bi-person-plus"></i>
+                            Assignments</a></li>{% endif %}
+                    {% if nav_perms.manage_onboarding_plans %}<li><a
+                            class="dropdown-item {% if ep == 'manage_onboarding_plans' or ep == 'employee_plan_detail' %}active{% endif %}"
+                            href="{% url 'manage_onboarding_plans' %}"><i class="bi bi-signpost-2"></i> Success
+                            Plans</a></li>{% endif %}
+                </ul>
+            </div>
+            {% endif %}
+            {% endif %}
 
-                {% if nav_perms.manage_appearance or nav_perms.manage_organization or nav_perms.manage_landing_page or nav_perms.manage_automation_rules or role == "super_admin" or nav_perms.manage_email_templates %}
-                {# Setup #}
-                <div class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle {% if ep == 'admin_branding' or ep == 'admin_organization' or ep == 'admin_portal_cms' or ep == 'admin_roles' or ep == 'admin_email_settings' or ep == 'admin_email_templates' or ep == 'admin_automation' or ep == 'admin_stages_list' or ep == 'admin_templates_list' %}active{% endif %}" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i> Setup</a>
-                    <ul class="dropdown-menu">
-                        {% if nav_perms.manage_appearance %}
-                        <li><a class="dropdown-item {% if ep == 'admin_branding' %}active{% endif %}" href="{% url 'admin_branding' %}"><i class="bi bi-palette"></i> Branding &amp; Appearance</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_organization %}
-                        <li><a class="dropdown-item {% if ep == 'admin_organization' %}active{% endif %}" href="{% url 'admin_organization' %}"><i class="bi bi-sliders"></i> Organization Setup</a></li>
-                        {% endif %}
-                        {% if role == "super_admin" or role == "admin" %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item {% if ep == 'admin_stages_list' %}active{% endif %}" href="{% url 'admin_stages_list' %}"><i class="bi bi-diagram-2"></i> Workflow Stages</a></li>
-                        <li><a class="dropdown-item {% if ep == 'admin_templates_list' %}active{% endif %}" href="{% url 'admin_templates_list' %}"><i class="bi bi-layers"></i> Workflow Templates</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        {% if nav_perms.manage_landing_page %}
-                        <li><a class="dropdown-item {% if ep == 'admin_portal_cms' %}active{% endif %}" href="{% url 'admin_portal_cms' %}"><i class="bi bi-easel"></i> Landing Page</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_automation_rules %}
-                        <li><a class="dropdown-item {% if ep == 'admin_automation' %}active{% endif %}" href="{% url 'admin_automation' %}"><i class="bi bi-gear-wide-connected"></i> Automation &amp; Reminders</a></li>
-                        {% endif %}
-                        {% if role == "super_admin" %}
-                        <li><a class="dropdown-item {% if ep == 'admin_roles' %}active{% endif %}" href="{% url 'admin_roles' %}"><i class="bi bi-shield-lock"></i> Roles &amp; Permissions</a></li>
-                        <li><a class="dropdown-item {% if ep == 'admin_email_settings' %}active{% endif %}" href="{% url 'admin_email_settings' %}"><i class="bi bi-envelope"></i> Email / SMTP</a></li>
-                        <li><a class="dropdown-item {% if ep == 'admin_import_employees' %}active{% endif %}" href="{% url 'admin_import_employees' %}"><i class="bi bi-upload"></i> Import Employees</a></li>
-                        {% endif %}
-                        {% if nav_perms.manage_email_templates %}
-                        <li><a class="dropdown-item {% if ep == 'admin_email_templates' %}active{% endif %}" href="{% url 'admin_email_templates' %}"><i class="bi bi-envelope-paper"></i> Email Templates</a></li>
-                        {% endif %}
-                        {% if role == "super_admin" or role == "admin" %}
-                        <li><a class="dropdown-item {% if ep == 'zoom_settings' %}active{% endif %}" href="{% url 'zoom_settings' %}"><i class="bi bi-camera-video"></i> Zoom Integration</a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
+            {% if nav_perms.view_analytics or nav_perms.manage_live_sessions %}
+            <div class="dropdown">
+                <button type="button"
+                    class="nav-link dropdown-toggle {% if ep == 'admin_analytics' or ep == 'admin_analytics_training' or ep == 'admin_analytics_sessions' or ep == 'sessions_dashboard' or ep == 'session_detail' or ep == 'create_session' %}active{% endif %}"
+                    data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-activity"></i> Insights</button>
+                <ul class="dropdown-menu nav-menu">
+                    <li class="dropdown-header">Measure &amp; engage</li>
+                    {% if nav_perms.view_analytics %}<li><a
+                            class="dropdown-item {% if ep == 'admin_analytics' %}active{% endif %}"
+                            href="{% url 'admin_analytics' %}"><i class="bi bi-graph-up-arrow"></i> Analytics</a></li>{% endif %}
+                    {% if nav_perms.manage_live_sessions %}<li><a
+                            class="dropdown-item {% if ep == 'sessions_dashboard' or ep == 'session_detail' or ep == 'create_session' %}active{% endif %}"
+                            href="{% url 'sessions_dashboard' %}"><i class="bi bi-camera-video"></i> Live Sessions</a>
+                    </li>{% endif %}
+                </ul>
+            </div>
+            {% endif %}
 
-                {% if user.role in 'super_admin,admin,hrbp,manager' %}
-                <a href="{% url 'sessions_dashboard' %}" class="nav-link {% if ep == 'sessions_dashboard' or ep == 'session_detail' or ep == 'create_session' %}active{% endif %}"><i class="bi bi-camera-video"></i> Live Sessions</a>
-                {% endif %}
+            {% if nav_perms.manage_appearance or nav_perms.manage_organization or nav_perms.manage_landing_page or nav_perms.manage_automation_rules or role == "super_admin" or nav_perms.manage_email_templates %}
+            {# Setup #}
+            <div class="dropdown">
+                <button type="button"
+                    class="nav-link dropdown-toggle {% if ep == 'admin_branding' or ep == 'admin_organization' or ep == 'admin_portal_cms' or ep == 'admin_roles' or ep == 'admin_email_settings' or ep == 'admin_email_templates' or ep == 'admin_automation' or ep == 'admin_stages_list' or ep == 'admin_templates_list' or ep == 'admin_portal_reset' %}active{% endif %}"
+                    data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i> Setup</button>
+                <ul class="dropdown-menu nav-menu">
+                    <li class="dropdown-header">Configuration</li>
+                    {% if nav_perms.manage_organization %}<li><a
+                            class="dropdown-item {% if ep == 'admin_organization' %}active{% endif %}"
+                            href="{% url 'admin_organization' %}"><i class="bi bi-building-gear"></i> Organization</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_stages %}<li><a
+                            class="dropdown-item {% if ep == 'admin_stages_list' %}active{% endif %}"
+                            href="{% url 'admin_stages_list' %}"><i class="bi bi-diagram-2"></i> Workflow Stages</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_stage_templates %}<li><a
+                            class="dropdown-item {% if ep == 'admin_templates_list' %}active{% endif %}"
+                            href="{% url 'admin_templates_list' %}"><i class="bi bi-layers"></i> Workflow Templates</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_automation_rules %}<li><a
+                            class="dropdown-item {% if ep == 'admin_automation' %}active{% endif %}"
+                            href="{% url 'admin_automation' %}"><i class="bi bi-lightning-charge"></i> Automation</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_landing_page %}<li><a
+                            class="dropdown-item {% if ep == 'admin_portal_cms' %}active{% endif %}"
+                            href="{% url 'admin_portal_cms' %}"><i class="bi bi-window-stack"></i> Portal Content</a>
+                    </li>{% endif %}
+                    {% if nav_perms.manage_appearance %}<li><a
+                            class="dropdown-item {% if ep == 'admin_branding' %}active{% endif %}"
+                            href="{% url 'admin_branding' %}"><i class="bi bi-palette"></i> Appearance</a></li>{% endif %}
+                    {% if role == "super_admin" %}
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li class="dropdown-header">System</li>
+                    <li><a class="dropdown-item {% if ep == 'admin_roles' %}active{% endif %}"
+                            href="{% url 'admin_roles' %}"><i class="bi bi-shield-lock"></i> Roles &amp; Permissions</a>
+                    </li>
+                    <li><a class="dropdown-item {% if ep == 'admin_email_settings' %}active{% endif %}"
+                            href="{% url 'admin_email_settings' %}"><i class="bi bi-envelope"></i> Email / SMTP</a></li>
+                    <li><a class="dropdown-item text-danger {% if ep == 'admin_portal_reset' %}active{% endif %}"
+                            href="{% url 'admin_portal_reset' %}"><i class="bi bi-exclamation-triangle-fill"></i> Reset
+                            Portal Data</a></li>
+                    <li><a class="dropdown-item {% if ep == 'admin_import_employees' %}active{% endif %}"
+                            href="{% url 'admin_import_employees' %}"><i class="bi bi-upload"></i> Import Employees</a>
+                    </li>
+                    {% endif %}
+                    {% if nav_perms.manage_email_templates %}<li><a
+                            class="dropdown-item {% if ep == 'admin_email_templates' %}active{% endif %}"
+                            href="{% url 'admin_email_templates' %}"><i class="bi bi-envelope-paper"></i> Email
+                            Templates</a></li>{% endif %}
+                    {% if nav_perms.manage_live_sessions %}<li><a
+                            class="dropdown-item {% if ep == 'zoom_settings' %}active{% endif %}"
+                            href="{% url 'zoom_settings' %}"><i class="bi bi-camera-video"></i> Zoom Integration</a>
+                    </li>{% endif %}
+                </ul>
+            </div>
+            {% endif %}
 
             {% endif %}
         </div>
@@ -1702,18 +1946,26 @@
                 <div class="mobile-shell-title">{{ site_settings.site_title|default:"OnboardHub" }}</div>
             </div>
             <div class="mobile-quick-tabs">
-                <a href="{% url 'portal' %}" class="quick-tab {% if ep == 'portal' %}active{% endif %}"><i class="bi bi-house"></i><span>Home</span></a>
-                <a href="{% url 'notifications_list' %}" class="quick-tab {% if ep == 'notifications_list' %}active{% endif %}"><i class="bi bi-bell"></i><span>Alerts</span></a>
-                <a href="{% url 'messages_list' %}" class="quick-tab {% if ep == 'messages_list' %}active{% endif %}"><i class="bi bi-chat-dots"></i><span>Chat</span></a>
-                <a href="{% url 'profile' %}" class="quick-tab {% if ep == 'profile' %}active{% endif %}"><i class="bi bi-person"></i><span>Profile</span></a>
+                <a href="{% url 'portal' %}" class="quick-tab {% if ep == 'portal' %}active{% endif %}"><i
+                        class="bi bi-house"></i><span>Home</span></a>
+                <a href="{% url 'notifications_list' %}"
+                    class="quick-tab {% if ep == 'notifications_list' %}active{% endif %}"><i
+                        class="bi bi-bell"></i><span>Alerts</span></a>
+                <a href="{% url 'messages_list' %}" class="quick-tab {% if ep == 'messages_list' %}active{% endif %}"><i
+                        class="bi bi-chat-dots"></i><span>Chat</span></a>
+                <a href="{% url 'profile' %}" class="quick-tab {% if ep == 'profile' %}active{% endif %}"><i
+                        class="bi bi-person"></i><span>Profile</span></a>
             </div>
         </div>
 
         {% if messages %}
         {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show animate-fadeIn js-flash-alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert alert-dismissible fade show animate-fadeIn js-flash-alert portal-themed-alert d-flex align-items-center justify-content-between" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill alert-icon"></i>
+                <span class="alert-content text-dark">{{ message }}</span>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         {% endfor %}
         {% endif %}
@@ -1748,8 +2000,10 @@
                     <p id="globalConfirmMessage" class="mb-0 text-secondary fs-5 text-center"></p>
                 </div>
                 <div class="modal-footer border-top-0 pt-0 justify-content-center gap-2">
-                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary rounded-pill px-4" id="globalConfirmBtn">Confirm</button>
+                    <button type="button" class="btn btn-light rounded-pill px-4"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4"
+                        id="globalConfirmBtn">Confirm</button>
                 </div>
             </div>
         </div>
@@ -1891,15 +2145,15 @@
             if (!badge) return;
             function refresh() {
                 fetch("{% url 'get_unread_count' %}")
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
                         if (data.unread_count > 0) {
                             badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
                             badge.style.display = '';
                         } else {
                             badge.style.display = 'none';
                         }
-                    }).catch(function() {});
+                    }).catch(function () { });
             }
             refresh();
             setInterval(refresh, 15000);  // poll every 15s
@@ -1926,13 +2180,13 @@
         })();
 
         // Global breadcrumb navigation: back arrows use browser history
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('a').forEach(function(link) {
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('a').forEach(function (link) {
                 // Find back/arrow-left buttons
                 if ((link.classList.contains('btn') || link.classList.contains('btn-sm')) &&
                     link.classList.contains('btn-outline-secondary') &&
                     link.innerHTML.includes('arrow-left')) {
-                    link.addEventListener('click', function(e) {
+                    link.addEventListener('click', function (e) {
                         e.preventDefault();
                         // Use browser history if available (came from within this site)
                         if (document.referrer && document.referrer.includes(window.location.hostname)) {
@@ -1948,4 +2202,5 @@
     </script>
     {% block extra_scripts %}{% endblock %}
 </body>
+
 </html>

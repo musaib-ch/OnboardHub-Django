@@ -86,8 +86,7 @@ def sessions_dashboard(request):
 @login_required
 def create_session(request):
     """Create a new live session."""
-    # Permission check
-    if request.user.role == 'employee' and not request.user.has_perm_key('create_live_sessions'):
+    if not request.user.has_perm_key('create_live_sessions'):
         return render(request, '403.html', status=403)
 
     if request.method == 'POST':
@@ -122,7 +121,7 @@ def create_session(request):
             )
 
             # Send invitation emails to session attendees if approved
-            if request.user.role != 'employee':
+            if not request.user.role == 'employee':
                 # Get attendees from session
                 attendees = session_service.get_session_attendees(session)
                 attendee_users = [User.objects.get(id=a['user_id']) for a in attendees if a.get('user_id')]
@@ -156,10 +155,8 @@ def session_detail(request, session_id):
     session = get_object_or_404(Content, id=session_id, kind='live_session')
     session_data = session.meta
 
-    # Get attendees
     attendees = session_service.get_session_attendees(session)
 
-    # Get my status
     my_registration = None
     for att in attendees:
         if att.get('user_id') == request.user.id:
@@ -167,7 +164,23 @@ def session_detail(request, session_id):
             break
 
     is_creator = session.created_by_id == request.user.id
-    is_organizer = request.user.role in ['manager', 'hrbp']
+    is_organizer = request.user.has_perm_key('manage_live_sessions')
+    can_manage = is_organizer or is_creator
+
+    # Attendance stats
+    attended_count = sum(1 for a in attendees if a.get('status') == 'attended')
+    total = len(attendees)
+    attendance_rate = round(attended_count / total * 100) if total > 0 else 0
+
+    # Feedback
+    feedback_list = session_service.get_session_feedback(session)
+    all_ratings = [f['rating'] for f in feedback_list if f.get('rating')]
+    avg_rating = round(sum(all_ratings) / len(all_ratings), 1) if all_ratings else None
+
+    # Did current user already submit feedback?
+    my_feedback = next(
+        (f for f in feedback_list if f['user'].id == request.user.id), None
+    )
 
     ctx = {
         'session': session,
@@ -176,7 +189,12 @@ def session_detail(request, session_id):
         'my_registration': my_registration,
         'is_creator': is_creator,
         'is_organizer': is_organizer,
-        'can_manage': is_organizer or is_creator,
+        'can_manage': can_manage,
+        'attended_count': attended_count,
+        'attendance_rate': attendance_rate,
+        'feedback_list': feedback_list,
+        'avg_rating': avg_rating,
+        'my_feedback': my_feedback,
     }
 
     return render(request, 'sessions/session_detail.html', ctx)
@@ -236,4 +254,57 @@ def approve_session(request, session_id):
     session_service.approve_session(session, request.user)
 
     messages.success(request, 'Session approved!')
+    return redirect('session_detail', session_id=session.id)
+
+
+@login_required
+@require_http_methods(['POST'])
+@permission_required('manage_live_sessions')
+def mark_attendance(request, session_id):
+    """Admin/HRBP marks selected attendees as attended."""
+    session = get_object_or_404(Content, id=session_id, kind='live_session')
+    attendee_ids = request.POST.getlist('attendee_ids')
+
+    if not attendee_ids:
+        messages.warning(request, 'No attendees selected.')
+        return redirect('session_detail', session_id=session.id)
+
+    marked = session_service.mark_attendance_bulk(session, attendee_ids, request.user)
+    messages.success(request, f'{len(marked)} attendee(s) marked as attended.')
+    return redirect('session_detail', session_id=session.id)
+
+
+@login_required
+@require_http_methods(['POST'])
+def session_feedback(request, session_id):
+    """Employee submits star rating + comment after attending session."""
+    session = get_object_or_404(Content, id=session_id, kind='live_session')
+
+    # Must have attended
+    engagement = Engagement.objects.filter(kind='session', user=request.user, content=session).first()
+    if not engagement:
+        messages.error(request, 'You are not registered for this session.')
+        return redirect('session_detail', session_id=session.id)
+
+    attended = any(
+        att.get('status') == 'attended' and att.get('user_id') == request.user.id
+        for att in engagement.data.get('attendees', [])
+    )
+    if not attended:
+        messages.error(request, 'Feedback is only available after you have attended.')
+        return redirect('session_detail', session_id=session.id)
+
+    rating = request.POST.get('rating', 0)
+    comment = request.POST.get('comment', '').strip()
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            raise ValueError()
+    except (ValueError, TypeError):
+        messages.error(request, 'Please select a rating from 1 to 5.')
+        return redirect('session_detail', session_id=session.id)
+
+    session_service.add_session_feedback(session, request.user, rating, comment)
+    messages.success(request, 'Thank you for your feedback!')
     return redirect('session_detail', session_id=session.id)

@@ -202,6 +202,112 @@ def get_session_attendees(session):
     return attendees
 
 
+def mark_attendance_bulk(session, attendee_ids, marked_by):
+    """
+    Mark multiple attendees as attended.
+    Returns list of user IDs successfully marked.
+    """
+    now = timezone.now()
+    marked = []
+    for uid in attendee_ids:
+        try:
+            attendee = User.objects.get(id=uid)
+            engagement = Engagement.objects.get(kind='session', user=attendee, content=session)
+            attendees = engagement.data.get('attendees', [])
+            for att in attendees:
+                if att.get('user_id') == int(uid):
+                    att['status'] = 'attended'
+                    att['joined_at'] = now.isoformat()
+                    att['marked_by'] = marked_by.id
+                    att['marked_at'] = now.isoformat()
+            engagement.data['attendees'] = attendees
+            engagement.save()
+            marked.append(int(uid))
+        except (User.DoesNotExist, Engagement.DoesNotExist):
+            continue
+
+    # Mark session as completed if all approved attendees are now marked attended
+    _maybe_complete_session(session)
+    return marked
+
+
+def add_session_feedback(session, user, rating, comment):
+    """
+    Add star rating + comment feedback from an attendee after session.
+    Stored in Engagement.data['feedback'].
+    """
+    try:
+        engagement = Engagement.objects.get(kind='session', user=user, content=session)
+    except Engagement.DoesNotExist:
+        return False
+
+    engagement.data['feedback'] = {
+        'rating': int(rating),
+        'comment': comment.strip(),
+        'submitted_at': timezone.now().isoformat(),
+    }
+    engagement.save()
+    return True
+
+
+def get_session_feedback(session):
+    """Return list of feedback entries for a session with user info."""
+    engagements = Engagement.objects.filter(kind='session', content=session).select_related('user')
+    result = []
+    for eng in engagements:
+        fb = eng.data.get('feedback')
+        if fb:
+            result.append({
+                'user': eng.user,
+                'rating': fb.get('rating', 0),
+                'comment': fb.get('comment', ''),
+                'submitted_at': fb.get('submitted_at', ''),
+            })
+    return result
+
+
+def get_session_stats():
+    """Aggregate session stats for analytics dashboard."""
+    from django.db.models import Count
+    sessions = Content.objects.filter(kind='live_session')
+    total = sessions.count()
+
+    by_type = {}
+    for s in sessions:
+        t = s.meta.get('session_type', 'unknown')
+        by_type[t] = by_type.get(t, {'count': 0, 'attended': 0})
+        by_type[t]['count'] += 1
+
+    # Count attended per type
+    engagements = Engagement.objects.filter(kind='session').select_related('content')
+    for eng in engagements:
+        t = eng.content.meta.get('session_type', 'unknown') if eng.content else 'unknown'
+        for att in eng.data.get('attendees', []):
+            if att.get('status') == 'attended':
+                if t not in by_type:
+                    by_type[t] = {'count': 0, 'attended': 0}
+                by_type[t]['attended'] += 1
+
+    return {
+        'total': total,
+        'by_type': by_type,
+    }
+
+
+def _maybe_complete_session(session):
+    """Mark session status as 'completed' if all registered attendees attended."""
+    attendances = Engagement.objects.filter(kind='session', content=session)
+    all_statuses = []
+    for eng in attendances:
+        for att in eng.data.get('attendees', []):
+            if att.get('status') in ['approved', 'attended']:
+                all_statuses.append(att.get('status'))
+
+    if all_statuses and all(s == 'attended' for s in all_statuses):
+        session.meta['status'] = 'completed'
+        session.save()
+
+
 def get_user_session_registrations(user):
     """Get sessions user is registered for."""
     engagements = Engagement.objects.filter(kind='session', user=user).select_related('content')

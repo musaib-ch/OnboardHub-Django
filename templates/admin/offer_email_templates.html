@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}Offer Email Templates | OnboardHub{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/static/js/offer_tinymce_init.js"></script>
+<style>
+  .var-chip {
+    display: inline-block;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 4px;
+    margin-bottom: 6px;
+    transition: all 0.15s ease-in-out;
+  }
+  .var-chip:hover {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+    transform: translateY(-1px);
+  }
+  .email-preview-box {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .email-preview-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 20px;
+  }
+  .email-preview-body {
+    padding: 24px 20px;
+    min-height: 250px;
+    color: #334155;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="h3 fw-bold mb-1"><i class="bi bi-envelope-paper text-primary me-2"></i>Offer Email Templates</h2>
+      <p class="text-muted mb-0">Customize subject lines and email body content sent to candidates when offer letters are dispatched.</p>
+    </div>
+    <div>
+      <a href="{% url 'admin_offers' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back to Offers
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Email Template Creator / Editor Form -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="card-title fw-bold mb-0" id="formCardTitle"><i class="bi bi-plus-circle me-2 text-primary"></i>Create New Email Template</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="cancelEditBtn" onclick="resetForm()">Cancel Edit</button>
+        </div>
+        <div class="card-body p-4">
+          <form method="post" id="emailTemplateForm" onsubmit="if(window.tinymce){ tinymce.triggerSave(); }">
+            {% csrf_token %}
+            <input type="hidden" name="email_template_id" id="email_template_id" value="">
+            
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Template Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" id="id_name" class="form-control form-control-lg" placeholder="e.g. Executive Offer Notification Email" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Subject Template <span class="text-danger">*</span></label>
+              <input type="text" name="subject_template" id="id_subject_template" class="form-control" placeholder="e.g. Congratulations {{candidate_name}}! Employment Offer for {{position_title}}" required>
+            </div>
+
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Variable Placeholders (Click to insert)</label>
+              </div>
+              <div class="p-3 bg-light rounded-3 border">
+                <small class="text-muted d-block mb-2 fw-semibold text-uppercase" style="font-size:0.7rem; letter-spacing:0.5px;">Candidate & Role</small>
+                <div>
+                  <span class="var-chip" onclick="window.insertOfferVariable('candidate_name', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>candidate_name</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('position_title', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>position_title</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('salary', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>salary</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('currency', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>currency</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('start_date', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>start_date</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('expiry_date', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>expiry_date</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('company_name', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>company_name</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('offer_link', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>offer_link</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label fw-semibold">Email HTML Body Content</label>
+              <textarea name="html_body_template" id="id_html_body_template" class="form-control rich-editor" rows="10"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+              <button type="button" class="btn btn-outline-info" onclick="openLivePreviewFromEditor()">
+                <i class="bi bi-eye me-1"></i> Live Email Preview
+              </button>
+              <button type="submit" class="btn btn-primary px-4 fw-semibold" id="submitBtn">
+                <i class="bi bi-check-circle me-1"></i> Save Email Template
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Existing Email Templates List -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="card-title fw-bold mb-0"><i class="bi bi-collection me-2 text-indigo"></i>Saved Email Templates ({{ templates|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+          {% if templates %}
+          <div class="list-group list-group-flush">
+            {% for t in templates %}
+            <div class="list-group-item p-3 d-flex justify-content-between align-items-start hover-shadow">
+              <div class="me-3">
+                <h6 class="fw-bold mb-1">{{ t.name }}</h6>
+                <p class="text-muted small mb-1"><strong>Subject:</strong> {{ t.subject_template }}</p>
+                <small class="text-muted" style="font-size: 0.75rem;">Created {{ t.created_at|date:"M d, Y" }}</small>
+              </div>
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" onclick="previewSavedEmailTemplate({{ t.id }}, '{{ t.name|escapejs }}')" title="Preview">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="editEmailTemplate({{ t.id }}, '{{ t.name|escapejs }}', '{{ t.subject_template|escapejs }}')" title="Edit">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <a href="{% url 'admin_offer_email_template_delete' t.id %}" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete email template {{ t.name|escapejs }}?')" title="Delete">
+                  <i class="bi bi-trash"></i>
+                </a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-envelope-x fs-1 text-secondary mb-2 d-block"></i>
+            <p class="mb-0">No email templates saved yet. Create your first email template on the left.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Email Live Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="previewModalTitle"><i class="bi bi-envelope me-2"></i>Email Template Preview</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light p-4">
+        <div class="email-preview-box">
+          <div class="email-preview-header">
+            <div class="mb-1 text-muted small"><strong>From:</strong> OnboardHub Notifications &lt;no-reply@onboardhub.com&gt;</div>
+            <div class="mb-1 text-muted small"><strong>To:</strong> Jane Doe &lt;jane.doe@example.com&gt;</div>
+            <div class="fw-bold text-dark" id="previewSubjectDisplay">Subject: ...</div>
+          </div>
+          <div class="email-preview-body" id="previewBodyDisplay">
+            <!-- Rendered Email Body -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-white">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close Preview</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var sampleData = {
+    candidate_name: 'Jane Doe',
+    position_title: 'Senior Software Engineer',
+    salary: '$125,000 per annum',
+    currency: 'USD',
+    start_date: 'September 1, 2026',
+    expiry_date: 'August 20, 2026',
+    company_name: 'Acme Technologies Inc.',
+    offer_link: '<a href="#" class="btn btn-primary btn-sm my-2">View & Accept Your Offer</a>'
+  };
+
+  function substituteVariables(text) {
+    var output = text || '';
+    Object.keys(sampleData).forEach(function(key) {
+      var regex = new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'g');
+      output = output.replace(regex, sampleData[key]);
+    });
+    return output;
+  }
+
+  function openLivePreviewFromEditor() {
+    var subject = document.getElementById('id_subject_template').value;
+    var rawBody = '';
+    if (window.tinymce && tinymce.get('id_html_body_template')) {
+      rawBody = tinymce.get('id_html_body_template').getContent();
+    } else {
+      rawBody = document.getElementById('id_html_body_template').value;
+    }
+    
+    document.getElementById('previewSubjectDisplay').innerText = 'Subject: ' + substituteVariables(subject);
+    document.getElementById('previewBodyDisplay').innerHTML = substituteVariables(rawBody) || '<p class="text-muted">No email body to preview.</p>';
+    
+    var modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+  }
+
+  function previewSavedEmailTemplate(id, name) {
+    fetch('/api/offers/email-templates/' + id + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var tpl = data.email_template || {};
+        document.getElementById('previewSubjectDisplay').innerText = 'Subject: ' + substituteVariables(tpl.subject_template || '');
+        document.getElementById('previewBodyDisplay').innerHTML = substituteVariables(tpl.html_body_template || '') || '<p class="text-muted">Body empty.</p>';
+        var modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        modal.show();
+      })
+      .catch(function(err) {
+        alert('Failed to load email template preview.');
+      });
+  }
+
+  function editEmailTemplate(id, name, subject) {
+    document.getElementById('email_template_id').value = id;
+    document.getElementById('id_name').value = name;
+    document.getElementById('id_subject_template').value = subject;
+    document.getElementById('formCardTitle').innerHTML = '<i class="bi bi-pencil-square me-2 text-primary"></i>Edit Email Template';
+    document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-circle me-1"></i> Update Email Template';
+    document.getElementById('cancelEditBtn').classList.remove('d-none');
+
+    fetch('/api/offers/email-templates/' + id + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var content = (data.email_template && data.email_template.html_body_template) || '';
+        if (window.tinymce && tinymce.get('id_html_body_template')) {
+          tinymce.get('id_html_body_template').setContent(content);
+        } else {
+          document.getElementById('id_html_body_template').value = content;
+        }
+      });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    document.getElementById('email_template_id').value = '';
+    document.getElementById('emailTemplateForm').reset();
+    if (window.tinymce && tinymce.get('id_html_body_template')) {
+      tinymce.get('id_html_body_template').setContent('');
+    }
+    document.getElementById('formCardTitle').innerHTML = '<i class="bi bi-plus-circle me-2 text-primary"></i>Create New Email Template';
+    document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-circle me-1"></i> Save Email Template';
+    document.getElementById('cancelEditBtn').classList.add('d-none');
+  }
+</script>
+{% endblock %}

@@ -1,14 +1,29 @@
 {% extends "base.html" %}
 {% load onboard_extras %}
 {% block title %}{{ emp.full_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .employee-page-header { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+    .employee-page-header h4 { font-weight:700; letter-spacing:-.02em; }
+    .employee-overview { overflow:hidden; border:1px solid rgba(var(--primary-rgb),.13); background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(var(--primary-rgb),.045)); }
+    .employee-identity { height:100%; min-height:285px; display:flex; flex-direction:column; padding:26px; border-radius:14px; color:var(--text-primary); background:linear-gradient(145deg,rgba(255,255,255,.9),rgba(var(--primary-rgb),.09)); border:1px solid rgba(var(--primary-rgb),.14); }
+    .employee-initials { width:72px; height:72px; display:grid; place-items:center; margin-bottom:16px; border-radius:22px; background:var(--primary); box-shadow:0 10px 22px rgba(var(--primary-rgb),.22); color:#fff; font-size:1.65rem; font-weight:700; text-transform:uppercase; }
+    .employee-photo { width:72px; height:72px; display:block; margin-bottom:16px; border:2px solid rgba(var(--primary-rgb),.22); border-radius:22px; background:#fff; box-shadow:0 10px 22px rgba(var(--primary-rgb),.16); object-fit:cover; }
+    .employee-identity .btn { margin-top:auto; border-color:rgba(var(--primary-rgb),.34); color:var(--primary); background:rgba(255,255,255,.62); }.employee-identity .btn:hover { background:var(--primary); color:#fff; }
+    .profile-fact { min-height:92px; padding:17px; border:1px solid rgba(var(--primary-rgb),.09); border-radius:14px; background:rgba(255,255,255,.72); }.profile-fact .label { display:block; margin-bottom:7px; font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--text-secondary); text-transform:uppercase; }.profile-fact .value { font-weight:650; color:var(--text-primary); overflow-wrap:anywhere; }
+    .stage-summary { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:20px 24px; border:1px solid rgba(var(--primary-rgb),.12); background:rgba(255,255,255,.82); }
+</style>
+{% endblock %}
 {% block content %}
-<div class="d-flex align-items-center mb-3">
+<div class="employee-page-header">
     <a href="{% url 'admin_employees' %}" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
-    <h4 class="mb-0">{{ emp.full_name }}</h4>
-    <span class="badge badge-status-{{ emp.status }} ms-3">{{ emp.status|humanize_status }}</span>
-    <div class="ms-auto d-flex gap-2">
+    <div><h4 class="mb-1">{{ emp.full_name }}</h4><span class="badge badge-status-{{ emp.status }}">{{ emp.status|humanize_status }}</span></div>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
         {% if can_export %}
-        <a href="{% url 'admin_export_employee_detail' emp.id }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Export</a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#exportEmployeeModal"><i class="bi bi-download me-1"></i>Export</button>
+        {% endif %}
+        {% if can_manage_users and emp.status != 'deleted' %}
+        <form method="post" action="{% url 'admin_reset_user_password' emp.id %}" onsubmit="return confirm('Generate a new temporary password for this user?');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-key me-1"></i>Reset password</button></form>
         {% endif %}
         {% if emp.status != 'deleted' %}
         <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -17,6 +32,30 @@
         {% endif %}
     </div>
 </div>
+
+{% if can_export %}
+<div class="modal fade" id="exportEmployeeModal" tabindex="-1" aria-labelledby="exportEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'admin_export_employee_package' emp.id %}" class="modal-content border-0 shadow-lg" style="border-radius:var(--radius-lg);overflow:hidden;">
+            {% csrf_token %}
+            <div class="modal-header border-0" style="background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;">
+                <div><h5 class="modal-title mb-1" id="exportEmployeeModalLabel"><i class="bi bi-file-earmark-zip me-2"></i>Export onboarding records</h5><p class="small mb-0 opacity-75">Choose what to include for {{ emp.full_name }}.</p></div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">The download is a ZIP with one folder per selected stage. Forms are exported as Excel files; uploaded documents retain their original filenames.</p>
+                <div class="vstack gap-2">
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="medical" checked><span><strong><i class="bi bi-heart-pulse me-1 text-danger"></i>Medical</strong><small class="d-block text-muted">Medical report, test name, review status and notes.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="pre_onboarding" checked><span><strong><i class="bi bi-clipboard-check me-1 text-primary"></i>Pre-Onboarding</strong><small class="d-block text-muted">Submitted forms and their file uploads.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="onboarding" checked><span><strong><i class="bi bi-folder-check me-1 text-success"></i>Onboarding</strong><small class="d-block text-muted">Signed documents, forms and uploaded files.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="post_onboarding" checked><span><strong><i class="bi bi-flag me-1 text-warning"></i>Post-Onboarding</strong><small class="d-block text-muted">Post-onboarding forms, documents and files.</small></span></label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-download me-1"></i>Download ZIP</button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 {% if awaiting_review and can_review %}
 <div class="glass-card p-4 mb-4" style="border-left:4px solid var(--warning);">
@@ -37,35 +76,39 @@
 {% endif %}
 
 <!-- EMPLOYEE DETAILS - TOP FULL WIDTH -->
-<div class="glass-card p-4 mb-4">
+<div class="glass-card employee-overview p-3 mb-4">
     <div class="row g-4">
         <div class="col-lg-3">
-            <div class="text-center">
-                <div class="user-avatar mx-auto mb-2" style="width:80px;height:80px;font-size:1.8rem;">{{ emp.full_name|first }}{{ emp.full_name|last }}</div>
+            <div class="employee-identity">
+                {% if emp.avatar %}
+                <img src="/media/avatars/{{ emp.avatar }}" class="employee-photo" alt="{{ emp.full_name }} profile photo">
+                {% else %}
+                <div class="employee-initials">{{ emp.full_name|first }}{{ emp.full_name|last }}</div>
+                {% endif %}
                 <h5 class="mb-1">{{ emp.full_name }}</h5>
-                <div class="text-muted small mb-3">{{ emp.position_title }}</div>
-                {% if user.role == 'super_admin' or user.role == 'admin' %}
-                <a href="{% url 'admin_edit_user' emp.id %}?next={% url 'admin_employee_detail' emp.id %}" class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-pencil me-1"></i>Edit</a>
+                <div class="small text-muted">{{ emp.position_title|default:"Employee" }}</div>
+                {% if can_manage_users %}
+                <a href="{% url 'admin_edit_user' emp.id %}?next={% url 'admin_employee_detail' emp.id %}" class="btn btn-sm btn-outline-light w-100"><i class="bi bi-pencil me-1"></i>Edit profile</a>
                 {% endif %}
             </div>
         </div>
         <div class="col-lg-9">
             <div class="row g-3">
-                <div class="col-md-6"><div><span class="text-muted small">Email</span></div><div class="fw-medium">{{ emp.email }}</div></div>
-                <div class="col-md-6"><div><span class="text-muted small">Employee ID</span></div><div class="fw-medium">{{ emp.employee_id }}</div></div>
-                <div class="col-md-6"><div><span class="text-muted small">Department</span></div><div class="fw-medium">{{ emp.department.name }}</div></div>
-                <div class="col-md-6"><div><span class="text-muted small">Type</span></div><div class="fw-medium">{{ emp.employee_type }}</div></div>
-                <div class="col-md-6"><div><span class="text-muted small">Date of Joining</span></div><div class="fw-medium">{{ emp.date_of_joining|date:'d M Y' }}</div></div>
-                <div class="col-md-6"><div><span class="text-muted small">Progress</span></div><div class="fw-medium">{{ pct }}%</div><div class="progress mt-1" style="height:6px;"><div class="progress-bar" style="width:{{ pct }}%"></div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Email</span><div class="value">{{ emp.email }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Employee ID</span><div class="value">{{ emp.employee_id|default:"Not assigned" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Department</span><div class="value">{{ emp.department.name|default:"Not assigned" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Employment type</span><div class="value">{{ emp.employee_type|default:"Not specified" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Date of joining</span><div class="value">{{ emp.date_of_joining|date:'d M Y'|default:"Not set" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label">Onboarding progress</span><div class="value">{{ pct }}%</div><div class="progress mt-2" style="height:7px;"><div class="progress-bar" style="width:{{ pct }}%"></div></div></div></div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- PHASE 1: PROGRESS VISUALIZATION -->
-<div class="glass-card mb-4 p-4">
-    <h6 class="mb-3">Current Stage: <strong>{{ stage_progress.stage_name }}</strong></h6>
-    {% include "components/status_badge.html" with status=stage_progress.status %}
+<div class="glass-card stage-summary mb-4">
+    <div><div class="small text-muted text-uppercase fw-semibold mb-1">Current stage</div><h6 class="mb-0">{{ stage_progress.stage_name }}</h6></div>
+    <div>{% include "components/status_badge.html" with status=stage_progress.status %}</div>
     {% if stage_progress.due_date %}
     <div class="row g-3 text-sm mt-3">
         <div class="col-md-6">
@@ -191,26 +234,34 @@
 {% endif %}
 
 <!-- CONVERSATIONS & ACTIONS SECTION -->
-{% if is_onboarding_active %}
+{% if emp.status != 'deleted' %}
 <div class="glass-card p-4 mb-4" style="background:rgba(59,130,246,0.05);border-left:3px solid #3b82f6;">
     <div class="collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#ed_convo" aria-expanded="false">
         <h6 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Stage Conversation</h6>
-        <i class="bi bi-chevron-down collapse-chevron"></i>
+        <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
+            <a href="{% url 'chat_with_user' emp.id %}" class="btn btn-xs btn-outline-primary" style="font-size:0.75rem; padding: 0.15rem 0.4rem;">
+                <i class="bi bi-chat-fill me-1"></i>Open Direct Chat
+            </a>
+            <i class="bi bi-chevron-down collapse-chevron"></i>
+        </div>
     </div>
     <div class="collapse" id="ed_convo" data-persist><div class="mt-3">
     {% include "components/conversation_thread.html" %}
     <form method="POST" action="{% url 'admin_message_employee' emp.id %}" class="mt-3">{% csrf_token %}
         {% if msg_templates %}
-        <div class="d-flex align-items-center gap-2 mb-2">
-            <label class="small text-muted mb-0"><i class="bi bi-envelope-paper me-1"></i>Template:</label>
-            <select class="form-select form-select-sm" id="msgTemplatePicker" style="max-width:250px">
-                <option value="">— none —</option>
-                {% for t in msg_templates %}<option value="{{ t.key }}">{{ t.label }}</option>{% endfor %}
-            </select>
+        <div class="mb-2">
+            <label class="small text-muted d-block mb-1"><i class="bi bi-envelope-paper me-1"></i>Insert Template:</label>
+            <div class="d-flex flex-wrap gap-2">
+                {% for t in msg_templates %}
+                <button type="button" class="btn btn-xs btn-outline-secondary js-quick-template" data-key="{{ t.key }}" style="font-size:0.75rem; padding: 0.15rem 0.4rem;">
+                    {{ t.label }}
+                </button>
+                {% endfor %}
+            </div>
         </div>
         {{ msg_templates|json_script:"msgTemplates" }}
         {% endif %}
-        <div class="input-group input-group-sm">
+        <div class="input-group input-group-sm mt-2">
             <textarea name="message" id="msgBox" class="form-control" rows="2" placeholder="Message..." required></textarea>
             <button class="btn btn-primary">Send</button>
         </div>
@@ -264,6 +315,7 @@
 </div>
 {% endif %}
 
+{% if role == 'super_admin' or role == 'admin' %}
 <!-- WORKFLOW CONFIGURATION -->
 <div class="glass-card p-4 mb-4 animate-fadeIn" style="border-left: 4px solid var(--info);">
     <h5 class="mb-3"><i class="bi bi-diagram-2 me-2"></i>Onboarding Workflow</h5>
@@ -348,22 +400,28 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function () {
-    var picker = document.getElementById("msgTemplatePicker");
     var box = document.getElementById("msgBox");
     var dataEl = document.getElementById("msgTemplates");
-    if (!picker || !box || !dataEl) return;
+    if (!box || !dataEl) return;
     var tpls = {};
     try { JSON.parse(dataEl.textContent).forEach(function (t) { tpls[t.key] = t; }); } catch (e) {}
-    picker.addEventListener("change", function () {
-        var t = tpls[picker.value];
-        if (t) box.value = (t.subject ? t.subject + "\n\n" : "") + (t.body || "");
-        box.focus();
+    
+    document.querySelectorAll('.js-quick-template').forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var key = this.getAttribute("data-key");
+            var t = tpls[key];
+            if (t) {
+                box.value = (t.subject ? t.subject + "\n\n" : "") + (t.body || "");
+                box.focus();
+            }
+        });
     });
 })();
 </script>

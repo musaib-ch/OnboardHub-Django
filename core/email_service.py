@@ -237,13 +237,16 @@ def send_email_async(to, subject, body, html=None, on_sent=None):
     Returns the Thread (or None when sent synchronously, e.g. in tests).
     """
     def _run():
-        ok, err = send_email(to, subject, body, html)
-        if on_sent:
-            try:
-                on_sent(ok, err)
-            finally:
-                # Release the per-thread DB connection opened by the callback.
-                connections.close_all()
+        try:
+            ok, err = send_email(to, subject, body, html)
+            if on_sent:
+                try:
+                    on_sent(ok, err)
+                except Exception:
+                    pass
+        finally:
+            # Release per-thread DB connections opened by AppSetting queries.
+            connections.close_all()
 
     if getattr(settings, "EMAIL_ASYNC", True):
         thread = threading.Thread(target=_run, daemon=True)

@@ -25,3 +25,21 @@ tinytuya.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Appended by assistant: ignore bulk docs and local session artifacts ---
+# Ignore markdown documentation by default but keep README.md
+*.md
+!README.md
+
+# Local session / assistant state (do not commit)
+.copilot/
+session-state/
+*.session
+
+# Local exports and archives
+*.zip
+*.tar.gz
+*.xlsx
+
+# Misc generated or temporary directories
+Microsoft/

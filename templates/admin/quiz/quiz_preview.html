@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Preview — {{ quiz.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto" style="max-width: 800px;">
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+        <div>
+            <div class="fw-bold">Preview Mode</div>
+            <div class="small">This is how employees will see the quiz. Submissions are disabled.</div>
+        </div>
+        <div class="ms-auto">
+            <a href="{% url 'quiz_builder_edit' quiz.id %}" class="btn btn-sm btn-outline-info bg-white">Close Preview</a>
+        </div>
+    </div>
+
+    <div class="glass-card border-top border-primary border-4 p-4 p-md-5">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-dark">{{ quiz.name }}</h2>
+            {% if quiz.description %}
+            <p class="text-muted">{{ quiz.description }}</p>
+            {% endif %}
+            
+            <div class="d-flex justify-content-center gap-3 mt-3">
+                <span class="badge bg-light text-dark border"><i class="bi bi-question-circle me-1"></i>{{ questions|length }} Questions</span>
+                <span class="badge bg-light text-dark border"><i class="bi bi-check2-circle me-1"></i>{{ quiz_meta.passing_score }}% to pass</span>
+                {% if quiz_meta.time_limit_minutes %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-stopwatch me-1"></i>{{ quiz_meta.time_limit_minutes }}m limit</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <hr class="mb-4">
+
+        <form onsubmit="event.preventDefault(); alert('Preview mode: Submissions are disabled.');">
+            {% for q in questions %}
+            <div class="mb-4 p-3 border rounded bg-light bg-opacity-25">
+                <div class="d-flex mb-2">
+                    <div class="fw-bold me-2">{{ forloop.counter }}.</div>
+                    <div>
+                        <div class="fw-medium mb-1">{{ q.label }} {% if q.is_required %}<span class="text-danger">*</span>{% endif %}</div>
+                        {% if q.help_text %}
+                        <div class="small text-muted mb-2">{{ q.help_text }}</div>
+                        {% endif %}
+                        <div class="small text-muted mb-2">Points: {{ q.points|default:1 }}</div>
+                    </div>
+                </div>
+
+                <div class="ps-4">
+                    {% if q.field_type == 'radio' %}
+                        {% for opt in q.options %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}" value="{{ opt }}" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                        </div>
+                        {% endfor %}
+                    {% elif q.field_type == 'checkbox' %}
+                        {% for opt in q.options %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}" value="{{ opt }}">
+                            <label class="form-check-label" for="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                        </div>
+                        {% endfor %}
+                    {% elif q.field_type == 'dropdown' %}
+                        <select class="form-select w-auto" name="q_{{ q.field_name|default:q.id }}" {% if q.is_required %}required{% endif %}>
+                            <option value="">-- Select --</option>
+                            {% for opt in q.options %}
+                            <option value="{{ opt }}">{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    {% elif q.field_type == 'yesno' %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_yes" value="yes" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ q.field_name|default:q.id }}_yes">Yes</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_no" value="no" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ q.field_name|default:q.id }}_no">No</label>
+                        </div>
+                    {% elif q.field_type == 'textarea' %}
+                        <textarea class="form-control" name="q_{{ q.field_name|default:q.id }}" rows="3" placeholder="{{ q.placeholder|default:'' }}" {% if q.is_required %}required{% endif %}></textarea>
+                    {% else %}
+                        <input type="text" class="form-control" name="q_{{ q.field_name|default:q.id }}" placeholder="{{ q.placeholder|default:'' }}" {% if q.is_required %}required{% endif %}>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="d-grid mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">Submit Quiz</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

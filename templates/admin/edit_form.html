@@ -1,354 +1,576 @@
 {% extends "base.html" %}
-{% block title %}{% if form %}Edit Form{% else %}New Form{% endif %}{% endblock %}
-{% block content %}
-<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
-    <a href="{% url 'admin_forms' %}" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-arrow-left"></i></a>
-    <h4 class="mb-0">{% if form %}Edit Form{% else %}New Form{% endif %}</h4>
-    <div class="ms-auto d-flex gap-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="offcanvas" data-bs-target="#previewPane"><i class="bi bi-eye me-1"></i>Preview</button>
-        <button type="submit" form="formBuilder" class="btn btn-sm btn-primary"><i class="bi bi-save me-1"></i>Save Form</button>
-    </div>
-</div>
+{% block title %}{% if form %}Edit Studio Builder | {{ form.name }}{% else %}New Project Studio{% endif %}{% endblock %}
 
+{% block extra_head %}
+<style>
+.builder-layout {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.canvas-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.canvas-header {
+    background: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+.canvas-title-input {
+    font-size: 2rem;
+    font-weight: 800;
+    border: none;
+    width: 100%;
+    color: #0f172a;
+    background: transparent;
+    padding: 0;
+    line-height: 1.2;
+}
+.canvas-title-input:focus { outline: none; }
+.canvas-desc-input {
+    font-size: 1rem;
+    border: none;
+    width: 100%;
+    color: #64748b;
+    background: transparent;
+    resize: none;
+    margin-top: 0.5rem;
+    padding: 0;
+}
+.canvas-desc-input:focus { outline: none; }
+
+/* Interactive Question Card on Canvas */
+.question-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.25rem 1.25rem 1.25rem 3rem;
+    margin-bottom: 1rem;
+    position: relative;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease-in-out;
+}
+.question-card:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.question-card.active-card {
+    border: 2px solid #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+.drag-handle {
+    position: absolute;
+    left: 0.85rem;
+    top: 1.25rem;
+    cursor: grab;
+    color: #94a3b8;
+    font-size: 1.3rem;
+}
+
+/* Section Block */
+.section-block {
+    margin-bottom: 2.5rem;
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 1.5rem;
+    border: 2px dashed #cbd5e1;
+}
+.section-title-input {
+    font-size: 1.25rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    padding: 4px 8px;
+    width: 100%;
+    color: #0f172a;
+}
+.section-title-input:focus {
+    background: #ffffff;
+    border-color: #4f46e5;
+    outline: none;
+}
+
+/* Inspector Column */
+.inspector-col {
+    width: 360px;
+    flex-shrink: 0;
+}
+.inspector-card {
+    padding: 1.5rem;
+    position: sticky;
+    top: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+
+/* Sticky Bottom Action Bar */
+.sticky-save-bar {
+    position: sticky;
+    bottom: 20px;
+    z-index: 1050;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 12px 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.sortable-ghost { opacity: 0.4; background: #e0e7ff !important; }
+.sortable-drag { cursor: grabbing !important; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+{% endblock %}
+
+{% block content %}
 <form method="POST" id="formBuilder">
     {% csrf_token %}
     <input type="hidden" name="schema_json" id="schemaJson">
-    <div class="row g-4">
-        <div class="col-lg-4 col-xl-3">
-            <div class="glass-card p-4" style="position:sticky;top:1rem;">
-                <h6 class="mb-3"><i class="bi bi-sliders me-1"></i>Form Settings</h6>
-                <label class="form-label">Name</label>
-                <input type="text" name="name" class="form-control mb-2" value="{{ form.name|default:'' }}" required>
-                <label class="form-label">Description</label>
-                <textarea name="description" class="form-control mb-2" rows="2">{{ form.description|default:'' }}</textarea>
-                <label class="form-label">Stage</label>
-                <select name="stage" class="form-select mb-2">
-                    {% for s in stages %}<option value="{{ s }}" {% if form.stage == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
-                </select>
-                <label class="form-label">Type</label>
-                <select name="form_kind" class="form-select mb-2">
-                    <option value="form" {% if form.form_kind == 'form' %}selected{% endif %}>Form</option>
-                    <option value="quiz" {% if form.form_kind == 'quiz' %}selected{% endif %}>Quiz</option>
-                    <option value="survey" {% if form.form_kind == 'survey' %}selected{% endif %}>Survey</option>
-                </select>
-                <label class="form-label">Employee Type (optional)</label>
-                <input type="text" name="employee_type" class="form-control mb-2" value="{{ form.employee_type|default:'' }}" placeholder="blank = all">
-                <label class="form-label">Display Order</label>
-                <input type="number" name="display_order" class="form-control mb-2" value="{{ form.display_order|default:0 }}">
-                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {% if not form or form.is_active %}checked{% endif %}><label class="form-check-label" for="ia">Active</label></div>
-                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="generate_share" id="gs" {% if form.share_token %}checked{% endif %}><label class="form-check-label" for="gs">Public share link</label></div>
-                <button type="submit" class="btn btn-primary w-100 mt-3"><i class="bi bi-save me-1"></i>Save Form</button>
+    <input type="hidden" name="form_kind" id="formKindSelect" value="{{ form.form_kind|default:'form' }}">
+    <input type="hidden" name="stage" value="{{ form.stage|default:'pre_onboarding' }}">
+
+    <!-- Top Action Bar -->
+    <div class="d-flex align-items-center mb-4 flex-wrap gap-2 bg-white p-3 rounded-3 shadow-sm border">
+        <a href="{% url 'admin_forms' %}" onclick="window.location.href='{% url 'admin_forms' %}'; event.preventDefault(); event.stopPropagation();" class="btn btn-outline-secondary btn-sm fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i> Back to Studio Hub
+        </a>
+
+        <div class="ms-2 d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary border px-3 py-2 fs-6">
+                {% if form.form_kind == 'quiz' %}🎯 Quiz / Assessment{% elif form.form_kind == 'survey' %}📊 Survey{% else %}📝 Intake Form{% endif %}
+            </span>
+        </div>
+
+        <div class="ms-auto d-flex gap-2">
+            {% if form and form.id %}
+            <a href="{% url 'admin_export_form_responses' form.id %}" class="btn btn-outline-success fw-semibold" title="Export all submissions to Excel / CSV">
+                <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-outline-info fw-semibold" onclick="openLivePreviewModal()">
+                <i class="bi bi-eye me-1"></i> Live Preview
+            </button>
+            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm" onclick="syncSchemaBeforeSubmit()">
+                <i class="bi bi-check-circle me-1"></i> Save Changes
+            </button>
+        </div>
+    </div>
+
+    <div class="builder-layout">
+        <!-- CANVAS (LEFT) -->
+        <div class="canvas-col">
+            <div class="canvas-header">
+                <input type="text" name="name" class="canvas-title-input" placeholder="Form / Assessment Title" value="{{ form.name|default:'' }}" required oninput="saveSchemaToHidden()">
+                <textarea name="description" class="canvas-desc-input" rows="1" placeholder="Add an optional description..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'; saveSchemaToHidden();">{{ form.description|default:'' }}</textarea>
+            </div>
+
+            <div id="sectionsWrap" class="sections-container"></div>
+            
+            <div class="mt-3 pb-4 text-center">
+                <button type="button" class="btn btn-outline-primary px-4 py-2 fw-semibold js-add-sec">
+                    <i class="bi bi-plus-circle me-1"></i> Add New Section
+                </button>
             </div>
         </div>
 
-        <div class="col-lg-8 col-xl-9">
-            <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <h6 class="mb-0">Sections &amp; Fields</h6>
-                        <span class="text-muted small"><i class="bi bi-grip-vertical me-1"></i>Drag the handles to reorder.</span>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn"><i class="bi bi-plus-lg"></i> Add Section</button>
+        <!-- INSPECTOR (RIGHT) -->
+        <div class="inspector-col">
+            <div class="inspector-card">
+                <h6 class="fw-bold mb-3 text-dark border-bottom pb-2"><i class="bi bi-sliders me-2 text-primary"></i>Project Configuration</h6>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Employee Type Scope</label>
+                    <input type="text" name="employee_type" class="form-control form-control-sm" value="{{ form.employee_type|default:'' }}" placeholder="e.g. Full-Time, Contractor">
                 </div>
-                <div id="sections"></div>
-                <div id="emptyHint" class="empty-state d-none"><i class="bi bi-card-list"></i><h3>No sections yet</h3><p class="text-muted">Add a section to start building your form.</p></div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Display Order</label>
+                    <input type="number" name="display_order" class="form-control form-control-sm" value="{{ form.display_order|default:0 }}">
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="is_active" id="ia" {% if not form or form.is_active %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold text-dark" for="ia">Active Globally</label>
+                </div>
+
+                <!-- Quiz Rules Panel -->
+                <div id="quizSettingsPanel" class="d-none mt-4 border-top pt-3">
+                    <h6 class="mb-3 text-primary fw-bold small"><i class="bi bi-patch-question me-1"></i> QUIZ & ASSESSMENT RULES</h6>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Passing Benchmark (%)</label>
+                        <input type="number" name="passing_score" id="qsPassing" class="form-control form-control-sm" min="1" max="100" value="80" oninput="saveSchemaToHidden()">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Max Attempts Allowed</label>
+                        <input type="number" name="max_attempts" id="qsAttempts" class="form-control form-control-sm" min="0" value="0" placeholder="0 = unlimited" oninput="saveSchemaToHidden()">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Time Limit (Minutes)</label>
+                        <input type="number" name="time_limit_minutes" id="qsTime" class="form-control form-control-sm" min="0" value="0" placeholder="0 = no timer" oninput="saveSchemaToHidden()">
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="shuffle_questions" id="qsShuffle" {% if form.shuffle_questions %}checked{% endif %}>
+                        <label class="form-check-label small fw-semibold" for="qsShuffle">Shuffle Question Order</label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </form>
 
-<!-- Live preview -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="previewPane" style="width:min(480px,100vw);">
-    <div class="offcanvas-header border-bottom">
-        <h6 class="offcanvas-title"><i class="bi bi-eye me-1"></i>Live preview <span class="text-muted small">(what the employee sees)</span></h6>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+<!-- Live Preview Modal -->
+<div class="modal fade" id="livePreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title"><i class="bi bi-phone me-2"></i>Candidate Assessment Preview</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4 bg-light" id="previewModalBody">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close Preview</button>
+      </div>
     </div>
-    <div class="offcanvas-body" id="previewBody"></div>
+  </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
-const FIELD_TYPES = ["text","textarea","email","phone","number","date","dropdown","radio","checkbox","yesno","file","cnic","iban"];
-const OPTION_TYPES = ["dropdown","radio","checkbox"];
-const OPERATORS = [["equals","equals"],["not_equals","not equals"],["contains","contains"],["not_contains","not contains"],["is_empty","is empty"],["is_not_empty","is not empty"],["greater_than","greater than"],["less_than","less than"]];
+const schemaStr = `{{ schema_json|escapejs }}`;
+let schema = { sections: [] };
+try { schema = JSON.parse(schemaStr); } catch(e){}
+if(!schema.sections) schema.sections = [];
+if(!schema.settings) schema.settings = {};
 
-let schema = {{ schema_json|safe }};
-if (!schema || !schema.sections) schema = { sections: [] };
-let builderCollapseState = {};
-try { builderCollapseState = JSON.parse(localStorage.getItem("ohub_form_builder_collapse") || "{}"); } catch (e) { builderCollapseState = {}; }
+const Q_TYPES = [
+    {value: "text", label: "Short Text"},
+    {value: "textarea", label: "Long Text"},
+    {value: "radio", label: "Single Choice"},
+    {value: "checkbox", label: "Multiple Choice"},
+    {value: "dropdown", label: "Dropdown"},
+    {value: "rating", label: "Star Rating (1-5)"},
+    {value: "nps", label: "Net Promoter Score (NPS 0-10)"},
+    {value: "likert", label: "Likert Scale Matrix"},
+    {value: "file", label: "File Upload"},
+    {value: "date", label: "Date Picker"}
+];
 
+const uid = () => Math.random().toString(36).substr(2, 9);
+const esc = s => (s||'').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const $ = id => document.getElementById(id);
-const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-const slug = s => (s||"").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"") || ("field_"+Math.floor(Math.random()*9999));
-const saveBuilderCollapse = () => { try { localStorage.setItem("ohub_form_builder_collapse", JSON.stringify(builderCollapseState)); } catch (e) {} };
 
-function allFieldNames(exSi, exFi) {
-    const names = [];
-    schema.sections.forEach((s, si) => (s.fields||[]).forEach((f, fi) => {
-        if (si === exSi && fi === exFi) return;
-        if (f.field_name) names.push(f.field_name);
+const isQuiz = $("formKindSelect").value === "quiz";
+if (isQuiz) {
+    $("quizSettingsPanel").classList.remove("d-none");
+    $("qsPassing").value = schema.settings.passing_score || 80;
+    $("qsAttempts").value = schema.settings.max_attempts || 0;
+    $("qsTime").value = schema.settings.time_limit_minutes || 0;
+}
+
+function saveSchemaToHidden() {
+    schema.sections.forEach(s => (s.fields||[]).forEach(f => {
+        if (!f.field_name) f.field_name = "f_" + Math.random().toString(36).substr(2, 6);
     }));
-    return names;
+    $("schemaJson").value = JSON.stringify(schema);
 }
 
-/* ── Builder render (structural changes only; text edits update in place) ── */
-function renderBuilder() {
-    const root = $("sections");
+function syncSchemaBeforeSubmit() {
+    saveSchemaToHidden();
+}
+
+// Render Canvas Inline
+function renderCanvas() {
+    const root = $("sectionsWrap");
     root.innerHTML = "";
-    $("emptyHint").classList.toggle("d-none", schema.sections.length > 0);
-    schema.sections.forEach((sec, si) => root.appendChild(sectionCard(sec, si)));
-    updatePreview();
-}
 
-function sectionCard(sec, si) {
-    const card = document.createElement("div");
-    card.className = "border rounded mb-3 bg-light bg-opacity-50";
-    card.dataset.si = si;
-    const bodyId = "secbody-" + si;
-    const open = builderCollapseState[bodyId] !== false;
-    card.innerHTML = `
-        <div class="d-flex align-items-center gap-2 p-2 border-bottom">
-            <span class="sec-handle text-muted" draggable="true" style="cursor:grab"><i class="bi bi-grip-vertical"></i></span>
-            <button type="button" class="btn btn-xs btn-link text-decoration-none p-0 me-1 ${open ? "" : "collapsed"}" data-bs-toggle="collapse" data-bs-target="#${bodyId}" aria-expanded="${open ? "true" : "false"}"><i class="bi bi-chevron-down"></i></button>
-            <input class="form-control form-control-sm fw-medium" placeholder="Section title" value="${esc(sec.title)}" data-k="title">
-            <span class="badge bg-secondary">${(sec.fields||[]).length} field(s)</span>
-            <button type="button" class="btn btn-xs btn-outline-danger js-del-section"><i class="bi bi-trash"></i></button>
-        </div>
-        <div class="collapse ${open ? "show" : ""} p-3" id="${bodyId}">
-            <input class="form-control form-control-sm mb-3" placeholder="Section description (optional)" value="${esc(sec.description)}" data-k="description">
-            <div class="fieldList"></div>
-            <div class="d-flex gap-2 mt-2 align-items-center">
-                <select class="form-select form-select-sm js-newtype" style="width:auto">${FIELD_TYPES.map(t=>`<option value="${t}">${t}</option>`).join("")}</select>
-                <button type="button" class="btn btn-sm btn-outline-secondary js-add-field"><i class="bi bi-plus"></i> Add field</button>
-            </div>
-        </div>`;
-    // section title/description inputs
-    card.querySelectorAll("input[data-k]").forEach(inp =>
-        inp.addEventListener("input", e => { sec[e.target.dataset.k] = e.target.value; updatePreview(); }));
-    card.querySelector(".js-del-section").addEventListener("click", () => {
-        if (confirm("Delete this section and its fields?")) { schema.sections.splice(si,1); renderBuilder(); }
-    });
-    card.querySelector(".js-add-field").addEventListener("click", () => {
-        const t = card.querySelector(".js-newtype").value;
-        sec.fields = sec.fields || [];
-        sec.fields.push({ label:"", field_name:"", field_type:t, is_required:false, options: OPTION_TYPES.includes(t)?["Option 1"]:[], placeholder:"", help_text:"", conditional_logic:{enabled:false} });
-        renderBuilder();
-    });
-    const collapsible = card.querySelector("#" + bodyId);
-    collapsible.addEventListener("shown.bs.collapse", () => { builderCollapseState[bodyId] = true; saveBuilderCollapse(); });
-    collapsible.addEventListener("hidden.bs.collapse", () => { builderCollapseState[bodyId] = false; saveBuilderCollapse(); });
-    const fl = card.querySelector(".fieldList");
-    (sec.fields||[]).forEach((f, fi) => fl.appendChild(fieldCard(sec, si, f, fi)));
-    enableFieldDnD(fl, sec);
-    return card;
-}
+    schema.sections.forEach((sec, si) => {
+        const secDiv = document.createElement("div");
+        secDiv.className = "section-block";
+        secDiv.dataset.si = si;
 
-function fieldCard(sec, si, f, fi) {
-    const div = document.createElement("div");
-    div.className = "border rounded p-2 mb-2 bg-white";
-    div.dataset.fi = fi;
-    const advId = `adv-${si}-${fi}`;
-    div.innerHTML = `
-        <div class="row g-2 align-items-center">
-            <div class="col-auto fld-handle text-muted" draggable="true" style="cursor:grab"><i class="bi bi-grip-vertical"></i></div>
-            <div class="col"><input class="form-control form-control-sm" placeholder="Question label" value="${esc(f.label)}" data-k="label"></div>
-            <div class="col-md-3"><select class="form-select form-select-sm" data-k="field_type">${FIELD_TYPES.map(t=>`<option value="${t}" ${f.field_type===t?'selected':''}>${t}</option>`).join("")}</select></div>
-            <div class="col-auto form-check form-switch m-0 ps-4"><input class="form-check-input" type="checkbox" ${f.is_required?'checked':''} data-k="is_required"><label class="form-check-label small">Req</label></div>
-            <div class="col-auto">
-                <button type="button" class="btn btn-xs btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#${advId}" title="Advanced"><i class="bi bi-gear"></i></button>
-                <button type="button" class="btn btn-xs btn-outline-secondary js-dup" title="Duplicate"><i class="bi bi-files"></i></button>
-                <button type="button" class="btn btn-xs btn-outline-danger js-del-field" title="Remove"><i class="bi bi-x-lg"></i></button>
+        // Section Header Input
+        const secHeader = document.createElement("div");
+        secHeader.className = "d-flex justify-content-between align-items-center mb-3";
+        secHeader.innerHTML = `
+            <div class="d-flex align-items-center gap-2 flex-grow-1">
+                <span class="drag-handle sec-handle" style="position:static; transform:none;"><i class="bi bi-grip-vertical"></i></span>
+                <input type="text" class="section-title-input js-sec-title" value="${esc(sec.title || 'Section ' + (si+1))}" placeholder="Section Title...">
             </div>
-        </div>
-        <div class="collapse mt-2" id="${advId}">
-            <div class="row g-2">
-                <div class="col-md-6"><label class="small text-muted">Field name (data key)</label><input class="form-control form-control-sm" value="${esc(f.field_name)}" data-k="field_name" placeholder="auto from label"></div>
-                <div class="col-md-6"><label class="small text-muted">Placeholder</label><input class="form-control form-control-sm" value="${esc(f.placeholder)}" data-k="placeholder"></div>
-                <div class="col-12"><label class="small text-muted">Help text</label><input class="form-control form-control-sm" value="${esc(f.help_text)}" data-k="help_text"></div>
-                <div class="col-12 optionsWrap ${OPTION_TYPES.includes(f.field_type)?'':'d-none'}">
-                    <label class="small text-muted">Options</label>
-                    <div class="optionChips d-flex flex-wrap gap-1 mb-1"></div>
-                    <div class="input-group input-group-sm" style="max-width:320px">
-                        <input class="form-control js-newopt" placeholder="Add option + Enter">
-                        <button type="button" class="btn btn-outline-secondary js-add-opt"><i class="bi bi-plus"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-2 js-del-sec" title="Delete Section"><i class="bi bi-trash"></i></button>
+        `;
+
+        secHeader.querySelector(".js-sec-title").oninput = e => {
+            sec.title = e.target.value;
+            saveSchemaToHidden();
+        };
+        secHeader.querySelector(".js-del-sec").onclick = () => {
+            if (confirm("Delete section '" + (sec.title||'Untitled') + "'?")) {
+                schema.sections.splice(si, 1);
+                renderCanvas();
+                saveSchemaToHidden();
+            }
+        };
+
+        const qContainer = document.createElement("div");
+        qContainer.className = "questions-container js-q-container";
+        qContainer.dataset.si = si;
+
+        (sec.fields || []).forEach((f, fi) => {
+            const qCard = document.createElement("div");
+            qCard.className = "question-card";
+            qCard.dataset.fi = fi;
+
+            let optsHtml = "";
+            const hasOpts = ["radio", "checkbox", "dropdown", "rating", "nps", "likert"].includes(f.field_type);
+            if (hasOpts) {
+                optsHtml = `<div class="mt-3 ps-1">`;
+                (f.options || []).forEach((opt, oi) => {
+                    const optVal = typeof opt === 'object' ? opt.label : opt;
+                    optsHtml += `
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-circle text-muted small"></i>
+                            <input type="text" class="form-control form-control-sm js-opt-input" style="max-width:320px;" data-oi="${oi}" value="${esc(optVal)}" placeholder="Option text...">
+                            <button type="button" class="btn btn-sm text-danger p-0 js-opt-del" data-oi="${oi}"><i class="bi bi-x-circle fs-6"></i></button>
+                        </div>
+                    `;
+                });
+                optsHtml += `<button type="button" class="btn btn-sm btn-link text-primary p-0 fw-semibold js-add-opt">+ Add Choice Option</button></div>`;
+            }
+
+            let quizGradingHtml = "";
+            if (isQuiz) {
+                quizGradingHtml = `
+                    <div class="mt-3 p-3 bg-light rounded border">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto">
+                                <label class="small fw-bold text-muted">Points:</label>
+                                <input type="number" class="form-control form-control-sm js-q-points" style="width:70px;" min="0" value="${f.points || 1}">
+                            </div>
+                            <div class="col">
+                                <label class="small fw-bold text-muted">Correct Answer Feedback:</label>
+                                <input type="text" class="form-control form-control-sm js-q-exp" value="${esc(f.explanation || '')}" placeholder="Explain correct answer...">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            qCard.innerHTML = `
+                <div class="drag-handle q-handle"><i class="bi bi-grip-vertical"></i></div>
+                <div class="row g-2 align-items-center mb-2">
+                    <div class="col">
+                        <input type="text" class="form-control form-control-lg fw-bold border-0 bg-light js-q-label" value="${esc(f.label)}" placeholder="Type question prompt here...">
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm js-q-type fw-semibold text-primary">
+                            ${Q_TYPES.map(t => `<option value="${t.value}" ${f.field_type===t.value?'selected':''}>${t.label}</option>`).join("")}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-sm btn-outline-danger js-q-del" title="Delete Question"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
-                <div class="col-12 logicWrap"></div>
-            </div>
-        </div>`;
 
-    // inline edits (no rebuild → keep focus)
-    div.querySelectorAll("[data-k]").forEach(inp => {
-        const k = inp.dataset.k;
-        const ev = (inp.type === "checkbox") ? "change" : "input";
-        inp.addEventListener(ev, e => {
-            let v = inp.type === "checkbox" ? inp.checked : e.target.value;
-            if (k === "field_name") v = slug(v);
-            f[k] = v;
-            if (k === "field_type") { renderBuilder(); return; }      // structural (options/required UI)
-            updatePreview();
-        });
-    });
-    div.querySelector(".js-del-field").addEventListener("click", () => { sec.fields.splice(fi,1); renderBuilder(); });
-    div.querySelector(".js-dup").addEventListener("click", () => {
-        const copy = JSON.parse(JSON.stringify(f));
-        copy.field_name = ""; copy.label = (f.label||"") + " (copy)";
-        sec.fields.splice(fi+1, 0, copy); renderBuilder();
-    });
+                ${optsHtml}
+                ${quizGradingHtml}
 
-    // option chips
-    const chips = div.querySelector(".optionChips");
-    if (chips) {
-        (f.options||[]).forEach((opt, oi) => {
-            const chip = document.createElement("span");
-            chip.className = "badge bg-light text-dark border d-inline-flex align-items-center gap-1";
-            chip.innerHTML = `${esc(opt)} <i class="bi bi-x" style="cursor:pointer"></i>`;
-            chip.querySelector("i").addEventListener("click", () => { f.options.splice(oi,1); renderBuilder(); });
-            chips.appendChild(chip);
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input js-q-req" type="checkbox" id="req_${si}_${fi}" ${f.is_required ? 'checked' : ''}>
+                        <label class="form-check-label small fw-semibold text-muted" for="req_${si}_${fi}">Required Question</label>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-secondary text-decoration-none js-q-dup"><i class="bi bi-files me-1"></i> Duplicate</button>
+                </div>
+            `;
+
+            // Event Listeners for Question Card
+            qCard.querySelector(".js-q-label").oninput = e => {
+                f.label = e.target.value;
+                saveSchemaToHidden();
+            };
+
+            qCard.querySelector(".js-q-type").onchange = e => {
+                f.field_type = e.target.value;
+                if (["radio", "checkbox", "dropdown", "rating", "nps", "likert"].includes(f.field_type) && (!f.options || !f.options.length)) {
+                    if (f.field_type === 'rating') f.options = ["1 Star", "2 Stars", "3 Stars", "4 Stars", "5 Stars"];
+                    else if (f.field_type === 'nps') f.options = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+                    else if (f.field_type === 'likert') f.options = ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"];
+                    else f.options = ["Option 1", "Option 2"];
+                }
+                renderCanvas();
+                saveSchemaToHidden();
+            };
+
+            qCard.querySelector(".js-q-req").onchange = e => {
+                f.is_required = e.target.checked;
+                saveSchemaToHidden();
+            };
+
+            qCard.querySelector(".js-q-del").onclick = () => {
+                sec.fields.splice(fi, 1);
+                renderCanvas();
+                saveSchemaToHidden();
+            };
+
+            qCard.querySelector(".js-q-dup").onclick = () => {
+                let dup = JSON.parse(JSON.stringify(f));
+                dup.id = uid();
+                sec.fields.splice(fi + 1, 0, dup);
+                renderCanvas();
+                saveSchemaToHidden();
+            };
+
+            if (hasOpts) {
+                qCard.querySelectorAll(".js-opt-input").forEach(inp => {
+                    inp.oninput = e => {
+                        const oi = parseInt(e.target.dataset.oi);
+                        f.options[oi] = e.target.value;
+                        saveSchemaToHidden();
+                    };
+                });
+                qCard.querySelectorAll(".js-opt-del").forEach(btn => {
+                    btn.onclick = e => {
+                        const oi = parseInt(btn.dataset.oi);
+                        f.options.splice(oi, 1);
+                        renderCanvas();
+                        saveSchemaToHidden();
+                    };
+                });
+                const addOptBtn = qCard.querySelector(".js-add-opt");
+                if (addOptBtn) {
+                    addOptBtn.onclick = () => {
+                        f.options = f.options || [];
+                        f.options.push("Option " + (f.options.length + 1));
+                        renderCanvas();
+                        saveSchemaToHidden();
+                    };
+                }
+            }
+
+            if (isQuiz) {
+                const ptsEl = qCard.querySelector(".js-q-points");
+                if (ptsEl) ptsEl.oninput = e => { f.points = parseInt(e.target.value) || 0; saveSchemaToHidden(); };
+                const expEl = qCard.querySelector(".js-q-exp");
+                if (expEl) expEl.oninput = e => { f.explanation = e.target.value; saveSchemaToHidden(); };
+            }
+
+            qContainer.appendChild(qCard);
         });
-        const addOpt = () => {
-            const inp = div.querySelector(".js-newopt"); const val = inp.value.trim();
-            if (!val) return; f.options = f.options || []; f.options.push(val); renderBuilder();
+
+        const addQBtn = document.createElement("button");
+        addQBtn.type = "button";
+        addQBtn.className = "btn btn-sm btn-primary w-100 mt-2 fw-semibold";
+        addQBtn.innerHTML = `<i class="bi bi-plus-lg me-1"></i> Add Question Block`;
+        addQBtn.onclick = () => {
+            sec.fields = sec.fields || [];
+            sec.fields.push({ id: uid(), label: "New Question", field_type: "text", is_required: false });
+            renderCanvas();
+            saveSchemaToHidden();
         };
-        div.querySelector(".js-add-opt").addEventListener("click", addOpt);
-        div.querySelector(".js-newopt").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addOpt(); } });
-    }
 
-    // conditional logic
-    div.querySelector(".logicWrap").appendChild(logicEditor(sec, si, f, fi));
-    return div;
+        secDiv.appendChild(secHeader);
+        secDiv.appendChild(qContainer);
+        secDiv.appendChild(addQBtn);
+        root.appendChild(secDiv);
+    });
+
+    initSortable();
+    saveSchemaToHidden();
 }
 
-/* ── Conditional logic editor ── */
-function logicEditor(sec, si, f, fi) {
-    const cl = f.conditional_logic = f.conditional_logic || { enabled:false };
-    const wrap = document.createElement("div");
-    wrap.className = "border-top pt-2 mt-1";
-    const enabledId = `cl-${si}-${fi}`;
-    wrap.innerHTML = `<div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" id="${enabledId}" ${cl.enabled?'checked':''}>
-        <label class="form-check-label small fw-medium" for="${enabledId}">Conditional visibility</label></div>`;
-    wrap.querySelector("input").addEventListener("change", e => {
-        f.conditional_logic = e.target.checked
-            ? { enabled:true, action:"show", match:"all", conditions:[{field:"",operator:"equals",value:""}] }
-            : { enabled:false };
-        renderBuilder();
-    });
-    if (!cl.enabled) return wrap;
+let sectionsSortable, questionsSortables = [];
+function initSortable() {
+    if (sectionsSortable) sectionsSortable.destroy();
+    questionsSortables.forEach(s => s.destroy());
+    questionsSortables = [];
 
-    const fieldOpts = allFieldNames(si, fi);
-    const body = document.createElement("div");
-    body.className = "mt-2";
-    body.innerHTML = `<div class="small d-flex align-items-center gap-2 flex-wrap mb-2">
-        <select class="form-select form-select-sm w-auto" data-cl="action">
-            <option value="show" ${cl.action!=='hide'?'selected':''}>Show this field</option>
-            <option value="hide" ${cl.action==='hide'?'selected':''}>Hide this field</option></select>
-        when
-        <select class="form-select form-select-sm w-auto" data-cl="match">
-            <option value="all" ${cl.match!=='any'?'selected':''}>all</option>
-            <option value="any" ${cl.match==='any'?'selected':''}>any</option></select>
-        of these match:</div>
-        <div class="condRows"></div>
-        <button type="button" class="btn btn-xs btn-outline-secondary mt-1 js-add-cond"><i class="bi bi-plus"></i> Add condition</button>`;
-    body.querySelectorAll("[data-cl]").forEach(s => s.addEventListener("change", e => { cl[e.target.dataset.cl] = e.target.value; }));
-    const rows = body.querySelector(".condRows");
-    (cl.conditions||[]).forEach((c, ci) => rows.appendChild(condRow(cl, c, ci, fieldOpts)));
-    body.querySelector(".js-add-cond").addEventListener("click", () => { cl.conditions.push({field:"",operator:"equals",value:""}); renderBuilder(); });
-    wrap.appendChild(body);
-    return wrap;
-}
+    const root = $("sectionsWrap");
+    sectionsSortable = new Sortable(root, {
+        handle: '.sec-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: (evt) => {
+            if (evt.oldIndex !== evt.newIndex) {
+                const item = schema.sections.splice(evt.oldIndex, 1)[0];
+                schema.sections.splice(evt.newIndex, 0, item);
+                saveSchemaToHidden();
+            }
+        }
+    });
 
-function condRow(cl, c, ci, fieldOpts) {
-    const row = document.createElement("div");
-    row.className = "row g-1 mb-1 align-items-center";
-    const needsVal = ["is_empty","is_not_empty"].indexOf(c.operator) < 0;
-    row.innerHTML = `
-        <div class="col-md-4"><select class="form-select form-select-sm" data-c="field"><option value="">— field —</option>${fieldOpts.map(n=>`<option value="${esc(n)}" ${c.field===n?'selected':''}>${esc(n)}</option>`).join("")}</select></div>
-        <div class="col-md-3"><select class="form-select form-select-sm" data-c="operator">${OPERATORS.map(o=>`<option value="${o[0]}" ${c.operator===o[0]?'selected':''}>${o[1]}</option>`).join("")}</select></div>
-        <div class="col-md-4">${needsVal?`<input class="form-control form-control-sm" placeholder="value" value="${esc(c.value)}" data-c="value">`:""}</div>
-        <div class="col-md-1 text-end"><button type="button" class="btn btn-xs btn-outline-danger js-del-cond"><i class="bi bi-x"></i></button></div>`;
-    row.querySelectorAll("[data-c]").forEach(el => {
-        const key = el.dataset.c;
-        const ev = el.tagName === "SELECT" ? "change" : "input";
-        el.addEventListener(ev, e => { c[key] = e.target.value; if (key === "operator") renderBuilder(); });
-    });
-    row.querySelector(".js-del-cond").addEventListener("click", () => { cl.conditions.splice(ci,1); renderBuilder(); });
-    return row;
-}
-
-/* ── Drag-and-drop ── */
-function enableSectionDnD() {
-    const root = $("sections");
-    let drag = null;
-    root.addEventListener("dragstart", e => { if (e.target.classList.contains("sec-handle")) { drag = e.target.closest("[data-si]"); drag.style.opacity=".4"; e.dataTransfer.effectAllowed="move"; } });
-    root.addEventListener("dragend", () => { if (drag) drag.style.opacity=""; drag=null; });
-    root.addEventListener("dragover", e => {
-        if (!drag) return; e.preventDefault();
-        const over = e.target.closest("[data-si]"); if (!over || over === drag) return;
-        const r = over.getBoundingClientRect();
-        root.insertBefore(drag, (e.clientY - r.top > r.height/2) ? over.nextSibling : over);
-    });
-    root.addEventListener("drop", e => { if (!drag) return; e.preventDefault(); commitOrder(); });
-}
-function enableFieldDnD(fl, sec) {
-    let drag = null;
-    fl.addEventListener("dragstart", e => { if (e.target.classList.contains("fld-handle")) { drag = e.target.closest("[data-fi]"); drag.style.opacity=".4"; e.stopPropagation(); } });
-    fl.addEventListener("dragend", () => { if (drag) drag.style.opacity=""; drag=null; });
-    fl.addEventListener("dragover", e => {
-        if (!drag) return; e.preventDefault(); e.stopPropagation();
-        const over = e.target.closest("[data-fi]"); if (!over || over === drag) return;
-        const r = over.getBoundingClientRect();
-        fl.insertBefore(drag, (e.clientY - r.top > r.height/2) ? over.nextSibling : over);
-    });
-    fl.addEventListener("drop", e => { if (!drag) return; e.preventDefault(); e.stopPropagation();
-        const ids = [...fl.querySelectorAll("[data-fi]")].map(n => +n.dataset.fi);
-        sec.fields = ids.map(i => sec.fields[i]); renderBuilder();
+    document.querySelectorAll('.js-q-container').forEach(container => {
+        questionsSortables.push(new Sortable(container, {
+            group: 'shared',
+            handle: '.q-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: (evt) => {
+                const oldSi = parseInt(evt.from.dataset.si);
+                const newSi = parseInt(evt.to.dataset.si);
+                if (oldSi !== newSi || evt.oldIndex !== evt.newIndex) {
+                    const item = schema.sections[oldSi].fields.splice(evt.oldIndex, 1)[0];
+                    schema.sections[newSi].fields.splice(evt.newIndex, 0, item);
+                    saveSchemaToHidden();
+                }
+            }
+        }));
     });
 }
-function commitOrder() {
-    const ids = [...$("sections").querySelectorAll("[data-si]")].map(n => +n.dataset.si);
-    schema.sections = ids.map(i => schema.sections[i]); renderBuilder();
+
+function openLivePreviewModal() {
+    saveSchemaToHidden();
+    var body = document.getElementById('previewModalBody');
+    var html = '<div class="card p-4 shadow-sm bg-white"><h4 class="fw-bold mb-2">' + esc(document.querySelector('.canvas-title-input').value || 'Form Preview') + '</h4>';
+    var desc = document.querySelector('.canvas-desc-input').value;
+    if (desc) html += '<p class="text-muted mb-4">' + esc(desc) + '</p>';
+
+    schema.sections.forEach(function(sec, si) {
+        html += '<div class="mb-4 pb-3 border-bottom"><h5 class="fw-bold text-primary mb-3">' + esc(sec.title || 'Section ' + (si+1)) + '</h5>';
+        (sec.fields||[]).forEach(function(f, fi) {
+            html += '<div class="mb-3"><label class="form-label fw-bold text-dark">' + (fi+1) + '. ' + esc(f.label || 'Question Prompt');
+            if (f.is_required) html += ' <span class="text-danger">*</span>';
+            html += '</label>';
+
+            if (f.field_type === 'textarea') {
+                html += '<textarea class="form-control" rows="3" placeholder="Candidate response..."></textarea>';
+            } else if (f.field_type === 'radio' || f.field_type === 'checkbox') {
+                (f.options||[]).forEach(function(opt) {
+                    var val = typeof opt === 'object' ? opt.label : opt;
+                    html += '<div class="form-check"><input class="form-check-input" type="' + (f.field_type === 'checkbox' ? 'checkbox' : 'radio') + '"><label class="form-check-label">' + esc(val) + '</label></div>';
+                });
+            } else {
+                html += '<input type="text" class="form-control" placeholder="Candidate response...">';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    });
+
+    html += '<button type="button" class="btn btn-primary px-4">Submit Assessment</button></div>';
+    body.innerHTML = html;
+    var modal = new bootstrap.Modal(document.getElementById('livePreviewModal'));
+    modal.show();
 }
 
-/* ── Live preview ── */
-function previewField(f) {
-    const req = f.is_required ? ' <span class="text-danger">*</span>' : "";
-    const cond = f.conditional_logic && f.conditional_logic.enabled ? ' <span class="badge bg-info-subtle text-info border">conditional</span>' : "";
-    const lbl = `<label class="form-label small fw-medium">${esc(f.label||"(untitled)")}${req}${cond}</label>`;
-    const ph = esc(f.placeholder||"");
-    let input = "";
-    const t = f.field_type;
-    if (t === "textarea") input = `<textarea class="form-control form-control-sm" rows="2" placeholder="${ph}"></textarea>`;
-    else if (t === "dropdown") input = `<select class="form-select form-select-sm"><option>-- Select --</option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join("")}</select>`;
-    else if (t === "radio" || t === "checkbox") input = (f.options||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="${t==='radio'?'radio':'checkbox'}" disabled><label class="form-check-label small">${esc(o)}</label></div>`).join("");
-    else if (t === "yesno") input = `<div class="form-check form-switch"><input class="form-check-input" type="checkbox" disabled></div>`;
-    else if (t === "file") input = `<input class="form-control form-control-sm" type="file" disabled>`;
-    else if (t === "date") input = `<input class="form-control form-control-sm" type="date" disabled>`;
-    else if (t === "number") input = `<input class="form-control form-control-sm" type="number" placeholder="${ph}" disabled>`;
-    else input = `<input class="form-control form-control-sm" type="text" placeholder="${ph}" disabled>`;
-    const help = f.help_text ? `<div class="form-text small">${esc(f.help_text)}</div>` : "";
-    return `<div class="mb-3">${lbl}${input}${help}</div>`;
-}
-function updatePreview() {
-    const body = $("previewBody");
-    if (!schema.sections.length) { body.innerHTML = '<p class="text-muted text-center py-4">Nothing to preview yet.</p>'; return; }
-    body.innerHTML = schema.sections.map(sec => `
-        <div class="mb-4">
-            <h6 class="border-bottom pb-1">${esc(sec.title||"Untitled section")}</h6>
-            ${sec.description?`<p class="text-muted small">${esc(sec.description)}</p>`:""}
-            ${(sec.fields||[]).map(previewField).join("")}
-        </div>`).join("");
-}
-
-/* ── Wire up ── */
-$("addSectionBtn").addEventListener("click", () => { schema.sections.push({ title:"New Section", description:"", fields:[] }); renderBuilder(); });
-$("formBuilder").addEventListener("submit", () => {
-    schema.sections.forEach(s => (s.fields||[]).forEach(f => { if (!f.field_name) f.field_name = slug(f.label); }));
-    $("schemaJson").value = JSON.stringify(schema);
+document.querySelector(".js-add-sec").addEventListener("click", () => {
+    schema.sections.push({title: "New Section", fields: [{id: uid(), label: "New Question", field_type: "text", is_required: false}]});
+    renderCanvas();
+    saveSchemaToHidden();
 });
 
-enableSectionDnD();
-renderBuilder();
+if (schema.sections.length === 0) {
+    schema.sections.push({title: "Section 1", fields: [{id: uid(), label: "First Question", field_type: "text", is_required: false}]});
+}
+renderCanvas();
+saveSchemaToHidden();
+
 </script>
 {% endblock %}

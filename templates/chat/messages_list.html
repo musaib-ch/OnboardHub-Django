@@ -135,13 +135,11 @@ document.getElementById('searchBox').addEventListener('input', function(e) {
     window.location.search = q ? '?q=' + encodeURIComponent(q) : '';
 });
 
-document.getElementById('userSearchInput').addEventListener('input', async function() {
-    const q = this.value.trim();
+async function loadUserSuggestions(query = '') {
     const results = document.getElementById('userSearchResults');
-    if (!q || q.length < 2) { results.innerHTML = ''; return; }
-    const data = await fetch('/api/users/search/?q=' + encodeURIComponent(q)).then(r => r.json());
+    const data = await fetch('/api/users/search/?q=' + encodeURIComponent(query)).then(r => r.json());
     if (!data.results.length) {
-        results.innerHTML = '<p class="text-muted small">No users found.</p>';
+        results.innerHTML = '<p class="text-muted small">No eligible users found.</p>';
         return;
     }
     results.innerHTML = data.results.map(u =>
@@ -151,6 +149,22 @@ document.getElementById('userSearchInput').addEventListener('input', async funct
             <br><small class="text-muted">${u.email}</small>
         </a>`
     ).join('');
+}
+
+const userSearchInput = document.getElementById('userSearchInput');
+const startChatModal = document.getElementById('startChatModal');
+
+userSearchInput.addEventListener('focus', function() {
+    loadUserSuggestions('');
+});
+
+userSearchInput.addEventListener('input', function(e) {
+    loadUserSuggestions(e.target.value.trim());
+});
+
+startChatModal.addEventListener('shown.bs.modal', function() {
+    loadUserSuggestions('');
+    userSearchInput.focus();
 });
 </script>
 {% endblock %}

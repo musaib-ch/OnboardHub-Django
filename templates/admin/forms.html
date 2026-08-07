@@ -1,38 +1,319 @@
 {% extends "base.html" %}
 {% load onboard_extras %}
-{% block title %}Forms{% endblock %}
+{% block title %}Forms, Surveys & Assessments Studio | OnboardHub{% endblock %}
+
+{% block extra_head %}
+<style>
+  .nav-tabs-studio .nav-link {
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .nav-tabs-studio .nav-link.active {
+    color: #4f46e5;
+    border-bottom-color: #4f46e5;
+    background: transparent;
+  }
+  .studio-preset-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+  .studio-preset-card:hover {
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.12);
+  }
+  .preset-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div><h1><i class="bi bi-file-earmark-text me-2"></i>Forms &amp; Form Builder</h1></div>
-    <a href="{% url 'admin_create_form' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Form</a>
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <h2 class="h3 fw-bold mb-1"><i class="bi bi-file-earmark-text text-primary me-2"></i>Forms, Surveys & Quizzes Studio</h2>
+      <p class="text-muted mb-0">Build interactive intake forms, compliance quizzes, and employee pulse surveys with full analytics.</p>
+    </div>
+    <button type="button" class="btn btn-primary fw-semibold px-4" data-bs-toggle="modal" data-bs-target="#newFormModal">
+      <i class="bi bi-plus-circle me-1"></i> Create Project
+    </button>
+  </div>
+
+  <!-- Studio Filter Tabs -->
+  <ul class="nav nav-tabs nav-tabs-studio mb-4 border-bottom" id="studioTab">
+    <li class="nav-item">
+      <button class="nav-link active" onclick="filterStudioTab('all', this)">
+        <i class="bi bi-grid me-1"></i> All Projects (<span id="count-all">{{ forms|length }}</span>)
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" onclick="filterStudioTab('quiz', this)">
+        <i class="bi bi-patch-question text-primary me-1"></i> Quizzes & Assessments (<span id="count-quiz">0</span>)
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" onclick="filterStudioTab('survey', this)">
+        <i class="bi bi-bar-chart text-info me-1"></i> Surveys & Pulse (<span id="count-survey">0</span>)
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" onclick="filterStudioTab('form', this)">
+        <i class="bi bi-file-earmark-text text-secondary me-1"></i> Standard Forms (<span id="count-form">0</span>)
+      </button>
+    </li>
+  </ul>
+
+  <!-- Projects Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 table-hover">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">Project Name</th>
+              <th>Type</th>
+              <th>Stage</th>
+              <th>Questions</th>
+              <th>Responses</th>
+              <th>Status</th>
+              <th class="text-end pe-4">Actions & Analytics</th>
+            </tr>
+          </thead>
+          <tbody id="projectsTableBody">
+            {% for f in forms %}
+            <tr class="project-row" data-kind="{{ f.form_kind }}">
+              <td class="ps-4">
+                <a href="{% url 'admin_edit_form' f.id %}" class="fw-bold text-dark text-decoration-none">
+                  {{ f.name }}
+                </a>
+                {% if f.description %}<small class="text-muted d-block">{{ f.description|truncatechars:60 }}</small>{% endif %}
+              </td>
+              <td>
+                {% if f.form_kind == 'quiz' %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill"><i class="bi bi-patch-question me-1"></i> Quiz</span>
+                {% elif f.form_kind == 'survey' %}
+                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-1 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Survey</span>
+                {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill"><i class="bi bi-file-earmark-text me-1"></i> Form</span>
+                {% endif %}
+              </td>
+              <td><span class="badge bg-light text-dark border">{{ f.stage|humanize_status }}</span></td>
+              <td class="fw-semibold">{{ f.get_all_fields|length }}</td>
+              <td>
+                <span class="badge bg-light text-primary border fw-bold px-2 py-1">{{ f.responses.count }}</span>
+              </td>
+              <td>
+                <form method="POST" action="{% url 'admin_toggle_form' f.id %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm p-0 border-0 background-none text-start" title="Click to {% if f.is_active %}deactivate{% else %}activate{% endif %}">
+                    {% if f.is_active %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem;"></i> Active</span>
+                    {% else %}
+                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem;"></i> Inactive</span>
+                    {% endif %}
+                  </button>
+                </form>
+              </td>
+              <td class="text-end pe-4">
+                <div class="btn-group btn-group-sm">
+                  <a href="{% url 'admin_edit_form' f.id %}" class="btn btn-outline-primary" title="Open Studio Builder">
+                    <i class="bi bi-pencil me-1"></i> Builder
+                  </a>
+                  <a href="{% url 'admin_form_analytics' f.id %}" class="btn btn-outline-info" title="View Analytics Dashboard">
+                    <i class="bi bi-graph-up me-1"></i> Analytics
+                  </a>
+                  <a href="{% url 'admin_export_form_responses' f.id %}" class="btn btn-outline-success" title="Export all user questions and answers to Excel / CSV">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                  </a>
+                  <form method="POST" action="{% url 'admin_toggle_form' f.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning" title="Toggle Active Status">
+                      {% if f.is_active %}<i class="bi bi-pause-circle"></i>{% else %}<i class="bi bi-play-circle"></i>{% endif %}
+                    </button>
+                  </form>
+                  {% if f.share_token %}
+                  <a href="{% url 'public_form_view' f.share_token %}" target="_blank" class="btn btn-outline-secondary" title="Open Public Link">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                  </a>
+                  {% endif %}
+                  <form method="POST" action="{% url 'admin_delete_form' f.id %}" class="d-inline" onsubmit="return confirm('Delete project {{ f.name|escapejs }}?');">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-danger" title="Delete Project"><i class="bi bi-trash"></i></button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-1 text-secondary d-block mb-2"></i>
+                <p class="mb-2">No form, quiz, or survey projects created yet.</p>
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newFormModal">
+                  <i class="bi bi-plus-lg me-1"></i> Create Your First Project
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+            <tr id="emptyFilterRow" class="d-none">
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-funnel fs-1 text-secondary d-block mb-2"></i>
+                <p class="mb-0">No projects matching this filter.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="table-container">
-    <div class="table-responsive">
-        <table class="table mb-0">
-            <thead><tr><th>Name</th><th>Stage</th><th>Type</th><th>Fields</th><th>Active</th><th>Share</th><th></th></tr></thead>
-            <tbody>
-                {% for f in forms %}
-                <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_edit_form' f.id %}'">
-                    <td class="fw-medium">{{ f.name }}</td>
-                    <td><span class="badge badge-status-{{ f.stage }}">{{ f.stage|humanize_status }}</span></td>
-                    <td>{{ f.get_form_kind_display }}</td>
-                    <td>{{ f.get_all_fields|length }}</td>
-                    <td>{% if f.is_active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
-                    <td>{% if f.share_token %}<a href="{% url 'public_form_view' f.share_token %}" target="_blank" class="small" onclick="event.stopPropagation()">Public link</a>{% else %}—{% endif %}</td>
-                    <td class="d-flex gap-1" onclick="event.stopPropagation()">
-                        <a href="{% url 'admin_edit_form' f.id %}" class="btn btn-xs btn-outline-secondary">Edit</a>
-                        <a href="{% url 'admin_export_form_responses' f.id %}" class="btn btn-xs btn-outline-secondary" title="Export responses"><i class="bi bi-download"></i></a>
-                        <form method="POST" action="{% url 'admin_delete_form' f.id %}" style="margin: 0;">{% csrf_token %}
-                            <button class="btn btn-xs btn-outline-danger" data-confirm="Delete form '{{ f.name }}' and all its responses?" type="submit">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="7" class="text-center text-muted py-4">No forms yet. Create your first form.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- New Project Preset Selection Modal -->
+<div class="modal fade" id="newFormModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <form method="POST" action="{% url 'admin_create_form' %}">
+        {% csrf_token %}
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-magic text-primary me-2"></i>Create New Project</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="text-muted mb-4">Select the type of project you wish to build:</p>
+          
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <div class="studio-preset-card" onclick="selectPreset('quiz', 'Compliance & Skills Assessment')">
+                <div class="preset-icon bg-primary-subtle text-primary">
+                  <i class="bi bi-patch-question-fill"></i>
+                </div>
+                <h6 class="fw-bold mb-1">Quiz / Assessment</h6>
+                <small class="text-muted">Pass/fail benchmarks, attempt limits, timer & auto-grading.</small>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="studio-preset-card" onclick="selectPreset('survey', 'Employee Satisfaction Survey')">
+                <div class="preset-icon bg-info-subtle text-info">
+                  <i class="bi bi-bar-chart-fill"></i>
+                </div>
+                <h6 class="fw-bold mb-1">Survey & Pulse</h6>
+                <small class="text-muted">Likert rating matrices, NPS scales & anonymous submission controls.</small>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="studio-preset-card" onclick="selectPreset('form', 'Pre-Onboarding Information Form')">
+                <div class="preset-icon bg-secondary-subtle text-secondary">
+                  <i class="bi bi-file-earmark-text-fill"></i>
+                </div>
+                <h6 class="fw-bold mb-1">Standard Form</h6>
+                <small class="text-muted">Data intake forms, document requests & custom field collections.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Project Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" id="modalProjectName" class="form-control form-control-lg" required placeholder="e.g. Q3 Compliance & Safety Quiz">
+          </div>
+
+          <input type="hidden" name="form_kind" id="modalFormKind" value="quiz">
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Onboarding Stage</label>
+            <select name="stage" class="form-select">
+              {% for s in stages %}
+              <option value="{{ s }}">{{ s|humanize_status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary px-4 fw-semibold"><i class="bi bi-arrow-right-circle me-1"></i> Open Studio Builder</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
+
+<script>
+  function filterStudioTab(kind, btnEl) {
+    document.querySelectorAll('#studioTab .nav-link').forEach(function(el) {
+      el.classList.remove('active');
+    });
+    if (btnEl) btnEl.classList.add('active');
+
+    var rows = document.querySelectorAll('.project-row');
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+      var rKind = row.getAttribute('data-kind');
+      if (kind === 'all' || rKind === kind) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    var emptyRow = document.getElementById('emptyFilterRow');
+    if (emptyRow) {
+      if (visibleCount === 0 && rows.length > 0) {
+        emptyRow.classList.remove('d-none');
+      } else {
+        emptyRow.classList.add('d-none');
+      }
+    }
+  }
+
+  function updateTabCounts() {
+    var rows = document.querySelectorAll('.project-row');
+    var quizCount = 0, surveyCount = 0, formCount = 0;
+    rows.forEach(function(row) {
+      var k = row.getAttribute('data-kind');
+      if (k === 'quiz') quizCount++;
+      else if (k === 'survey') surveyCount++;
+      else if (k === 'form') formCount++;
+    });
+
+    var cq = document.getElementById('count-quiz');
+    if (cq) cq.textContent = quizCount;
+    var cs = document.getElementById('count-survey');
+    if (cs) cs.textContent = surveyCount;
+    var cf = document.getElementById('count-form');
+    if (cf) cf.textContent = formCount;
+  }
+
+  function selectPreset(kind, defaultName) {
+    document.getElementById('modalFormKind').value = kind;
+    if (!document.getElementById('modalProjectName').value) {
+      document.getElementById('modalProjectName').value = defaultName;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    updateTabCounts();
+    document.body.appendChild(document.getElementById('newFormModal'));
+  });
+</script>
 {% endblock %}

@@ -25,23 +25,16 @@
 
         <div class="col-12">
             <label class="form-label fw-medium">Select Stages <span class="text-danger">*</span></label>
-            <div class="border rounded p-3" style="background-color: rgba(0,0,0,0.02);">
-                <div class="row g-2">
-                    {% for stage in stages %}
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="stages" value="{{ stage.stage_key }}" id="stage_{{ stage.stage_key }}" {% if stage.stage_key in template.stages %}checked{% endif %}>
-                            <label class="form-check-label" for="stage_{{ stage.stage_key }}">
-                                <strong>{{ stage.label }}</strong>
-                                <small class="text-muted d-block">{{ stage.description }}</small>
-                            </label>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="col-12 text-muted">No stages available.</div>
-                    {% endfor %}
-                </div>
-            </div>
+            <select name="stages" class="form-select" multiple size="6" required>
+                {% for option in stage_options %}
+                <option value="{{ option.key }}" {% if option.key in template.stages %}selected{% endif %}>
+                    {{ option.label }} ({{ option.key }})
+                </option>
+                {% empty %}
+                <option value="" disabled>No code-defined stages available</option>
+                {% endfor %}
+            </select>
+            <small class="text-muted mt-2 d-block">Hold Ctrl or Cmd to choose more than one stage.</small>
         </div>
     </div>
 

@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Onboarding Buddy & Mentorship Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+  .buddy-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #4f46e5;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 2.2rem;
+    box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+  }
+  .checkin-card {
+    border-left: 4px solid #cbd5e1;
+    transition: all 0.2s ease-in-out;
+  }
+  .checkin-card.completed {
+    border-left-color: #10b981;
+    background: #f0fdf4;
+  }
+  .checkin-card.pending {
+    border-left-color: #3b82f6;
+    background: #f8fafc;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <h2 class="h3 fw-bold mb-1"><i class="bi bi-people text-primary me-2"></i>Onboarding Buddy & Mentorship Hub</h2>
+      <p class="text-muted mb-0">Collaborate on onboarding milestones, discuss progress notes, and sign off on check-ins together.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- MENTEE VIEW (Their Assigned Buddy & Onboarding Plan) -->
+    <div class="{% if as_mentor_engagements and my_buddy %}col-lg-7{% else %}col-lg-10 col-xl-8 mx-auto{% endif %}">
+      {% if not is_eligible %}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-5 text-center">
+          <div class="mb-3 text-primary">
+            <i class="bi bi-clock-history display-3"></i>
+          </div>
+          <h4 class="fw-bold mb-2 text-dark">Buddy Program Activation Pending</h4>
+          <p class="text-muted mb-4 mx-auto" style="max-width:520px; font-size: 0.95rem; line-height: 1.6;">
+            Your Onboarding Buddy Hub will be activated once your initial onboarding stages (Offer, Medical Clearance & Pre-Onboarding) are approved and your Onboarding Buddy assignment is finalized.
+          </p>
+
+          {% if my_buddy %}
+          <div class="alert alert-primary-subtle text-primary border border-primary-subtle rounded-3 text-start mx-auto p-3 shadow-sm" style="max-width:500px;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-person-check-fill fs-3 text-primary"></i>
+              <div>
+                <strong class="d-block text-dark">Buddy Assigned: {{ my_buddy.full_name }}</strong>
+                <small class="text-muted">Your mentorship hub and check-in plan will activate on your official Date of Joining.</small>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="alert alert-light border rounded-3 text-start mx-auto p-3 shadow-sm" style="max-width:500px;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-hourglass-split fs-3 text-secondary"></i>
+              <div>
+                <strong class="d-block text-dark">Awaiting Pre-Onboarding Clearance & Assignment</strong>
+                <small class="text-muted">Please complete your Pre-Onboarding forms. HR will pair you with a team buddy shortly.</small>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% elif my_buddy %}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div class="buddy-avatar-lg">{{ my_buddy.full_name|slice:":1" }}</div>
+            <div class="flex-grow-1">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill mb-2">
+                <i class="bi bi-star-fill me-1"></i> Your Assigned Onboarding Buddy
+              </span>
+              <h3 class="fw-bold mb-1 text-dark">{{ my_buddy.full_name }}</h3>
+              <p class="text-muted mb-2">{{ my_buddy.position_title|default:"Senior Team Member" }} {% if my_buddy.department %}— {{ my_buddy.department.name }}{% endif %}</p>
+              
+              <div class="d-flex gap-2 flex-wrap mt-3">
+                <a href="mailto:{{ my_buddy.email }}" class="btn btn-sm btn-outline-primary fw-semibold">
+                  <i class="bi bi-envelope me-1"></i> Email Buddy
+                </a>
+                {% if my_buddy.phone_number %}
+                <a href="tel:{{ my_buddy.phone_number }}" class="btn btn-sm btn-outline-secondary fw-semibold">
+                  <i class="bi bi-telephone me-1"></i> {{ my_buddy.phone_number }}
+                </a>
+                {% endif %}
+                <a href="{% url 'chat_with_user' my_buddy.id %}" class="btn btn-sm btn-primary fw-semibold">
+                  <i class="bi bi-chat-dots me-1"></i> Direct Message
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Onboarding Plan & Milestones Card -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <h5 class="card-title fw-bold mb-0 text-dark">
+              <i class="bi bi-journal-check me-2 text-primary"></i>
+              {{ my_buddy_engagement.data.plan_title|default:"Mentorship & Onboarding Plan" }}
+            </h5>
+            <small class="text-muted">Posted by your Buddy {{ my_buddy.full_name }} — Sign off on individual milestones as you complete them.</small>
+          </div>
+        </div>
+        <div class="card-body p-4">
+          <!-- Milestones List for Mentee -->
+          {% with sessions=my_buddy_engagement.data.sessions %}
+          {% if sessions %}
+            <div class="space-y-3">
+              {% for s in sessions %}
+              <div class="card checkin-card p-3 mb-3 {% if s.status == 'completed' %}completed{% else %}pending{% endif %}">
+                <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+                  <div>
+                    <h6 class="fw-bold text-dark mb-1">{{ s.title }}</h6>
+                    {% if s.completed_at %}
+                    <small class="text-muted"><i class="bi bi-patch-check-fill text-success me-1"></i>Completed & Verified on {{ s.completed_at }}</small>
+                    {% else %}
+                    <small class="text-muted"><i class="bi bi-clock me-1"></i>Target: Day {{ s.target_day|default:"1" }}</small>
+                    {% endif %}
+                  </div>
+                  <div>
+                    {% if s.status == 'completed' %}
+                    <span class="badge bg-success text-white px-3 py-2 rounded-pill fw-semibold">
+                      <i class="bi bi-check-all me-1"></i> Agreed & Completed
+                    </span>
+                    {% elif user.id in s.signed_off_by %}
+                    <span class="badge bg-warning text-dark border px-3 py-2 rounded-pill fw-semibold">
+                      <i class="bi bi-hourglass-split me-1"></i> Signed off by you — Awaiting Buddy Sign-Off
+                    </span>
+                    {% else %}
+                    <button type="button" class="btn btn-sm btn-primary fw-bold px-3 shadow-sm" onclick="openLogModal('{{ my_buddy_engagement.id }}', '{{ s.title|escapejs }}')">
+                      <i class="bi bi-check2-circle me-1"></i> Discuss & Sign Off
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+
+                {% if s.notes %}
+                <div class="bg-white p-3 rounded border mt-2">
+                  <small class="fw-bold text-muted text-uppercase d-block mb-1" style="font-size:0.7rem;">Discussion Notes & Feedback:</small>
+                  <p class="small text-dark mb-0" style="white-space:pre-line;">{{ s.notes }}</p>
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-4 mb-0">No onboarding milestones posted yet by your Buddy.</p>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+      {% elif not as_mentor_engagements %}
+      <div class="card border-0 shadow-sm text-center p-5">
+        <i class="bi bi-person-x fs-1 text-secondary mb-3"></i>
+        <h4 class="fw-bold mb-2">No Buddy Assigned Yet</h4>
+        <p class="text-muted mb-0">Your HR administrator will pair you with an Onboarding Buddy soon to guide your team orientation.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- MENTOR VIEW (Only rendered if user actually has assigned mentees) -->
+    {% if as_mentor_engagements %}
+    <div class="{% if my_buddy %}col-lg-5{% else %}col-lg-10 col-xl-8 mx-auto{% endif %}">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h5 class="card-title fw-bold mb-0"><i class="bi bi-award me-2 text-primary"></i>Your Assigned Mentees ({{ as_mentor_engagements|length }})</h5>
+        </div>
+        <div class="card-body p-4">
+            {% for eng in as_mentor_engagements %}
+            <div class="border rounded p-3 mb-4 bg-light">
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="mentor-avatar bg-primary" style="width:44px; height:44px; font-size:1.1rem; border-radius:50%; color:white; display:flex; align-items:center; justify-content:center; font-weight:700;">{{ eng.user.full_name|slice:":1" }}</div>
+                <div class="flex-grow-1">
+                  <h6 class="fw-bold text-dark mb-0">{{ eng.user.full_name }}</h6>
+                  <small class="text-muted">{{ eng.user.email }} {% if eng.user.department %}— {{ eng.user.department.name }}{% endif %}</small>
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 flex-wrap mb-3">
+                <a href="mailto:{{ eng.user.email }}" class="btn btn-xs btn-outline-primary">
+                  <i class="bi bi-envelope"></i> Email
+                </a>
+                <a href="{% url 'chat_with_user' eng.user.id %}" class="btn btn-xs btn-primary">
+                  <i class="bi bi-chat-dots"></i> DM Chat
+                </a>
+                <button type="button" class="btn btn-xs btn-outline-success ms-auto fw-bold" onclick="openProposeModal('{{ eng.id }}', '{{ eng.data.plan_title|default:'Mentorship & Onboarding Plan'|escapejs }}')">
+                  <i class="bi bi-pencil-square"></i> Post / Edit Plan
+                </button>
+              </div>
+
+              <!-- Mentee's Active Milestones Tracker for Mentor -->
+              <div class="bg-white p-3 rounded border">
+                <h6 class="fw-bold text-dark small text-uppercase mb-2"><i class="bi bi-list-check me-1 text-success"></i>Mentee Milestones & Sign-Offs</h6>
+                {% with sessions=eng.data.sessions %}
+                {% if sessions %}
+                  {% for s in sessions %}
+                  <div class="border-bottom pb-2 mb-2 last-no-border">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+                      <span class="small fw-semibold text-dark">{{ s.title }}</span>
+                      {% if s.status == 'completed' %}
+                      <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small">Completed</span>
+                      {% elif user.id in s.signed_off_by %}
+                      <span class="badge bg-warning-subtle text-warning border px-2 py-1 rounded-pill small">Signed by You</span>
+                      {% else %}
+                      <button type="button" class="btn btn-xs btn-success fw-bold" onclick="openLogModal('{{ eng.id }}', '{{ s.title|escapejs }}')">
+                        <i class="bi bi-check2-circle"></i> Sign Off
+                      </button>
+                      {% endif %}
+                    </div>
+                    {% if s.notes %}
+                    <small class="text-muted d-block mt-1" style="font-size:0.75rem;">Notes: "{{ s.notes }}"</small>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="text-muted small mb-0">No milestones configured yet. Click <strong>Post / Edit Plan</strong> above.</p>
+                {% endif %}
+                {% endwith %}
+              </div>
+            </div>
+            {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Post / Edit Plan Modal (Mentor / Admin Only) -->
+<div class="modal fade" id="proposePlanModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <form method="POST" action="{% url 'propose_buddy_plan' %}">
+        {% csrf_token %}
+        <input type="hidden" name="engagement_id" id="proposeModalEngId" value="{{ my_buddy_engagement.id }}">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Post Onboarding Mentorship Plan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Plan Title <span class="text-danger">*</span></label>
+            <input type="text" name="plan_title" id="proposeModalPlanTitle" class="form-control form-control-lg" value="Mentorship & Onboarding Plan" required>
+          </div>
+
+          <label class="form-label fw-bold small text-uppercase mb-2">Milestones & Check-In Items</label>
+          <div id="milestonesContainer">
+            <div class="input-group mb-2 milestone-row">
+              <span class="input-group-text bg-light fw-bold text-muted">1</span>
+              <input type="text" name="milestone_titles" class="form-control" value="Day 1 Welcome Coffee & Codebase Walkthrough" required>
+              <button type="button" class="btn btn-outline-danger" onclick="this.closest('.milestone-row').remove()"><i class="bi bi-trash"></i></button>
+            </div>
+            <div class="input-group mb-2 milestone-row">
+              <span class="input-group-text bg-light fw-bold text-muted">2</span>
+              <input type="text" name="milestone_titles" class="form-control" value="Week 1 Systems & Tooling Setup Sync" required>
+              <button type="button" class="btn btn-outline-danger" onclick="this.closest('.milestone-row').remove()"><i class="bi bi-trash"></i></button>
+            </div>
+            <div class="input-group mb-2 milestone-row">
+              <span class="input-group-text bg-light fw-bold text-muted">3</span>
+              <input type="text" name="milestone_titles" class="form-control" value="Month 1 Progress Review & Feedback" required>
+              <button type="button" class="btn btn-outline-danger" onclick="this.closest('.milestone-row').remove()"><i class="bi bi-trash"></i></button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addMilestoneRow()">
+            <i class="bi bi-plus-lg me-1"></i> Add Milestone
+          </button>
+        </div>
+
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-check-circle me-1"></i> Post Plan for Mentee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Milestone Discussion & Sign Off Modal -->
+<div class="modal fade" id="logCheckinModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <form method="POST" action="{% url 'signoff_buddy_milestone' %}">
+        {% csrf_token %}
+        <input type="hidden" name="engagement_id" id="modalEngId">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold text-dark"><i class="bi bi-check2-square text-success me-2"></i>Milestone Discussion & Sign-Off</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Milestone Title <span class="text-danger">*</span></label>
+            <input type="text" name="session_title" id="modalSessionTitle" class="form-control form-control-lg" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Discussion Notes / Comments</label>
+            <textarea name="notes" class="form-control" rows="4" placeholder="Add discussion notes, questions, or comments regarding milestone completion..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer border-top-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success px-4 fw-bold"><i class="bi bi-check-lg me-1"></i> Confirm & Sign Off</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openLogModal(engId, title) {
+    document.getElementById('modalEngId').value = engId;
+    document.getElementById('modalSessionTitle').value = title || 'Milestone Check-In';
+    var modal = new bootstrap.Modal(document.getElementById('logCheckinModal'));
+    modal.show();
+  }
+
+  function openProposeModal(engId, title) {
+    document.getElementById('proposeModalEngId').value = engId;
+    document.getElementById('proposeModalPlanTitle').value = title || 'Mentorship & Onboarding Plan';
+    var modal = new bootstrap.Modal(document.getElementById('proposePlanModal'));
+    modal.show();
+  }
+
+  function addMilestoneRow() {
+    var container = document.getElementById('milestonesContainer');
+    var count = container.querySelectorAll('.milestone-row').length + 1;
+    var div = document.createElement('div');
+    div.className = 'input-group mb-2 milestone-row';
+    div.innerHTML = '<span class="input-group-text bg-light fw-bold text-muted">' + count + '</span>' +
+      '<input type="text" name="milestone_titles" class="form-control" placeholder="Enter milestone..." required>' +
+      '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.milestone-row\').remove()"><i class="bi bi-trash"></i></button>';
+    container.appendChild(div);
+  }
+</script>
+{% endblock %}

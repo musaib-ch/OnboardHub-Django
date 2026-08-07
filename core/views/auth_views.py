@@ -78,12 +78,20 @@ def forgot_password(request):
             log_activity(request, user=user, action="password_reset_requested",
                          entity_type="user", entity_id=user.id,
                          description=f"Password reset requested for {user.email}")
-            from ..email_service import smtp_configured, send_email_async, render_email
-            if smtp_configured():
-                subject, body = render_email("password_reset",
-                                             {"full_name": user.full_name, "link": reset_url})
-                # Sent in the background — respond immediately.
-                send_email_async(user.email, subject, body)
+            from ..services.email_service import EmailService, _big_login_cta
+            from django.core.mail import get_connection
+            from ..models import AppSetting
+            smtp_host = AppSetting.get("smtp_host") or ""
+            if smtp_host.strip():
+                EmailService.send_email(
+                    to_email=user.email,
+                    template_key="credentials_reset",
+                    context={
+                        "full_name": user.full_name or user.email,
+                        "reset_link": reset_url,
+                        "big_login_cta": _big_login_cta(reset_url)
+                    }
+                )
                 messages.success(request, "A password reset link has been sent to your email.")
             else:
                 # No SMTP configured (dev) — surface the link so the flow stays usable.

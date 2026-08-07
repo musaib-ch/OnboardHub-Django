@@ -10,22 +10,27 @@ from django.views.decorators.http import require_http_methods
 from .. import pipeline
 from ..decorators import login_required
 from ..medical_match import auto_map_filename, allowed_medical_file, medical_applicability
-from ..models import Form, FormResponse, OnboardingDocument, MedicalRecord, ReviewMessage, Engagement
+from ..models import Form, FormResponse, OnboardingDocument, MedicalRecord, ReviewMessage, Engagement, Content
 from ..permissions import is_employee_role
 from ..services import onboarding_progress_percent, log_activity, models_q_employee_type, notify
+from ..services.onboarding_plan_service import OnboardingPlanService
 
 STAGE_URL = {
+    "offer": "my_offers",
     "medical": "employee_medical",
     "pre_onboarding": "employee_pre_onboarding",
     "onboarding": "employee_onboarding",
     "post_onboarding": "employee_post_onboarding",
 }
 STAGE_TITLES = {
+    "offer": "Offer Acceptance",
+    "medical": "Medical Clearance",
     "pre_onboarding": "Pre-Onboarding Forms",
     "onboarding": "Onboarding Documents",
     "post_onboarding": "Post-Onboarding",
 }
 STAGE_DESC = {
+    "offer": "Review and accept your offer letter.",
     "medical": "Upload and complete medical requirements.",
     "pre_onboarding": "Submit forms and supporting details.",
     "onboarding": "Review and sign onboarding documents.",
@@ -63,13 +68,16 @@ def _show_stage_locked(request, requested_stage):
     user = request.user
 
     # Get all stages info
+    stage_path = [st for st in pipeline.get_employee_stage_path(user) if st in STAGE_URL]
+    if not stage_path:
+        stage_path = pipeline.enabled_stages()
     stages_info = [{
         "key": st,
         "label": pipeline.STAGE_LABELS[st],
         "desc": STAGE_DESC.get(st, ""),
         "state": pipeline.stage_state(user, st),
         "url_name": STAGE_URL.get(st),
-    } for st in pipeline.enabled_stages()]
+    } for st in stage_path]
 
     # Use current_stage which properly determines the active stage
     current_stage = pipeline.current_stage(user)
@@ -101,13 +109,16 @@ def home(request):
     if user.date_of_joining:
         _maybe_start_pipeline(user)
 
+    stage_path = [st for st in pipeline.get_employee_stage_path(user) if st in STAGE_URL]
+    if not stage_path:
+        stage_path = pipeline.enabled_stages()
     stages_info = [{
         "key": st,
         "label": pipeline.STAGE_LABELS[st],
         "desc": STAGE_DESC[st],
         "state": pipeline.stage_state(user, st),
         "url_name": STAGE_URL[st],
-    } for st in pipeline.enabled_stages()]
+    } for st in stage_path]
 
     learn_qs = Engagement.objects.filter(user=user, kind="enrollment",
                                          content__kind="learning_path")
@@ -128,13 +139,18 @@ def home(request):
                 "due_date": user.get_effective_due_date(),
             }
 
+    current_stage = pipeline.current_stage(user)
     ctx = {
         "status": user.status,
         "pct": onboarding_progress_percent(user.status, user),
         "stages_info": stages_info,
-        "current_stage": pipeline.current_stage(user),
+        "current_stage": current_stage,
+        "current_stage_label": pipeline.STAGE_LABELS.get(current_stage, "Not started"),
+        "current_stage_state": pipeline.stage_state(user, current_stage) if current_stage else "pending",
         "learning": learning,
         "next_task": next_task,
+        "success_plan": OnboardingPlanService.get_plan_context(user),
+        "stage_path": stage_path,
     }
     return render(request, "employee/home.html", ctx)
 
@@ -147,7 +163,7 @@ def set_joining_date(request):
         return redir
     user = request.user
     # Prevent setting the joining date until medical clearance is approved
-    if "medical" in pipeline.enabled_stages() and pipeline.stage_state(user, "medical") != "completed":
+    if "medical" in pipeline.get_employee_stage_path(user) and pipeline.stage_state(user, "medical") != "completed":
         messages.info(request, "Complete your medical clearance before selecting a joining date.")
         return redirect("employee_medical")
     if request.method == "POST":
@@ -249,6 +265,22 @@ def medical(request):
             log_activity(request, action="submit_medical", entity_type="employee",
                          entity_id=user.id, description="Submitted medical documents for review")
             messages.success(request, "Medical documents submitted for review.")
+            
+            from ..services.email_service import EmailService, _small_portal_link
+            from ..models import User
+            admins = User.objects.filter(role__in=["super_admin", "admin"], is_active=True)
+            if user.tenant_id:
+                admins = admins.filter(tenant_id=user.tenant_id)
+            for admin in admins:
+                EmailService.send_email(
+                    to_email=admin.email,
+                    template_key="medical_submitted",
+                    context={
+                        "employee_name": user.full_name or user.email,
+                        "employee_email": user.email,
+                        "small_portal_link_review": _small_portal_link(request.build_absolute_uri(f"/admin/medical-review/?user_id={user.id}"))
+                    }
+                )
             return redirect("employee_medical")
 
     records = list(MedicalRecord.objects.filter(employee=user))
@@ -365,6 +397,20 @@ def _stage_view(request, stage, template):
     signed_doc_ids = [d.id for d in docs if d.signed_by(user.id)]
     required_docs_signed = all(d.signed_by(user.id) for d in docs if d.is_required)
 
+    assigned_content = list(
+        Content.objects.filter(kind__in=["training", "orientation", "presentation"], is_active=True)
+        .order_by("category", "display_order", "-created_at")
+    )
+    assigned_content = [
+        item for item in assigned_content
+        if (item.meta or {}).get("attach_to") and stage in ((item.meta or {}).get("attach_to") or [])
+    ]
+
+    thread = ReviewMessage.objects.filter(employee=user).select_related("author").order_by("created_at")
+    last_msg = (ReviewMessage.objects.filter(employee=user, author__isnull=False)
+                .exclude(author=user).order_by("-created_at").first())
+    last_reviewer_id = last_msg.author_id if last_msg else (user.created_by_id or 1)
+
     ctx = {
         "stage": stage,
         "stage_title": STAGE_TITLES.get(stage, "Onboarding"),
@@ -379,7 +425,9 @@ def _stage_view(request, stage, template):
         "required_docs_signed": required_docs_signed,
         "all_done": is_editable and forms_complete and required_docs_signed,
         "onboarding_locked": stage == "onboarding" and _onboarding_locked(user),
-        "thread": ReviewMessage.objects.filter(employee=user, stage=stage).select_related("author"),
+        "thread": thread,
+        "last_reviewer_id": last_reviewer_id,
+        "assigned_content": assigned_content,
     }
     return render(request, template, ctx)
 
@@ -396,7 +444,7 @@ def _handle_stage_post(request, stage, forms, responses, docs, is_editable):
             ReviewMessage.objects.create(employee=user, stage=stage, author=user,
                                          message=text, kind="reply")
             last_rev = (ReviewMessage.objects
-                        .filter(employee=user, stage=stage, author__isnull=False)
+                        .filter(employee=user, author__isnull=False)
                         .exclude(author=user).order_by("-created_at").first())
             if last_rev and last_rev.author:
                 notify(last_rev.author, f"{user.full_name} replied",
@@ -434,6 +482,30 @@ def _handle_stage_post(request, stage, forms, responses, docs, is_editable):
         log_activity(request, action=f"submit_{stage}", entity_type="employee",
                      entity_id=user.id, description=f"Submitted {stage} for review")
         messages.success(request, f"{STAGE_TITLES.get(stage, stage)} submitted for review.")
+        
+        from ..services.email_service import EmailService, _small_portal_link
+        from ..models import User
+        admins = User.objects.filter(role__in=["super_admin", "admin"], is_active=True)
+        if user.tenant_id:
+            admins = admins.filter(tenant_id=user.tenant_id)
+        
+        template_map = {
+            "pre_onboarding": "pre_onboarding_submitted",
+            "onboarding": "onboarding_docs_submitted"
+        }
+        tk = template_map.get(stage)
+        if tk:
+            for admin in admins:
+                EmailService.send_email(
+                    to_email=admin.email,
+                    template_key=tk,
+                    context={
+                        "employee_name": user.full_name or user.email,
+                        "employee_email": user.email,
+                        "department": user.department.name if user.department else "their department",
+                        "small_portal_link_review": _small_portal_link(request.build_absolute_uri(f"/admin/employees/{user.id}/"))
+                    }
+                )
         return redirect(request.path)
 
     # Save a single form (draft or final)

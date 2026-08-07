@@ -231,25 +231,25 @@ def mark_conversation_read(request, user_id):
 
 @login_required
 def search_users_for_chat(request):
-    """Search users the current user is allowed to message."""
+    """Search users the current user is allowed to message, including suggestions when the field is empty."""
     query = request.GET.get("q", "").strip()
-    if not query or len(query) < 2:
-        return JsonResponse({"results": []})
-
     user = request.user
 
-    # Employees can only search admin/hrbp/super_admin
+    # Employees can only search admin/hrbp/super_admin; other staff can message anyone active.
     if user.role == "employee":
         qs = User.objects.filter(
             is_active=True,
-            full_name__icontains=query,
             role__in=["admin", "super_admin", "hrbp"],
-        ).exclude(id=user.id).values("id", "full_name", "email", "role")[:10]
+        ).exclude(id=user.id)
     else:
         qs = User.objects.filter(
             is_active=True,
-            full_name__icontains=query,
-        ).exclude(id=user.id).values("id", "full_name", "email", "role")[:10]
+        ).exclude(id=user.id)
+
+    if query:
+        qs = qs.filter(full_name__icontains=query)
+
+    qs = qs.order_by("full_name").values("id", "full_name", "email", "role")[:10]
 
     return JsonResponse({"results": list(qs)})
 

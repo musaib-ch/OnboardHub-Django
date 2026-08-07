@@ -213,6 +213,27 @@ def can_retry_quiz(student, course, lesson, assessment):
     return True
 
 
+def save_video_position(student, course, lesson_id, position_seconds):
+    """Save how far into a video the student has watched (resume support)."""
+    progress = get_or_create_progress(student, course)
+    video_positions = progress.data.get('video_positions', {})
+    video_positions[lesson_id] = {
+        'position_seconds': int(position_seconds),
+        'saved_at': timezone.now().isoformat(),
+    }
+    progress.data['video_positions'] = video_positions
+    progress.save()
+
+
+def get_video_position(student, course, lesson_id):
+    """Get saved video resume position in seconds (0 if none)."""
+    try:
+        progress = Engagement.objects.get(kind='enrollment', user=student, content=course)
+        return progress.data.get('video_positions', {}).get(lesson_id, {}).get('position_seconds', 0)
+    except Engagement.DoesNotExist:
+        return 0
+
+
 def get_certificate_data(student, course):
     """Get certificate info if course completed."""
     progress_data = get_progress(student, course)

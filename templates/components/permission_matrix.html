@@ -129,10 +129,12 @@
     // Toggle all buttons
     document.getElementById('permSelectAll')?.addEventListener('click', function() {
         document.querySelectorAll('.perm-check:not(.hidden)').forEach(cb => cb.checked = true);
+        updateBadges();
     });
 
     document.getElementById('permClearAll')?.addEventListener('click', function() {
         document.querySelectorAll('.perm-check:not(.hidden)').forEach(cb => cb.checked = false);
+        updateBadges();
     });
 
     // Update badge counts
@@ -146,6 +148,9 @@
             badge.classList.toggle('bg-secondary', checked === 0);
         });
     }
+
+    // Expose updateBadges globally so other templates can trigger it after programmatic checks
+    window.updatePermissionBadges = updateBadges;
 
     // Listen for checkbox changes
     document.querySelectorAll('.perm-check').forEach(cb => {

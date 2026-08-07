@@ -225,6 +225,10 @@
                 const el = document.querySelector(`#customRoleMatrixWrap #perm-${p}`);
                 if (el) el.checked = true;
             });
+            // Update the badges to reflect the programmatic changes
+            if (typeof window.updatePermissionBadges === 'function') {
+                window.updatePermissionBadges();
+            }
         } catch (e) {}
     });
 

@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from ..decorators import permission_required
+from .. import pipeline
+from .. import pipeline_v2
 from ..models import StageDefinition, StageTemplate
 from ..services import log_activity
 from ..pipeline_v2 import clear_stage_cache
@@ -15,6 +17,41 @@ from ..pipeline_v2 import clear_stage_cache
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE DEFINITIONS MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _code_stage_options():
+    """Return the portal stage catalog in the same order used by code."""
+    existing_keys = set(StageDefinition.objects.values_list("stage_key", flat=True))
+    return [
+        {
+            "key": key,
+            "label": pipeline.STAGE_LABELS.get(key, key.replace("_", " ").title()),
+            "exists": key in existing_keys,
+        }
+        for key in pipeline.STAGE_ORDER
+    ]
+
+
+def _template_stage_options(include_selected=None):
+    """Return only code-defined stages that are currently enabled."""
+    include_selected = set(include_selected or [])
+    enabled_defs = {
+        stage.stage_key: stage
+        for stage in StageDefinition.objects.filter(is_enabled=True).order_by("order")
+    }
+    options = []
+    for option in _code_stage_options():
+        key = option["key"]
+        stage_def = enabled_defs.get(key)
+        if stage_def or key in include_selected:
+            options.append(option)
+            if stage_def:
+                option["description"] = stage_def.description
+                option["enabled"] = stage_def.is_enabled
+            else:
+                option["description"] = ""
+                option["enabled"] = False
+    return options
+
 
 @permission_required("manage_stages")
 @require_http_methods(["GET", "POST"])
@@ -59,6 +96,7 @@ def stages_list(request):
         "stages": stages,
         "enabled_count": enabled_count,
         "disabled_count": stages.count() - enabled_count,
+        "stage_catalog": _code_stage_options(),
     })
 
 
@@ -77,6 +115,11 @@ def stage_create(request):
         # Validate
         if not stage_key or not label:
             messages.error(request, "Stage key and label are required.")
+            return redirect("admin_stage_create")
+
+        allowed_stage_keys = {option["key"] for option in _code_stage_options()}
+        if stage_key not in allowed_stage_keys:
+            messages.error(request, "Please select one of the code-defined stage keys.")
             return redirect("admin_stage_create")
 
         if StageDefinition.objects.filter(stage_key=stage_key).exists():
@@ -112,7 +155,9 @@ def stage_create(request):
                     description=f"Created stage {stage_key}")
         return redirect("admin_stages_list")
 
-    return render(request, "admin/setup/stage_create.html")
+    return render(request, "admin/setup/stage_create.html", {
+        "stage_catalog": _code_stage_options(),
+    })
 
 
 @permission_required("manage_stages")
@@ -173,6 +218,8 @@ def template_create(request):
         name = (request.POST.get("name") or "").strip()
         description = (request.POST.get("description") or "").strip()
         selected_stages = request.POST.getlist("stages")
+        allowed_stage_keys = {option["key"] for option in _template_stage_options()}
+        selected_stages = [stage for stage in selected_stages if stage in allowed_stage_keys]
 
         if not name:
             messages.error(request, "Template name is required.")
@@ -198,9 +245,9 @@ def template_create(request):
                     description=f"Created template {name}")
         return redirect("admin_templates_list")
 
-    stages = StageDefinition.objects.filter(is_enabled=True).order_by("order")
     return render(request, "admin/setup/template_create.html", {
-        "stages": stages,
+        "stage_options": _template_stage_options(),
+        "selected_stage_keys": [],
     })
 
 
@@ -216,6 +263,8 @@ def template_edit(request, template_id):
         name = (request.POST.get("name") or "").strip()
         description = (request.POST.get("description") or "").strip()
         selected_stages = request.POST.getlist("stages")
+        allowed_stage_keys = {option["key"] for option in _template_stage_options(template.stages)}
+        selected_stages = [stage for stage in selected_stages if stage in allowed_stage_keys]
 
         if not name:
             messages.error(request, "Template name is required.")
@@ -235,10 +284,10 @@ def template_edit(request, template_id):
                     description=f"Updated template {name}")
         return redirect("admin_templates_list")
 
-    stages = StageDefinition.objects.filter(is_enabled=True).order_by("order")
     return render(request, "admin/setup/template_edit.html", {
         "template": template,
-        "stages": stages,
+        "stage_options": _template_stage_options(template.stages),
+        "selected_stage_keys": template.stages,
     })
 
 

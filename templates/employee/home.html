@@ -27,11 +27,11 @@
             <div class="row g-2 text-center">
                 <div class="col-6">
                     <small class="text-muted">Current Stage</small>
-                    <div class="fw-bold">{{ status|humanize_status }}</div>
+                    <div class="fw-bold">{{ current_stage_label }}</div>
                 </div>
                 <div class="col-6">
                     <small class="text-muted">Status</small>
-                    <div class="fw-bold">{% if status == 'completed' %}Completed{% else %}In Progress{% endif %}</div>
+                    <div class="fw-bold">{% if status == 'completed' %}Completed{% else %}{{ current_stage_state|default:"In Progress"|humanize_status }}{% endif %}</div>
                 </div>
             </div>
         </div>
@@ -40,7 +40,7 @@
                 <small><strong>Next Task:</strong></small>
                 <div class="small mt-1">
                     {% if next_task %}
-                        {{ next_task.label }} due {{ next_task.due_date|date:"d M Y" }}
+                        {{ next_task.label }}{% if next_task.due_date %} due {{ next_task.due_date|date:"d M Y" }}{% else %} ready now{% endif %}
                     {% else %}
                         All tasks completed! 🎉
                     {% endif %}
@@ -49,6 +49,52 @@
         </div>
     </div>
 </div>
+
+<!-- SUCCESS PLAN SUMMARY -->
+{% if has_success_plan %}
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-2">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+        <div>
+            <h5 class="mb-1"><i class="bi bi-signpost-2 me-2"></i>Your Success Plan</h5>
+            <p class="text-muted small mb-0">A guided roadmap for the first 90 days and beyond.</p>
+        </div>
+        <a href="{% url 'my_onboarding_plan' %}" class="btn btn-primary">Open Success Plan</a>
+    </div>
+    <div class="row g-3">
+        <div class="col-lg-4 col-md-6">
+            <div class="plan-summary-card">
+                <div class="small text-muted">Current Phase</div>
+                <div class="fw-semibold mt-1">
+                    {% for phase in success_plan.summary.phases %}{% if phase.is_current %}{{ phase.label }}{% endif %}{% empty %}Not started{% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="plan-summary-card">
+                <div class="small text-muted">Plan Progress</div>
+                <div class="fw-semibold mt-1">{{ success_plan.summary.overall.percentage }}%</div>
+                <div class="progress mt-2" style="height:10px;">
+                    <div class="progress-bar" style="width: {{ success_plan.summary.overall.percentage }}%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-12">
+            <div class="plan-summary-card">
+                <div class="small text-muted">Next Focus</div>
+                <div class="fw-semibold mt-1">
+                    {% with next_item=success_plan.summary.upcoming|first %}
+                        {% if next_item %}
+                            {{ next_item.title }}
+                        {% else %}
+                            Keep moving through your plan
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- ONBOARDING CHECKLIST -->
 <div class="row g-4 mb-4">
@@ -97,7 +143,7 @@
 
     <!-- LEARNING & HELP SECTION -->
     <div class="col-lg-4 animate-fadeIn delay-3">
-        {% if stage_settings.learning_enabled %}
+        {% if stage_settings.learning_enabled and has_learning_paths %}
         <div class="glass-card p-4 mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0"><i class="bi bi-mortarboard me-2" style="color:var(--primary)"></i>My Learning</h6>
@@ -144,6 +190,14 @@
     .glass-card { padding: 1rem !important; }
     @media (min-width: 768px) {
         .glass-card { padding: 1.5rem !important; }
+    }
+    .plan-summary-card {
+        height: 100%;
+        border: 1px solid rgba(15,23,42,0.08);
+        border-radius: 16px;
+        padding: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82));
+        box-shadow: 0 10px 24px rgba(15,23,42,0.05);
     }
 </style>
 {% endblock %}

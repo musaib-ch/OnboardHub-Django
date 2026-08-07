@@ -70,15 +70,28 @@ def portal(request):
     }
 
     if show_journey:
-        stage_url = {"medical": "employee_medical", "pre_onboarding": "employee_pre_onboarding",
-                     "onboarding": "employee_onboarding", "post_onboarding": "employee_post_onboarding"}
-        stage_icon = {"medical": "bi-heart-pulse", "pre_onboarding": "bi-file-earmark-text",
-                      "onboarding": "bi-folder-check", "post_onboarding": "bi-check2-square"}
+        stage_url = {
+            "offer": "my_offers",
+            "medical": "employee_medical",
+            "pre_onboarding": "employee_pre_onboarding",
+            "onboarding": "employee_onboarding",
+            "post_onboarding": "employee_post_onboarding",
+        }
+        stage_icon = {
+            "offer": "bi-envelope-paper-heart",
+            "medical": "bi-heart-pulse",
+            "pre_onboarding": "bi-file-earmark-text",
+            "onboarding": "bi-folder-check",
+            "post_onboarding": "bi-check2-square",
+        }
+        stage_path = [s for s in pipeline.get_employee_stage_path(user) if s in stage_url]
+        if not stage_path:
+            stage_path = pipeline.enabled_stages()
         steps = [{
             "key": s, "label": pipeline.STAGE_LABELS[s],
             "state": pipeline.stage_state(user, s),
             "url_name": stage_url[s], "icon": stage_icon[s],
-        } for s in pipeline.enabled_stages()]
+        } for s in stage_path]
         pct = onboarding_progress_percent(user.status, user)
         cur = pipeline.current_stage(user)
         total = len(steps)
@@ -86,7 +99,7 @@ def portal(request):
         if user.status == "completed":
             step_num = total
         else:
-            step_num = (pipeline.enabled_stages().index(cur) + 1) if cur else total
+            step_num = (stage_path.index(cur) + 1) if cur in stage_path else total
         ctx.update({
             "pct": pct,
             "ring_offset": round(377 * (1 - pct / 100)),  # 2*pi*60 ≈ 377
@@ -98,6 +111,7 @@ def portal(request):
             "current_label": pipeline.STAGE_LABELS.get(cur, ""),
             "current_url": stage_url.get(cur, "employee_home"),
             "completed": user.status == "completed",
+            "stage_path": stage_path,
         })
     return render(request, "portal/landing.html", ctx)
 

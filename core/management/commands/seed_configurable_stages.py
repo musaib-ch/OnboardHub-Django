@@ -33,14 +33,14 @@ class Command(BaseCommand):
         """Create default stage definitions."""
         stages_data = [
             {
-                "stage_key": "offer_acceptance",
+                "stage_key": "offer",
                 "label": "Offer Acceptance",
-                "description": "Employee reviews and accepts offer",
-                "is_mandatory": False,
+                "description": "Employee reviews and accepts offer letter",
+                "is_mandatory": True,
                 "order": 0,
                 "default_due_date_days": 7,
                 "approval_role": "admin",
-                "stage_type": "optional",
+                "stage_type": "mandatory",
             },
             {
                 "stage_key": "medical",
@@ -78,7 +78,7 @@ class Command(BaseCommand):
                 "description": "Post-onboarding completion",
                 "is_mandatory": True,
                 "order": 4,
-                "default_due_date_days": 7,
+                "default_due_date_days": 30,
                 "approval_role": "admin",
                 "stage_type": "mandatory",
             },

@@ -595,6 +595,7 @@ class Content(models.Model):
         ("knowledge", "Knowledge Article"),
         ("training", "Training Module"),
         ("learning_path", "Learning Path"),
+        ("onboarding_plan", "Onboarding Plan Template"),
         ("orientation", "Orientation Session"),
         ("presentation", "Presentation"),
         ("portal_slider", "Portal Slider"),
@@ -651,6 +652,7 @@ class Engagement(models.Model):
     """
     KIND_CHOICES = [
         ("enrollment", "Program / Training Enrollment"),
+        ("onboarding_plan", "Onboarding Plan"),
         ("goal", "Goal"),
         ("mentorship", "Mentorship"),
         ("chat_dm", "Direct Message Chat"),
@@ -850,4 +852,4 @@ class OfferWorkflow(models.Model):
     def __str__(self):
         return f"{self.offer_number} - {self.status}"
 
-
+from .models_offers import *

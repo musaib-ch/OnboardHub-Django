@@ -1,17 +1,42 @@
 {% extends "base.html" %}
 {% load onboard_extras %}
-{% block title %}Medical Requirements Setup{% endblock %}
+{% block title %}Medical Setup{% endblock %}
 {% block content %}
 <div class="page-header animate-fadeIn d-flex align-items-center justify-content-between gap-3 flex-wrap">
     <div>
-        <h1 class="mb-0"><i class="bi bi-clipboard-pulse me-2"></i>Medical Requirements Setup</h1>
-        <p class="text-muted mb-0">Create and manage medical test requirements here. Approvals happen on the separate review page.</p>
+        <h1 class="mb-0"><i class="bi bi-clipboard-pulse me-2"></i>Medical Setup</h1>
+        <p class="text-muted mb-0">Create and manage medical test requirements here.</p>
     </div>
     <a href="{% url 'admin_medical_review' %}" class="btn btn-success"><i class="bi bi-heart-pulse me-1"></i>Open Medical Review</a>
 </div>
 
 <div class="row g-4">
     <div class="col-lg-5">
+        <div class="glass-card mb-4">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#mr_import" aria-expanded="false">
+                <h6 class="mb-0">Import & Export</h6>
+                <i class="bi bi-chevron-down collapse-chevron"></i>
+            </div>
+            <div class="collapse" id="mr_import" data-persist><div class="card-body">
+                <form method="POST" enctype="multipart/form-data" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="import_requirements">
+                    <label class="form-label">Import from Excel or CSV</label>
+                    <input type="file" name="import_file" accept=".xlsx,.csv" class="form-control form-control-sm mb-2" required>
+                    <div class="form-text mb-2">Upload a sheet with columns: requirement name, description, gender, min age, is required, is active.</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import</button>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm" formaction="" name="action" value="download_template"><i class="bi bi-download me-1"></i>Download Template</button>
+                    </div>
+                </form>
+                <form method="POST" class="d-flex gap-2 flex-wrap">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="export_requirements">
+                    <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-download me-1"></i>Export Excel</button>
+                </form>
+            </div></div>
+        </div>
+
         <div class="glass-card mb-4">
             <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#mr_add" aria-expanded="false">
                 <h6 class="mb-0">Add Requirement</h6>
@@ -39,8 +64,11 @@
                         <input type="number" name="min_age" class="form-control form-control-sm" min="0" placeholder="e.g. 40">
                     </div>
                 </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="is_required" id="req" checked>
+                    <label class="form-check-label" for="req">Required</label>
+                </div>
                 <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Leave gender/age blank to require for everyone. If set, the test only applies to matching employees (and shows as optional when an employee's age/gender is unknown).</div>
-                <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" name="is_required" id="req" checked><label class="form-check-label" for="req">Required</label></div>
                 <button type="submit" class="btn btn-primary w-100">Add Requirement</button>
             </form>
             </div></div>

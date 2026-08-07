@@ -23,9 +23,10 @@ def _dt(value):
 
 
 def csv_response(filename, header, rows):
-    """Build a downloadable CSV HttpResponse from a header + row iterable."""
-    resp = HttpResponse(content_type="text/csv")
+    """Build a downloadable CSV HttpResponse from a header + row iterable (Excel compatible)."""
+    resp = HttpResponse(content_type="text/csv; charset=utf-8-sig")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    resp.write('\ufeff')  # UTF-8 BOM for Microsoft Excel compatibility
     writer = csv.writer(resp)
     writer.writerow(header)
     for row in rows:

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ path.title }} — Completion Matrix & Progress{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <a href="{% url 'admin_learning_paths' %}" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-arrow-left"></i></a>
+        <h2 class="h3 fw-bold mb-0">{{ path.title }}</h2>
+        {% if path.category %}<span class="badge bg-secondary fs-6">{{ path.category }}</span>{% endif %}
+      </div>
+      <p class="text-muted mb-0">Track real-time employee progress, module completion, overdue status, and send reminders.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'admin_learning_path_edit' path.id %}" class="btn btn-outline-primary">
+        <i class="bi bi-pencil-square me-1"></i> Edit Builder
+      </a>
+      <a href="{% url 'admin_training_assignments' %}" class="btn btn-primary fw-semibold">
+        <i class="bi bi-person-plus me-1"></i> Manage Assignments
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Overview Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Total Enrolled</small>
+        <h3 class="fw-bold mb-0 text-dark mt-1">{{ total_enrolled }}</h3>
+        <small class="text-muted mt-1"><i class="bi bi-people me-1"></i>Active track participants</small>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Completed</small>
+        <h3 class="fw-bold mb-0 text-success mt-1">{{ completed_total }}</h3>
+        <small class="text-muted mt-1"><i class="bi bi-check-circle me-1"></i>Finished all required modules</small>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">In Progress</small>
+        <h3 class="fw-bold mb-0 text-primary mt-1">{{ in_progress_total }}</h3>
+        <small class="text-muted mt-1"><i class="bi bi-clock-history me-1"></i>Currently completing modules</small>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Overdue</small>
+        <h3 class="fw-bold mb-0 text-danger mt-1">{{ overdue_total }}</h3>
+        <small class="text-muted mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Past assigned due date</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Completion Tracking Matrix Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="card-title fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Employee Completion Matrix</h5>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 table-hover">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">Employee</th>
+              <th>Department</th>
+              <th>Progress</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th class="text-end pe-4">Actions & Nudges</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in tracking_matrix %}
+            <tr>
+              <td class="ps-4">
+                <div class="fw-bold text-dark">{{ item.employee.full_name }}</div>
+                <small class="text-muted">{{ item.employee.email }}</small>
+              </td>
+              <td>{{ item.employee.department.name|default:"—" }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2" style="min-width: 160px;">
+                  <div class="progress flex-grow-1" style="height: 8px;">
+                    <div class="progress-bar {% if item.status == 'completed' %}bg-success{% elif item.is_overdue %}bg-danger{% else %}bg-primary{% endif %}" role="progressbar" style="width: {{ item.progress }}%;"></div>
+                  </div>
+                  <small class="fw-semibold text-dark">{{ item.done_count }}/{{ item.total_count }}</small>
+                </div>
+              </td>
+              <td><small class="text-muted">{{ item.due_date|date:"M d, Y"|default:"No due date" }}</small></td>
+              <td>
+                {% if item.status == 'completed' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill"><i class="bi bi-check-circle me-1"></i>Completed</span>
+                {% elif item.is_overdue %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 rounded-pill"><i class="bi bi-exclamation-circle me-1"></i>Overdue</span>
+                {% else %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill"><i class="bi bi-clock me-1"></i>In Progress</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-4">
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-secondary" onclick="openTranscriptModal('{{ item.employee.full_name|escapejs }}', {{ item.modules|json_encode }})" title="View Transcript">
+                    <i class="bi bi-journal-check me-1"></i> Transcript
+                  </button>
+                  {% if item.status != 'completed' %}
+                  <form method="POST" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="nudge">
+                    <input type="hidden" name="user_id" value="{{ item.employee.id }}">
+                    <button type="submit" class="btn btn-outline-warning" title="Send Reminder Nudge">
+                      <i class="bi bi-bell me-1"></i> Remind
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-5">
+                <i class="bi bi-people fs-1 text-secondary d-block mb-2"></i>
+                No employees enrolled in this learning path yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transcript Modal -->
+<div class="modal fade" id="transcriptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="transcriptModalTitle"><i class="bi bi-journal-text me-2"></i>Employee Learning Transcript</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="transcriptModalBody">
+        <!-- Module list -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openTranscriptModal(name, modules) {
+    document.getElementById('transcriptModalTitle').innerHTML = '<i class="bi bi-journal-text me-2"></i>Transcript: ' + name;
+    var html = '<ul class="list-group list-group-flush">';
+    modules.forEach(function(m, idx) {
+      var badge = m.completed ? '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check me-1"></i>Completed</span>' : '<span class="badge bg-light text-muted border">Pending</span>';
+      html += '<li class="list-group-item d-flex justify-content-between align-items-center py-3"><div><span class="fw-bold me-2">' + (idx + 1) + '.</span>' + m.title + '</div>' + badge + '</li>';
+    });
+    html += '</ul>';
+    document.getElementById('transcriptModalBody').innerHTML = html;
+    var modal = new bootstrap.Modal(document.getElementById('transcriptModal'));
+    modal.show();
+  }
+</script>
+{% endblock %}

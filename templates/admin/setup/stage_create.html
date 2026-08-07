@@ -16,8 +16,15 @@
     <div class="row g-3 mb-4">
         <div class="col-md-6">
             <label class="form-label fw-medium">Stage Key <span class="text-danger">*</span></label>
-            <input type="text" name="stage_key" class="form-control" placeholder="e.g., offer_acceptance" pattern="[a-z_]+" required>
-            <small class="text-muted">Lowercase letters and underscores only. This cannot be changed later.</small>
+            <select name="stage_key" class="form-select" required>
+                <option value="">Select a code-defined stage</option>
+                {% for option in stage_catalog %}
+                <option value="{{ option.key }}" {% if option.exists %}disabled{% endif %}>
+                    {{ option.label }} ({{ option.key }}){% if option.exists %} - already configured{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <small class="text-muted d-block mt-1">Choose a stage that matches the portal code exactly. Existing keys are disabled.</small>
         </div>
         <div class="col-md-6">
             <label class="form-label fw-medium">Stage Label <span class="text-danger">*</span></label>

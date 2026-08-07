@@ -11,6 +11,7 @@ def stage_flags():
     return {
         "medical_enabled": on("stage_medical_enabled"),
         "pre_onboarding_enabled": on("stage_pre_onboarding_enabled"),
+        "offer_enabled": on("stage_offer_enabled"),
         "onboarding_enabled": on("stage_onboarding_enabled"),
         "post_onboarding_enabled": on("stage_post_onboarding_enabled"),
         "learning_enabled": on("feature_learning"),
@@ -33,6 +34,7 @@ PROGRESS_MAP = {
     "pre_onboarding": 40, "pre_onboarding_resubmission": 40,
     "pre_onboarding_info_requested": 40, "pre_onboarding_submitted": 55,
     "pre_onboarding_rejected": 35,
+    "offer": 55, "offer_submitted": 65,
     "onboarding": 75, "post_onboarding": 90, "completed": 100,
 }
 

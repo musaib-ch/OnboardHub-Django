@@ -29,21 +29,23 @@ BASE_ROLE_PERMISSIONS = {
         "manage_forms", "manage_documents", "export_data",
         "manage_automation_rules", "manage_organization", "manage_appearance",
         "manage_stages", "manage_stage_templates", "customize_employee_workflow",
-        "manage_onboarding_plans",
+        "manage_onboarding_plans", "view_analytics",
         "approve_pre_onboarding", "approve_onboarding", "approve_post_onboarding",
-        "send_offer", "manage_offers",
+        # Offer-related permissions
+        "send_offer", "manage_offers", "revoke_offer", "export_offer", "approve_offer",
+        "create_live_sessions", "manage_live_sessions",
     ],
     "admin": [
-        # Admin: manage users, forms, documents, org setup, training, plans
+        # Admin: manage users, forms, documents, org setup, training, plans (Offers restricted to super_admin and offer_sender)
         "view_employees", "manage_users",
         "manage_forms", "manage_documents", "export_data",
         "manage_training", "assign_training", "view_training",
         "view_programs", "manage_landing_page",
         "manage_organization", "manage_appearance",
-        "manage_automation_rules", "manage_onboarding_plans",
+        "manage_automation_rules", "manage_onboarding_plans", "view_analytics",
         "manage_stages", "manage_stage_templates", "customize_employee_workflow",
         "approve_pre_onboarding", "approve_onboarding", "approve_post_onboarding",
-        "send_offer", "manage_offers",
+        "create_live_sessions", "manage_live_sessions",
     ],
     "medical_approver": [
         # Medical approver: only medical-related permissions
@@ -52,15 +54,16 @@ BASE_ROLE_PERMISSIONS = {
         "manage_medical_requirements", "bypass_stages",
     ],
     "hrbp": [
-        # HRBP: view employees, manage training, view programs, manage 30/60/90 plans, customize workflows
+        # HRBP: view employees, manage training, view programs, manage 30/60/90 plans
         "view_employees",
         "manage_training", "assign_training", "view_training",
-        "view_programs", "manage_onboarding_plans",
-        "customize_employee_workflow",
+        "view_programs", "manage_onboarding_plans", "view_analytics",
+        "create_live_sessions", "manage_live_sessions",
     ],
     "offer_sender": [
-        # Offer sender: can only send offers
-        "send_offer",
+        # Offer sender: dedicated role for offer management
+        "send_offer", "manage_offers", "revoke_offer", "export_offer", "approve_offer",
+        "manage_templates", "manage_email_templates", "manage_offer_fields",
     ],
     "employee": [],
 }
@@ -74,6 +77,15 @@ PERMISSION_CATEGORIES = [
         ("view_employees", "View employees"),
         ("manage_users", "Create / edit users"),
     ]),
+    ("Offer Management & Operations", [
+        ("send_offer", "Send offer letters & documents"),
+        ("manage_offers", "Review and manage offer letters"),
+        ("revoke_offer", "Revoke pending offers"),
+        ("export_offer", "Export offers to PDF / ZIP"),
+        ("approve_offer", "Approve offer workflows"),
+        ("manage_templates", "Manage offer letter templates"),
+        ("manage_email_templates", "Manage offer email templates"),
+    ]),
     ("Stages & Actions", [
         ("bypass_stages", "Bypass stages / complete on behalf"),
         ("on_behalf_documents", "Sign documents on behalf"),
@@ -81,8 +93,6 @@ PERMISSION_CATEGORIES = [
         ("approve_pre_onboarding", "Approve pre-onboarding"),
         ("approve_onboarding", "Approve onboarding"),
         ("approve_post_onboarding", "Approve post-onboarding"),
-        ("send_offer", "Send offer documents"),
-        ("manage_offers", "Review and manage offers"),
     ]),
     ("Medical", [
         ("medical_review", "Review medical documents"),
@@ -100,10 +110,18 @@ PERMISSION_CATEGORIES = [
         ("view_programs", "View programs"),
         ("manage_landing_page", "Manage landing page"),
     ]),
+    ("Live Sessions", [
+        ("create_live_sessions", "Create live sessions"),
+        ("manage_live_sessions", "Manage live sessions and attendance"),
+    ]),
     ("Forms & Documents", [
         ("manage_forms", "Manage forms / form builder"),
         ("manage_documents", "Manage onboarding documents"),
         ("export_data", "Export data"),
+        # Offer templates and fields management
+        ("manage_templates", "Manage offer templates"),
+        ("manage_email_templates", "Manage offer email templates"),
+        ("manage_offer_fields", "Manage offer fields"),
     ]),
     ("Configuration", [
         ("manage_automation_rules", "Automation rules"),
@@ -112,6 +130,7 @@ PERMISSION_CATEGORIES = [
         ("manage_stages", "Manage workflow stages"),
         ("manage_stage_templates", "Manage workflow templates"),
         ("customize_employee_workflow", "Customize employee workflow"),
+        ("view_analytics", "View analytics dashboard"),
     ]),
 ]
 

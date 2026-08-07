@@ -5,7 +5,8 @@ themes identically.
 """
 from .models import AppSetting, Notification
 from . import services
-from .permissions import is_employee_role, is_staff_role, role_label
+from . import pipeline
+from .permissions import ALL_PERMISSIONS, is_employee_role, is_staff_role, role_label
 
 
 def _hex_to_rgb(hex_color, fallback="13,43,79"):
@@ -89,13 +90,10 @@ def site_settings(request):
     if user is not None and user.is_authenticated:
         unread = Notification.objects.filter(user=user, is_read=False).count()
         can_export = user.has_perm_key("export_data")
-        nav_perms = {p: user.has_perm_key(p) for p in (
-            "view_employees", "manage_users", "manage_forms", "manage_documents",
-            "manage_medical_requirements", "medical_review", "view_knowledge",
-            "manage_training", "manage_orientation", "view_presentation",
-            "manage_appearance", "manage_organization", "manage_landing_page",
-            "manage_automation_rules", "manage_email_templates",
-        )}
+        # Keep navigation and endpoint authorization on the same catalog.  This is
+        # deliberately derived from ALL_PERMISSIONS so a newly granted permission
+        # appears immediately in every portal without a second, stale allow-list.
+        nav_perms = {p: user.has_perm_key(p) for p in ALL_PERMISSIONS}
         # Super admin always sees all features (even if not in permission list)
         if user.role == "super_admin":
             nav_perms.update({p: True for p in nav_perms.keys()})
@@ -104,11 +102,13 @@ def site_settings(request):
         employee_role = is_employee_role(user.role)
         staff_role = is_staff_role(user.role)
         current_role_label = role_label(user.role)
+        employee_stage_path = pipeline.get_employee_stage_path(user) if employee_role else []
     else:
         employee_role = False
         staff_role = False
         current_role_label = ""
         nav_perms = {}
+        employee_stage_path = []
 
     return {
         "site_settings": settings,
@@ -120,4 +120,39 @@ def site_settings(request):
         "is_employee_role": employee_role,
         "is_staff_role": staff_role,
         "current_role_label": current_role_label,
+        "employee_stage_path": employee_stage_path,
+        "role": getattr(user, "role", "") if user is not None and user.is_authenticated else "",
+        # Employee assignment visibility flags — only computed for employees
+        "has_learning_paths": _has_learning_paths(user) if employee_role else False,
+        "has_quizzes": _has_quizzes(user) if employee_role else False,
+        "has_success_plan": _has_success_plan(user) if employee_role else False,
     }
+
+
+def _has_learning_paths(user):
+    """True if this employee has any active learning path enrollment."""
+    from .models import Engagement
+    return Engagement.objects.filter(
+        user=user, kind="enrollment", content__kind="learning_path",
+    ).exclude(status="completed").exists()
+
+
+def _has_quizzes(user):
+    """True if the employee has any quiz assigned (standalone quiz forms)."""
+    from .models import Form
+    all_quizzes = Form.objects.filter(
+        form_kind="quiz", is_active=True,
+    )
+    for q in all_quizzes:
+        roles = (q.schema or {}).get("quiz_meta", {}).get("assigned_roles", [])
+        if user.role in roles or user.role == "super_admin":
+            return True
+    return False
+
+
+def _has_success_plan(user):
+    """True if the employee has any onboarding success plan."""
+    from .models import Engagement
+    return Engagement.objects.filter(
+        user=user, kind="onboarding_plan",
+    ).exists()

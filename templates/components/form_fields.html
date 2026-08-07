@@ -25,15 +25,27 @@
                 {% endfor %}
             </select>
 
-            {% elif field.field_type == "radio" %}
+            {% elif field.field_type == "radio" or field.field_type == "likert" %}
             {% for opt in field.options %}
             <div class="form-check">
                 <input type="radio" name="field_{{ field.field_name }}" value="{{ opt }}" class="form-check-input"
                     id="r_{{ field.field_name }}_{{ forloop.counter }}" {% if cur == opt %}checked{% endif %}
                     {% if field.is_required %}required{% endif %}>
-                <label class="form-check-label" for="r_{{ field.field_name }}_{{ forloop.counter }}">{{ opt }}</label>
+                <label class="form-check-label fw-semibold" for="r_{{ field.field_name }}_{{ forloop.counter }}">{{ opt }}</label>
             </div>
             {% endfor %}
+
+            {% elif field.field_type == "nps" or field.field_type == "rating" %}
+            <div class="d-flex flex-wrap gap-2 py-2">
+                {% for opt in field.options %}
+                <div class="form-check form-check-inline m-0">
+                    <input type="radio" name="field_{{ field.field_name }}" value="{{ opt }}" class="btn-check"
+                        id="rate_{{ field.field_name }}_{{ forloop.counter }}" {% if cur == opt %}checked{% endif %}
+                        {% if field.is_required %}required{% endif %}>
+                    <label class="btn btn-outline-primary px-3 fw-bold" for="rate_{{ field.field_name }}_{{ forloop.counter }}">{{ opt }}</label>
+                </div>
+                {% endfor %}
+            </div>
 
             {% elif field.field_type == "checkbox" %}
             {% for opt in field.options %}

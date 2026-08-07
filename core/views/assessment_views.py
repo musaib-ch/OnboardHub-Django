@@ -96,6 +96,9 @@ def lesson_detail(request, course_id, lesson_id):
         for a in progress_data.get('quiz_attempts', [])
     )
 
+    # Video resume position
+    video_resume_seconds = assessment_service.get_video_position(request.user, course, lesson_id)
+
     ctx = {
         'course': course,
         'lesson': lesson,
@@ -103,6 +106,7 @@ def lesson_detail(request, course_id, lesson_id):
         'assessment': assessment,
         'can_take_assessment': can_take_assessment,
         'already_passed': already_passed,
+        'video_resume_seconds': video_resume_seconds,
     }
 
     return render(request, 'assessments/lesson_detail.html', ctx)
@@ -254,6 +258,20 @@ def quiz_results(request, course_id, lesson_id):
     }
 
     return render(request, 'assessments/quiz_results.html', ctx)
+
+
+@login_required
+@require_http_methods(['POST'])
+def save_video_position(request, course_id, lesson_id):
+    """AJAX: save how far into a video the user has watched."""
+    course = get_object_or_404(Content, id=course_id, kind='training')
+    try:
+        position = int(request.POST.get('position', 0))
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid position'}, status=400)
+
+    assessment_service.save_video_position(request.user, course, lesson_id, position)
+    return JsonResponse({'saved': True})
 
 
 @login_required

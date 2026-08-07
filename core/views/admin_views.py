@@ -1,21 +1,38 @@
 """Admin console: dashboard, employees, users, form builder, documents, medical."""
+import csv
+import io
 import json
+import os
 import secrets
+import shutil
 
+from typing import Dict, List, Optional
+
+from django.apps import apps
+from django.conf import settings
+from django.contrib.auth import login as auth_login
 from django.contrib import messages
+from django.core.cache import cache
+from django.core.files.storage import default_storage
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_http_methods
+from openpyxl import Workbook, load_workbook
 
 from .. import pipeline
 from ..decorators import staff_required, permission_required, roles_required
 from ..medical_match import medical_applicability
 from ..models import (
     User, OrgUnit, AppSetting, Form, FormResponse, OnboardingDocument, MedicalRecord,
-    ReviewMessage, Content, Engagement, STATUS_CHOICES,
+    ReviewMessage, Content, Engagement, Notification, AuditLog, StageDefinition,
+    StageTemplate, EmployeeStagePath, OfferWorkflow, STATUS_CHOICES,
 )
+from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer, OfferFieldValue
+
 from ..services import log_activity, notify, onboarding_progress_percent
 from ..services.stage_service import advance_employee_to_stage, set_stage_due_date_override, get_stage_progress
 from ..permissions import (
@@ -44,6 +61,28 @@ def _can_review(user, status):
     stage = pipeline.stage_of_status(status)
     perm = STAGE_REVIEW_PERM.get(stage)
     return bool(perm) and user.has_perm_key(perm)
+
+
+def _attach_current_stage_info(users):
+    """Annotate users with the live stage label/state used across admin/HRBP views."""
+    for user in users:
+        stage_key = pipeline.current_stage(user)
+        if stage_key:
+            user.current_stage_key = stage_key
+            user.current_stage_label = pipeline.STAGE_LABELS.get(
+                stage_key,
+                stage_key.replace("_", " ").title(),
+            )
+            user.current_stage_state = pipeline.stage_state(user, stage_key)
+        elif user.status == "completed":
+            user.current_stage_key = None
+            user.current_stage_label = "Completed"
+            user.current_stage_state = "completed"
+        else:
+            user.current_stage_key = None
+            user.current_stage_label = "Not started"
+            user.current_stage_state = "pending"
+    return users
 
 
 # Organization option kinds shown on the setup page + used by the user form.
@@ -167,7 +206,8 @@ def import_employees(request):
             if not email or not name:
                 skipped.append((line_no, email or "(blank)", "missing full_name or email"))
                 continue
-            if User.objects.filter(email__iexact=email).exists():
+            existing = User.objects.filter(email__iexact=email).first()
+            if existing and existing.status != "deleted":
                 skipped.append((line_no, email, "email already exists"))
                 continue
 
@@ -186,22 +226,41 @@ def import_employees(request):
 
             temp = secrets.token_urlsafe(9)
             try:
-                user = User(
-                    email=email, full_name=name, role="employee", status="pending",
-                    must_change_password=True, tenant=request.user.tenant, created_by=request.user,
-                    employee_id=row.get("employee_id") or None,
-                    position_title=row.get("designation") or None,
-                    grade=row.get("grade") or None,
-                    location_code=row.get("location") or None,
-                    payroll=row.get("payroll") or None,
-                    employee_type=row.get("employee_type") or None,
-                    gender=(row.get("gender") or "").lower() or None,
-                    department=dept,
-                    date_of_birth=_parse_date(row.get("date_of_birth")),
-                    date_of_joining=_parse_date(row.get("date_of_joining")),
-                )
-                user.set_password(temp)
-                user.save()
+                if existing and existing.status == "deleted":
+                    # Reactivate the soft-deleted user
+                    existing.status = "pending"
+                    existing.is_active = True
+                    existing.full_name = name
+                    existing.must_change_password = True
+                    existing.employee_id = row.get("employee_id") or existing.employee_id
+                    existing.position_title = row.get("designation") or None
+                    existing.grade = row.get("grade") or None
+                    existing.location_code = row.get("location") or None
+                    existing.payroll = row.get("payroll") or None
+                    existing.employee_type = row.get("employee_type") or None
+                    existing.gender = (row.get("gender") or "").lower() or None
+                    existing.department = dept
+                    existing.date_of_birth = _parse_date(row.get("date_of_birth"))
+                    existing.date_of_joining = _parse_date(row.get("date_of_joining"))
+                    existing.set_password(temp)
+                    existing.save()
+                else:
+                    user = User(
+                        email=email, full_name=name, role="employee", status="pending",
+                        must_change_password=True, tenant=request.user.tenant, created_by=request.user,
+                        employee_id=row.get("employee_id") or None,
+                        position_title=row.get("designation") or None,
+                        grade=row.get("grade") or None,
+                        location_code=row.get("location") or None,
+                        payroll=row.get("payroll") or None,
+                        employee_type=row.get("employee_type") or None,
+                        gender=(row.get("gender") or "").lower() or None,
+                        department=dept,
+                        date_of_birth=_parse_date(row.get("date_of_birth")),
+                        date_of_joining=_parse_date(row.get("date_of_joining")),
+                    )
+                    user.set_password(temp)
+                    user.save()
             except Exception as exc:  # noqa: BLE001
                 skipped.append((line_no, email, str(exc)[:120]))
                 continue
@@ -253,6 +312,379 @@ def export_employee_detail(request, user_id):
     return csv_response(fname, EMPLOYEE_DETAIL_HEADER, employee_detail_rows(emp))
 
 
+@permission_required("export_data")
+@require_http_methods(["POST"])
+def export_employee_package(request, user_id):
+    """Export selected onboarding stages as a structured ZIP archive."""
+    import zipfile
+    from datetime import datetime
+
+    emp = _get_employee(user_id)
+    if not can_view_employee(request.user, emp):
+        messages.error(request, "This employee is outside your scope.")
+        return redirect("admin_employees")
+
+    available_stages = {"medical", "pre_onboarding", "onboarding", "post_onboarding"}
+    selected = set(request.POST.getlist("sections")) & available_stages
+    if not selected:
+        messages.error(request, "Select at least one section to export.")
+        return redirect("admin_employee_detail", user_id=emp.id)
+
+    def safe_name(value, fallback="file"):
+        return get_valid_filename(str(value or fallback)) or fallback
+
+    def xlsx_bytes(headers, rows):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Export"
+        sheet.append(headers)
+        for row in rows:
+            sheet.append(["" if value is None else str(value) for value in row])
+        for cell in sheet[1]:
+            cell.font = cell.font.copy(bold=True)
+        for column in sheet.columns:
+            sheet.column_dimensions[column[0].column_letter].width = min(
+                48, max(14, max(len(str(cell.value or "")) for cell in column) + 2)
+            )
+        output = io.BytesIO()
+        workbook.save(output)
+        return output.getvalue()
+
+    def add_storage_file(archive, storage_name, archive_name):
+        if not storage_name:
+            return
+        try:
+            with default_storage.open(storage_name, "rb") as source:
+                archive.writestr(archive_name, source.read())
+        except (OSError, ValueError):
+            # Missing legacy uploads should not prevent the remaining package.
+            return
+
+    def add_form_response(archive, response, stage_folder):
+        form = response.form
+        fields = form.get_all_fields()
+        field_names = [field["field_name"] for field in fields]
+        labels = [field.get("label") or field["field_name"] for field in fields]
+        values = []
+        for name in field_names:
+            value = (response.answers or {}).get(name, "")
+            values.append(", ".join(map(str, value)) if isinstance(value, list) else value)
+        form_name = safe_name(form.name, f"form_{form.id}")
+        archive.writestr(
+            f"{stage_folder}/Forms/{form_name}.xlsx",
+            xlsx_bytes(["Submitted", "Status"] + labels, [[
+                timezone.localtime(response.submitted_at).strftime("%Y-%m-%d %H:%M"),
+                "Draft" if response.is_draft else "Submitted",
+            ] + values]),
+        )
+        for field_name, storage_name in (response.files or {}).items():
+            names = storage_name if isinstance(storage_name, list) else [storage_name]
+            for index, name in enumerate(names, start=1):
+                if name:
+                    filename = safe_name(os.path.basename(str(name)), "upload")
+                    prefix = safe_name(field_name, "upload")
+                    suffix = f"_{index}" if len(names) > 1 else ""
+                    add_storage_file(archive, name, f"{stage_folder}/Files/{form_name}/{prefix}{suffix}_{filename}")
+
+    zip_buffer = io.BytesIO()
+    stage_labels = {
+        "medical": "Medical",
+        "pre_onboarding": "Pre-Onboarding",
+        "onboarding": "Onboarding",
+        "post_onboarding": "Post-Onboarding",
+    }
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("README.txt", "Selected employee onboarding export. Each stage contains its spreadsheets and uploaded files.\n")
+        if "medical" in selected:
+            records = MedicalRecord.objects.filter(employee=emp, is_catalog=False)
+            medical_rows = []
+            for record in records:
+                medical_rows.append([
+                    record.requirement_name, record.get_status_display(), record.review_notes or "",
+                    timezone.localtime(record.reviewed_at).strftime("%Y-%m-%d %H:%M") if record.reviewed_at else "",
+                ])
+                if record.file:
+                    filename = safe_name(os.path.basename(record.file.name), "medical_file")
+                    add_storage_file(archive, record.file.name, f"Medical/Files/{safe_name(record.requirement_name, 'test')}_{filename}")
+            archive.writestr("Medical/medical_records.xlsx", xlsx_bytes(
+                ["Test / Requirement", "Status", "Review notes", "Reviewed at"], medical_rows
+            ))
+
+        for stage in selected - {"medical"}:
+            folder = stage_labels[stage]
+            responses = FormResponse.objects.filter(employee=emp, form__stage=stage).select_related("form")
+            for response in responses:
+                add_form_response(archive, response, folder)
+            for document in OnboardingDocument.objects.filter(stage=stage, is_active=True):
+                if not document.signed_by(emp.id):
+                    continue
+                document_name = safe_name(document.title, f"document_{document.id}")
+                if document.file:
+                    filename = safe_name(os.path.basename(document.file.name), "document")
+                    add_storage_file(archive, document.file.name, f"{folder}/Documents/{document_name}_{filename}")
+                elif document.body:
+                    archive.writestr(f"{folder}/Documents/{document_name}.html", document.body)
+
+    log_activity(request, action="export_employee_package", entity_type="employee", entity_id=emp.id,
+                 description=f"Exported: {', '.join(sorted(selected))}")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{safe_name(emp.full_name, 'employee')}_onboarding_{timestamp}.zip"
+    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@permission_required("manage_users")
+@require_http_methods(["POST"])
+def reset_user_password(request, user_id):
+    """Issue a one-time temporary password from an explicit admin action."""
+    user = get_object_or_404(User, id=user_id)
+    if user.status == "deleted":
+        messages.error(request, "A deleted user cannot be issued a new password.")
+    else:
+        temp_password = secrets.token_urlsafe(9)
+        user.set_password(temp_password)
+        user.must_change_password = True
+        user.save(update_fields=["password", "must_change_password", "updated_at"])
+        notify(
+            user,
+            "Your password was reset",
+            f"An administrator reset your password. Your temporary password is: {temp_password}. "
+            "You must choose a new password when you next sign in.",
+            link="/change-password/", category="warning",
+        )
+        from ..services.email_service import EmailService, _big_login_cta
+        EmailService.send_email(
+            to_email=user.email,
+            template_key="credentials_reset",
+            context={
+                "full_name": user.full_name or user.email,
+                "email": user.email,
+                "temp_password": temp_password,
+                "big_login_cta": _big_login_cta(request.build_absolute_uri("/login/")),
+            },
+            user=user,
+        )
+        log_activity(
+            request, action="admin_password_reset", entity_type="user", entity_id=user.id,
+            description=f"Administrator reset the password for {user.email}",
+        )
+        messages.success(request, f"Temporary password for {user.full_name}: {temp_password}")
+    return redirect("admin_employee_detail", user_id=user.id)
+
+
+@permission_required("send_offer")
+def offers(request):
+    from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer
+    offer_templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
+    email_templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
+    offer_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
+    offers_qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
+
+    scoped_users = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys()).exclude(status="deleted"))
+    scoped_user_ids = scoped_users.values_list("id", flat=True)
+    offers_qs = offers_qs.filter(candidate_user_id__in=scoped_user_ids)
+
+    return render(request, "admin/offers.html", {
+        "offers": offers_qs.select_related("candidate_user", "created_by").order_by("-created_at"),
+        "employees": scoped_users.order_by("full_name"),
+        "offer_templates": offer_templates,
+        "email_templates": email_templates,
+        "offer_fields": offer_fields,
+    })
+
+
+@permission_required("view_offer_analytics")
+def offers_analytics_page(request):
+    """Render an admin-facing analytics page that fetches JSON from the analytics API."""
+    return render(request, "admin/offers_analytics.html", {})
+
+
+@permission_required("manage_templates")
+@require_http_methods(["GET", "POST"])
+def offer_templates_manage(request):
+    """List, create, and update OfferTemplates from the admin UI."""
+    from ..models_offers import OfferTemplate
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        html_content = request.POST.get("html_content") or ""
+        template_id = request.POST.get("template_id")
+        if not name:
+            messages.error(request, "Template name is required.")
+            return redirect("admin_offer_templates")
+
+        if template_id:
+            tpl = get_object_or_404(OfferTemplate, id=template_id)
+            tpl.name = name
+            tpl.description = description
+            tpl.html_content = html_content
+            tpl.save()
+            messages.success(request, f"Offer template '{name}' updated successfully.")
+        else:
+            OfferTemplate.objects.create(
+                tenant=request.user.tenant,
+                name=name,
+                description=description,
+                html_content=html_content,
+                created_by=request.user
+            )
+            messages.success(request, f"Offer template '{name}' created successfully.")
+        return redirect("admin_offer_templates")
+
+    templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
+    return render(request, "admin/offer_templates.html", {"templates": templates.order_by("name")})
+
+
+@permission_required("manage_templates")
+def offer_template_delete(request, template_id):
+    """Delete an OfferTemplate."""
+    from ..models_offers import OfferTemplate
+    tpl = get_object_or_404(OfferTemplate, id=template_id)
+    name = tpl.name
+    tpl.delete()
+    messages.success(request, f"Offer template '{name}' deleted.")
+    return redirect("admin_offer_templates")
+
+
+@permission_required("manage_email_templates")
+@require_http_methods(["GET", "POST"])
+def offer_email_templates_manage(request):
+    """List, create, and update OfferEmailTemplates from admin UI."""
+    from ..models_offers import OfferEmailTemplate
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        subject = request.POST.get("subject_template") or ""
+        body = request.POST.get("html_body_template") or ""
+        email_template_id = request.POST.get("email_template_id")
+        if not name:
+            messages.error(request, "Email template name is required.")
+            return redirect("admin_offer_email_templates")
+
+        if email_template_id:
+            tpl = get_object_or_404(OfferEmailTemplate, id=email_template_id)
+            tpl.name = name
+            tpl.subject_template = subject
+            tpl.html_body_template = body
+            tpl.save()
+            messages.success(request, f"Email template '{name}' updated successfully.")
+        else:
+            OfferEmailTemplate.objects.create(
+                tenant=request.user.tenant,
+                name=name,
+                subject_template=subject,
+                html_body_template=body,
+                created_by=request.user
+            )
+            messages.success(request, f"Email template '{name}' created successfully.")
+        return redirect("admin_offer_email_templates")
+
+    templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
+    return render(request, "admin/offer_email_templates.html", {"templates": templates.order_by("name")})
+
+
+@permission_required("manage_email_templates")
+def offer_email_template_delete(request, template_id):
+    """Delete an OfferEmailTemplate."""
+    from ..models_offers import OfferEmailTemplate
+    tpl = get_object_or_404(OfferEmailTemplate, id=template_id)
+    name = tpl.name
+    tpl.delete()
+    messages.success(request, f"Email template '{name}' deleted.")
+    return redirect("admin_offer_email_templates")
+
+
+@permission_required("send_offer")
+@require_http_methods(["POST"])
+def send_offer(request):
+    employee_id = request.POST.get("employee_id")
+    if not employee_id:
+        messages.error(request, "Please select an employee to send the offer to.")
+        return redirect("admin_offers")
+    employee = get_object_or_404(User, id=employee_id)
+
+    position_title = (request.POST.get("position_title") or employee.position_title or "Position").strip()
+    salary = (request.POST.get("salary") or "").strip()
+    currency = (request.POST.get("currency") or "PKR").strip().upper()
+    start_date = (request.POST.get("start_date") or "").strip()
+    expiry_raw = (request.POST.get("expiry_date") or "").strip()
+    try:
+        expiry_date = timezone.make_aware(timezone.datetime.fromisoformat(expiry_raw))
+    except ValueError:
+        messages.error(request, "Enter a valid offer expiry date and time.")
+        return redirect("admin_offers")
+    if not salary or not start_date:
+        messages.error(request, "Salary and proposed start date are required.")
+        return redirect("admin_offers")
+
+    email_template_id = request.POST.get("email_template_id")
+    offer_template_id = request.POST.get("offer_template_id")
+    email_template = None
+    if email_template_id:
+       email_template = OfferEmailTemplate.objects.filter(id=email_template_id).first()
+    template = None
+    if offer_template_id:
+       template = OfferTemplate.objects.filter(id=offer_template_id).first()
+    if template is None and request.user.tenant:
+       template = OfferTemplate.objects.filter(tenant=request.user.tenant, is_default=True).first()
+    if template is None:
+       template = OfferTemplate.objects.filter(is_default=True).first()
+
+    offer_number = f"OFF-{timezone.now():%Y%m%d}-{secrets.token_hex(3).upper()}"
+    offer_info = {
+       "offer_number": offer_number,
+       "position_title": position_title,
+       "salary": salary,
+       "currency": currency,
+       "employment_type": (request.POST.get("employment_type") or "").strip(),
+       "start_date": start_date,
+       "benefits": (request.POST.get("benefits") or "").strip(),
+       "note": (request.POST.get("note") or "").strip(),
+       "expiry_date": expiry_date.isoformat(),
+    }
+    if email_template_id:
+       offer_info["email_template_id"] = email_template_id
+    if offer_template_id:
+       offer_info["offer_template_id"] = offer_template_id
+
+    offer = Offer.objects.create(
+       tenant=request.user.tenant,
+       template=template,
+       email_template=email_template,
+       created_by=request.user,
+       candidate_name=employee.full_name or employee.email,
+       candidate_email=employee.email,
+       candidate_user=employee,
+       status="draft",
+       metadata=offer_info,
+    )
+
+    for key, value in {
+       "position_title": position_title,
+       "salary": salary,
+       "currency": currency,
+       "start_date": start_date,
+       "employment_type": (request.POST.get("employment_type") or "").strip(),
+       "benefits": (request.POST.get("benefits") or "").strip(),
+       "note": (request.POST.get("note") or "").strip(),
+       "expiry_date": expiry_date.isoformat(),
+    }.items():
+       if value is not None and value != "":
+           OfferFieldValue.objects.create(
+               offer=offer,
+               field_definition=OfferFieldDefinition.objects.filter(tenant=request.user.tenant, key=key).first(),
+               value=str(value),
+           )
+
+    from ..views.offer_api_views import _perform_offer_send
+    tokens = _perform_offer_send(offer, acting_user=request.user, request=request)
+    salary_display = f"{currency} {salary}"
+    notify(employee, "Your offer is ready", f"Offer {offer_number} for {position_title}: {salary_display}. Review it before {expiry_date:%d %b %Y}.", link="/employee/offers/", category="info")
+    log_activity(request, action="send_offer", entity_type="offer", entity_id=offer.id, description=f"Sent {offer_number} to {employee.email}")
+    messages.success(request, f"Offer {offer_number} was sent to {employee.full_name}.")
+    return redirect("admin_offers")
+
+
 @permission_required("manage_forms")
 def export_form_responses_view(request, form_id):
     from ..exporters import csv_response, export_form_responses
@@ -267,9 +699,14 @@ def dashboard(request):
     employees = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys()))
     today = timezone.now().date()
     in_10_days = today + timezone.timedelta(days=10)
-    joining_soon = employees.filter(date_of_joining__gte=today, date_of_joining__lte=in_10_days).count()
+    visible_employees = _attach_current_stage_info(list(employees))
+    joining_soon = sum(
+        1 for emp in visible_employees
+        if emp.date_of_joining and today <= emp.date_of_joining <= in_10_days
+    )
 
-    # Determine user role for role-specific dashboard
+    # Dashboard sections follow the effective permission set, not a fixed role
+    # name, so custom roles and per-user overrides remain in sync.
     is_super_admin = request.user.role == "super_admin"
     is_admin = request.user.role == "admin"
     is_medical_approver = request.user.role == "medical_approver"
@@ -277,23 +714,27 @@ def dashboard(request):
 
     # Count overdue employees (current stage due date passed)
     now = timezone.now()
-    overdue_employees = employees.exclude(status="completed").filter(
-        stage_due_date__isnull=False,
-        stage_due_date__lt=now
-    ).count()
+    overdue_employees = sum(
+        1 for emp in visible_employees
+        if emp.status != "completed" and emp.stage_due_date and emp.stage_due_date < now
+    )
 
     stats = {
-        "total": employees.count(),
-        "pending": employees.filter(status="pending").count(),
-        "in_progress": employees.exclude(status__in=["completed", "pending", "deleted"]).count(),
-        "completed": employees.filter(status="completed").count(),
-        "on_hold": employees.filter(status="on_hold").count(),
-        "awaiting_review": employees.filter(status__in=AWAITING_REVIEW).count(),
+        "total": len(visible_employees),
+        "pending": sum(1 for emp in visible_employees if emp.status == "pending"),
+        "in_progress": sum(1 for emp in visible_employees if emp.status not in ["completed", "pending", "deleted"]),
+        "completed": sum(1 for emp in visible_employees if emp.status == "completed"),
+        "on_hold": sum(1 for emp in visible_employees if emp.status == "on_hold"),
+        "awaiting_review": sum(1 for emp in visible_employees if emp.status in AWAITING_REVIEW),
         "joining_soon": joining_soon,
         "overdue": overdue_employees,
     }
-    recent = employees.exclude(status="deleted").order_by("-created_at")[:8]
-    review_queue = employees.filter(status__in=AWAITING_REVIEW).order_by("-updated_at")[:8]
+    recent = sorted(visible_employees, key=lambda e: e.created_at or timezone.now(), reverse=True)[:8]
+    review_queue = sorted(
+        [e for e in visible_employees if e.status in AWAITING_REVIEW],
+        key=lambda e: e.updated_at or e.created_at or timezone.now(),
+        reverse=True,
+    )[:8]
 
     path_enrollments = Engagement.objects.filter(kind="enrollment", content__kind="learning_path")
     learning_stats = {
@@ -303,24 +744,26 @@ def dashboard(request):
         "overdue": path_enrollments.exclude(status="completed").filter(
             due_date__lt=timezone.now().date()).count(),
     }
-    medical_review_queue = [e for e in employees.filter(status__in=pipeline.SUBMITTED_STATUSES).order_by("-updated_at")
+    medical_review_queue = [e for e in review_queue
                             if pipeline.stage_of_status(e.status) == "medical"]
     can_medical_review = request.user.has_perm_key("medical_review") or request.user.has_perm_key("approve_medical")
 
     # Dashboard visibility control
     show_medical_tiles = is_super_admin or can_medical_review
-    show_people_tiles = (is_super_admin or is_admin or is_hrbp) and request.user.has_perm_key("view_employees")
-    show_learning_tiles = (is_super_admin or is_admin) and (request.user.has_perm_key("view_training") or request.user.has_perm_key("view_programs"))
+    show_people_tiles = request.user.has_perm_key("view_employees")
+    show_learning_tiles = (request.user.has_perm_key("view_training")
+                           or request.user.has_perm_key("view_programs"))
 
     # Medical approvers only see medical content; no other tiles
     if is_medical_approver:
         show_people_tiles = False
         show_learning_tiles = False
-        recent = employees.exclude(status="deleted").order_by("-updated_at")[:8]
+        recent = sorted(visible_employees, key=lambda e: e.updated_at or e.created_at or timezone.now(), reverse=True)[:8]
 
     # HRBP sees joining_soon tile if > 0, but table shows stage tracking
     dashboard_review_queue = medical_review_queue if can_medical_review else review_queue
     dashboard_review_title = "Medical Submissions Awaiting Review" if can_medical_review else "Awaiting Your Review"
+    dashboard_review_queue = _attach_current_stage_info(list(dashboard_review_queue)) if dashboard_review_queue else []
 
     return render(request, "admin/dashboard.html", {
         "stats": stats, "recent": recent, "review_queue": review_queue,
@@ -345,15 +788,48 @@ def dashboard(request):
 def employees(request):
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
-    qs = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys())).exclude(status="deleted")
+    sort = (request.GET.get("sort") or "date_of_joining").strip()
+    direction = (request.GET.get("dir") or "desc").strip().lower()
+    visible_cols = request.GET.getlist("cols") or ["name", "email", "department", "stage", "date_of_joining"]
+
+    sort_map = {
+        "name": "full_name",
+        "email": "email",
+        "department": "department__name",
+        "stage": "status",
+        "date_of_joining": "date_of_joining",
+    }
+
+    qs = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys())).exclude(status="deleted").select_related("department")
     if q:
         qs = qs.filter(Q(full_name__icontains=q) | Q(email__icontains=q)
                        | Q(employee_id__icontains=q))
     if status:
         qs = qs.filter(status=status)
-    qs = qs.order_by("-created_at")
+
+    order_field = sort_map.get(sort, "date_of_joining")
+    if direction == "asc":
+        qs = qs.order_by(order_field)
+    else:
+        qs = qs.order_by(f"-{order_field}")
+
+    employees = _attach_current_stage_info(list(qs))
+
     return render(request, "admin/employees.html", {
-        "employees": qs, "q": q, "status": status, "statuses": EMPLOYEE_STATUSES,
+        "employees": employees,
+        "q": q,
+        "status": status,
+        "statuses": EMPLOYEE_STATUSES,
+        "sort": sort,
+        "dir": direction,
+        "visible_columns": visible_cols,
+        "column_options": [
+            ("name", "Name"),
+            ("email", "Email"),
+            ("department", "Department"),
+            ("stage", "Stage"),
+            ("date_of_joining", "Date of Joining"),
+        ],
     })
 
 
@@ -379,7 +855,7 @@ def employee_detail(request, user_id):
     # Handle workflow update
     if request.method == "POST" and request.POST.get("action") == "update_workflow" and not request.user.has_perm_key("customize_employee_workflow"):
         messages.error(request, "You do not have permission to customize employee workflows.")
-        return redirect("admin_employee_detail", emp_id=emp.id)
+        return redirect("admin_employee_detail", user_id=emp.id)
 
     if request.method == "POST" and request.POST.get("action") == "update_workflow":
         from ..pipeline_v2 import create_employee_stage_path
@@ -396,17 +872,22 @@ def employee_detail(request, user_id):
             if invalid_stages:
                 messages.error(request, f"Invalid stages (disabled or non-existent): {', '.join(invalid_stages)}")
             else:
-                create_employee_stage_path(emp, new_stages, change_reason=change_reason)
+                create_employee_stage_path(emp, new_stages, change_reason=change_reason, modified_by=request.user)
                 log_activity(request, action="update_employee_workflow", entity_type="employee", entity_id=emp.id,
                             description=f"Updated workflow to {', '.join(new_stages)}")
                 messages.success(request, "Workflow updated successfully.")
+        else:
+            create_employee_stage_path(emp, [], change_reason=change_reason, modified_by=request.user)
+            log_activity(request, action="clear_employee_workflow", entity_type="employee", entity_id=emp.id,
+                         description="Cleared custom workflow and restored default workflow")
+            messages.success(request, "Custom workflow cleared. Default workflow restored.")
 
     responses = FormResponse.objects.filter(employee=emp).select_related("form")
     medical = MedicalRecord.objects.filter(employee=emp)
     actions = pipeline.review_actions_for(emp.status)
     review_stage = pipeline.stage_of_status(emp.status)
     convo_stage = pipeline.current_stage(emp) or review_stage
-    thread = ReviewMessage.objects.filter(employee=emp, stage=convo_stage).select_related("author")
+    thread = ReviewMessage.objects.filter(employee=emp).select_related("author").order_by("created_at")
     # Email/message templates, pre-resolved with this employee's real values so the
     # admin can drop one into the conversation box (see Phase 4 — sendable templates).
     from ..email_service import all_email_templates, render_email, employee_email_context
@@ -418,43 +899,23 @@ def employee_detail(request, user_id):
                               "subject": subject, "body": body})
 
     # Phase 1: Progress visualization data
-    from ..models import AppSetting
-    import json
-    stages_json = AppSetting.get('stages', '{}')
-    stages_dict = json.loads(stages_json) if isinstance(stages_json, str) else stages_json
+    from ..pipeline_v2 import get_employee_stage_path
+    from ..models import StageDefinition, StageTemplate
 
-    # Convert stage config to list format for template
-    stage_list = []
-    for key in ['medical', 'pre_onboarding', 'onboarding', 'post_onboarding']:
-        config = stages_dict.get(key, {})
-        stage_list.append({
-            'stage_key': key,
-            'label': config.get('label', key.replace('_', ' ').title()),
-            'order': config.get('order', 0),
-            'is_enabled': config.get('is_enabled', True),
+    employee_stage_path = get_employee_stage_path(emp)
+    stage_definitions = {s.stage_key: s for s in StageDefinition.objects.filter(is_enabled=True)}
+    stage_templates_qs = StageTemplate.objects.filter(is_active=True).order_by("name")
+    stages = []
+    for idx, stage_key in enumerate(employee_stage_path):
+        stage_def = stage_definitions.get(stage_key)
+        stages.append({
+            "stage_key": stage_key,
+            "label": stage_def.label if stage_def else pipeline.STAGE_LABELS.get(stage_key, stage_key.replace("_", " ").title()),
+            "order": idx,
+            "is_enabled": bool(stage_def),
+            "status": pipeline.stage_state(emp, stage_key),
         })
-    stages = sorted(stage_list, key=lambda s: s['order'])
-    current_stage_key = pipeline.stage_of_status(emp.status)
-
-    # Calculate status for each stage
-    completed_statuses = {'pre_onboarding', 'pre_onboarding_submitted', 'pre_onboarding_resubmission',
-                         'pre_onboarding_info_requested', 'pre_onboarding_rejected',
-                         'onboarding', 'post_onboarding', 'completed'}
-    stage_statuses = {}
-    for stage in stages:
-        if emp.status == 'completed':
-            stage_statuses[stage['stage_key']] = 'completed'
-        elif stage['stage_key'] == current_stage_key:
-            stage_statuses[stage['stage_key']] = emp.stage_status()  # pending, in_progress, overdue
-        elif stage['stage_key'] in completed_statuses and emp.status in completed_statuses:
-            # Check if this stage comes before current stage
-            stage_order = {s['stage_key']: s['order'] for s in stages}
-            if stage_order.get(stage['stage_key'], 0) < stage_order.get(current_stage_key, 999):
-                stage_statuses[stage['stage_key']] = 'completed'
-            else:
-                stage_statuses[stage['stage_key']] = 'pending'
-        else:
-            stage_statuses[stage['stage_key']] = 'pending'
+    current_stage_key = pipeline.current_stage(emp)
 
     stage_progress = {
         'status': emp.stage_status(),
@@ -462,25 +923,13 @@ def employee_detail(request, user_id):
         'due_date': emp.get_effective_due_date(),
         'entered_at': emp.stage_entered_at,
         'is_overdue': emp.is_stage_overdue(),
-        'stage_name': pipeline.STAGE_LABELS.get(current_stage_key, current_stage_key),
+        'stage_name': pipeline.STAGE_LABELS.get(current_stage_key, current_stage_key or "Not started"),
     }
-
-    # Add stage statuses to stages for template
-    for stage in stages:
-        stage['status'] = stage_statuses.get(stage['stage_key'], 'pending')
 
     # Get unified stages with all activities
     from ..services.unified_stages_service import get_employee_all_stages
     unified_stages = get_employee_all_stages(emp)
-
-    # Get employee's custom workflow path
-    from ..pipeline_v2 import get_employee_stage_path
-    from ..models import StageDefinition, StageTemplate
-    employee_stage_path = get_employee_stage_path(emp)
-    # Only show enabled stages - disabled stages should not appear anywhere
-    stage_definitions = {s.stage_key: s for s in StageDefinition.objects.filter(is_enabled=True)}
     all_stages_qs = StageDefinition.objects.filter(is_enabled=True).order_by("order")
-    stage_templates_qs = StageTemplate.objects.filter(is_active=True).order_by("name")
 
     return render(request, "admin/employee_detail.html", {
         "emp": emp,
@@ -496,13 +945,13 @@ def employee_detail(request, user_id):
         "can_bypass": request.user.has_perm_key("bypass_stages"),
         "stages": stages,
         "stage_progress": stage_progress,
-        "medical_status": stage_statuses.get('medical_upload', 'pending'),
-        "pre_onboarding_status": stage_statuses.get('pre_onboarding', 'pending'),
-        "onboarding_status": stage_statuses.get('onboarding', 'pending'),
-        "post_onboarding_status": stage_statuses.get('post_onboarding', 'pending'),
+        "medical_status": pipeline.stage_state(emp, "medical") if "medical" in employee_stage_path else "disabled",
+        "pre_onboarding_status": pipeline.stage_state(emp, "pre_onboarding") if "pre_onboarding" in employee_stage_path else "disabled",
+        "onboarding_status": pipeline.stage_state(emp, "onboarding") if "onboarding" in employee_stage_path else "disabled",
+        "post_onboarding_status": pipeline.stage_state(emp, "post_onboarding") if "post_onboarding" in employee_stage_path else "disabled",
         "can_on_behalf": request.user.has_perm_key("on_behalf_documents"),
-        "current_stage_label": pipeline.STAGE_LABELS.get(pipeline.current_stage(emp), ""),
-        "is_onboarding_active": pipeline.current_stage(emp) is not None
+        "current_stage_label": pipeline.STAGE_LABELS.get(current_stage_key, ""),
+        "is_onboarding_active": current_stage_key is not None
                                 and emp.status not in ("deleted", "on_hold"),
         # Workflow configuration
         "employee_stage_path": employee_stage_path,
@@ -516,8 +965,32 @@ def employee_detail(request, user_id):
         "convo_stage_label": pipeline.STAGE_LABELS.get(convo_stage, ""),
         "unified_stages": unified_stages,  # All stages with activities
         "is_super_admin": request.user.role == 'super_admin',
+        "can_manage_users": request.user.has_perm_key("manage_users"),
     })
 
+
+@staff_required
+@require_http_methods(["POST"])
+def bulk_delete_employees(request):
+    raw_ids = request.POST.getlist("selected_ids")
+    selected_ids = []
+    for value in raw_ids:
+        for item in value.split(","):
+            item = item.strip()
+            if item.isdigit():
+                selected_ids.append(int(item))
+    if selected_ids:
+        qs = scoped_employee_qs(
+            request.user,
+            User.objects.filter(id__in=selected_ids, role__in=_employee_role_keys()).exclude(status="deleted"),
+        )
+        updated = qs.update(status="deleted", is_active=False)
+        log_activity(request, action="bulk_delete_employees", entity_type="employee",
+                     description=f"Soft-deleted {updated} employee(s)")
+        messages.success(request, f"Deleted {updated} selected employee(s).")
+    else:
+        messages.warning(request, "No employees were selected.")
+    return redirect("admin_employees")
 
 @staff_required
 @require_http_methods(["POST"])
@@ -531,7 +1004,8 @@ def delete_employee(request, user_id):
     # Soft delete - set status to deleted
     old_status = emp.status
     emp.status = "deleted"
-    emp.save(update_fields=["status"])
+    emp.is_active = False
+    emp.save(update_fields=["status", "is_active"])
 
     log_activity(request, action="delete_employee", entity_type="employee", entity_id=emp.id,
                  description=f"Marked {emp.email} as deleted (was {old_status})")
@@ -788,6 +1262,20 @@ def review_employee(request, user_id):
     notify(emp, title, body, link=STAGE_LINK.get(stage, "/employee/home/"),
            category="success" if advanced else "warning")
 
+    from ..services.email_service import EmailService, _small_portal_link
+    if action == "approve" and stage == "medical":
+        EmailService.send_email(to_email=emp.email, template_key="medical_approved", context={"full_name": emp.full_name or emp.email, "small_portal_link_onboarding": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+    elif action == "approve" and stage == "pre_onboarding":
+        EmailService.send_email(to_email=emp.email, template_key="pre_onboarding_approved", context={"full_name": emp.full_name or emp.email, "small_portal_link_continue_docs": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+    elif action == "reject" and stage == "medical":
+        EmailService.send_email(to_email=emp.email, template_key="medical_rejected", context={"full_name": emp.full_name or emp.email, "remarks_html": f"<p>{note}</p>", "small_portal_link_view": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+    elif action == "reject" and stage == "pre_onboarding":
+        EmailService.send_email(to_email=emp.email, template_key="pre_onboarding_rejected", context={"full_name": emp.full_name or emp.email, "reason_html": f"<p>{note}</p>", "small_portal_link_view": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+    elif action == "request_info":
+        EmailService.send_email(to_email=emp.email, template_key="info_requested", context={"full_name": emp.full_name or emp.email, "stage_label": pipeline.STAGE_LABELS.get(stage, stage), "question": note, "small_portal_link_respond": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+    elif action == "request_changes":
+        EmailService.send_email(to_email=emp.email, template_key="resubmission_requested", context={"full_name": emp.full_name or emp.email, "stage_label": pipeline.STAGE_LABELS.get(stage, stage), "message": note, "small_portal_link_stage": _small_portal_link(request.build_absolute_uri("/employee/home/"))})
+
     # Record the decision in the conversation thread (so the employee can reply
     # to info/changes requests).
     kind_map = {"request_info": "info_request", "request_changes": "changes",
@@ -808,8 +1296,37 @@ def review_employee(request, user_id):
 # ── Users (admins + employees creation) ──────────────────────────────────────
 @permission_required("manage_users")
 def users(request):
-    staff = User.objects.filter(role__in=_staff_role_keys()).exclude(status="deleted").order_by("full_name")
-    return render(request, "admin/users.html", {"users": staff, "roles": [(r["key"], r["label"]) for r in all_roles()]})
+    sort = (request.GET.get("sort") or "name").strip()
+    direction = (request.GET.get("dir") or "asc").strip().lower()
+    visible_cols = request.GET.getlist("cols") or ["name", "email", "role", "status"]
+    sort_map = {
+        "name": "full_name",
+        "email": "email",
+        "role": "role",
+        "status": "is_active",
+    }
+
+    qs = User.objects.filter(role__in=_staff_role_keys()).exclude(status="deleted")
+    order_field = sort_map.get(sort, "full_name")
+    if direction == "desc":
+        qs = qs.order_by(f"-{order_field}")
+    else:
+        qs = qs.order_by(order_field)
+
+    staff = qs
+    return render(request, "admin/users.html", {
+        "users": staff,
+        "roles": [(r["key"], r["label"]) for r in all_roles()],
+        "sort": sort,
+        "dir": direction,
+        "visible_columns": visible_cols,
+        "column_options": [
+            ("name", "Name"),
+            ("email", "Email"),
+            ("role", "Role"),
+            ("status", "Status"),
+        ],
+    })
 
 
 def _apply_user_fields(request, user):
@@ -874,7 +1391,8 @@ def _apply_employee_workflow(request, user):
                 create_employee_stage_path(
                     user,
                     stages=valid_stages,
-                    change_reason=f"Created with template: {template.name}"
+                    change_reason=f"Created with template: {template.name}",
+                    modified_by=request.user,
                 )
         except StageTemplate.DoesNotExist:
             pass
@@ -892,7 +1410,8 @@ def _apply_employee_workflow(request, user):
                 create_employee_stage_path(
                     user,
                     stages=custom_stages,
-                    change_reason="Created with custom stage selection"
+                    change_reason="Created with custom stage selection",
+                    modified_by=request.user,
                 )
     # else: "default" or not specified - leave stage_path as NULL (uses global defaults)
 
@@ -933,9 +1452,53 @@ def create_user(request):
         if not email or not full_name:
             messages.error(request, "Full name and email are required.")
             return redirect("admin_create_user")
-        if User.objects.filter(email__iexact=email).exists():
-            messages.error(request, "A user with that email already exists.")
-            return redirect("admin_create_user")
+        existing = User.objects.filter(email__iexact=email).first()
+        if existing:
+            if existing.status == "deleted":
+                # Reactivate the soft-deleted user
+                existing.status = "pending" if is_employee_role(role) else "completed"
+                existing.is_active = True
+                existing.role = role
+                existing.must_change_password = True
+                _apply_user_fields(request, existing)
+                temp_password = secrets.token_urlsafe(9)
+                existing.set_password(temp_password)
+                existing.save()
+                _apply_permissions(request, existing)
+                existing.save(update_fields=["permissions_override"])
+                if is_employee_role(role):
+                    _apply_employee_workflow(request, existing)
+                    from ..services.email_service import EmailService, _big_login_cta
+                    EmailService.send_email(
+                        to_email=existing.email,
+                        template_key='welcome_employee',
+                        context={
+                            'full_name': existing.full_name or existing.email,
+                            'email': existing.email,
+                            'temp_password': temp_password,
+                            'big_login_cta': _big_login_cta(request.build_absolute_uri('/login/'))
+                        }
+                    )
+                else:
+                    from ..services.email_service import EmailService, _big_login_cta
+                    EmailService.send_email(
+                        to_email=existing.email,
+                        template_key='welcome_admin',
+                        context={
+                            'full_name': existing.full_name or existing.email,
+                            'email': existing.email,
+                            'role_label': role.replace('_', ' ').title(),
+                            'temp_password': temp_password,
+                            'big_login_cta': _big_login_cta(request.build_absolute_uri('/login/'))
+                        }
+                    )
+                log_activity(request, action="reactivate_user", entity_type="user", entity_id=existing.id,
+                             description=f"Reactivated deleted {role} {existing.email}")
+                messages.success(request, f"Reactivated previously deleted user. Temporary password for {email}: {temp_password}")
+                return redirect("admin_edit_user", user_id=existing.id)
+            else:
+                messages.error(request, "A user with that email already exists.")
+                return redirect("admin_create_user")
         temp_password = secrets.token_urlsafe(9)
         user = User(
             email=email, role=role,
@@ -954,6 +1517,30 @@ def create_user(request):
         # Create custom stage path if employee and workflow selected
         if is_employee_role(role):
             _apply_employee_workflow(request, user)
+            from ..services.email_service import EmailService, _big_login_cta
+            EmailService.send_email(
+                to_email=user.email,
+                template_key='welcome_employee',
+                context={
+                    'full_name': user.full_name or user.email,
+                    'email': user.email,
+                    'temp_password': temp_password,
+                    'big_login_cta': _big_login_cta(request.build_absolute_uri('/login/'))
+                }
+            )
+        else:
+            from ..services.email_service import EmailService, _big_login_cta
+            EmailService.send_email(
+                to_email=user.email,
+                template_key='welcome_admin',
+                context={
+                    'full_name': user.full_name or user.email,
+                    'email': user.email,
+                    'role_label': role.replace('_', ' ').title(),
+                    'temp_password': temp_password,
+                    'big_login_cta': _big_login_cta(request.build_absolute_uri('/login/'))
+                }
+            )
 
         log_activity(request, action="create_user", entity_type="user", entity_id=user.id,
                      description=f"Created {role} {user.email}")
@@ -968,6 +1555,13 @@ def create_user(request):
 def edit_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == "POST":
+        # Handle email change
+        new_email = (request.POST.get("email") or "").strip().lower()
+        if new_email and new_email != user.email:
+            if User.objects.filter(email__iexact=new_email).exclude(id=user.id).exists():
+                messages.error(request, f"Another user already has the email {new_email}.")
+                return redirect("admin_edit_user", user_id=user.id)
+            user.email = new_email
         new_role = request.POST.get("role") or user.role
         valid_roles = {r["key"] for r in all_roles(include_super=True)}
         if new_role != "super_admin" and new_role in valid_roles:
@@ -1054,6 +1648,12 @@ def _advance_medical_if_ready(request, user):
     notify(user, f"{pipeline.STAGE_LABELS.get(stage, 'Medical')} approved",
            "All required medical documents have been approved.",
            link=STAGE_LINK.get(stage, "/employee/home/"), category="success")
+           
+    from ..services.email_service import EmailService, _small_portal_link
+    EmailService.send_email(
+        to_email=user.email, template_key="medical_approved",
+        context={"full_name": user.full_name or user.email, "small_portal_link_onboarding": _small_portal_link(request.build_absolute_uri("/employee/home/"))}
+    )
     log_activity(request, action="approve_medical_stage", entity_type="employee", entity_id=user.id,
                  description=f"Advanced employee from {old_status} -> {user.status} after approving medical records for {user.email}")
     messages.success(request, "All required medical documents approved — employee advanced.")
@@ -1181,8 +1781,60 @@ def organization(request):
     valid_kinds = {k for k, _ in ORG_KINDS}
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "add":
-            kind = request.POST.get("kind")
+        kind = request.POST.get("kind") or "department"
+        tab = kind if kind in valid_kinds else "department"
+        if action == "import_options":
+            uploaded_file = request.FILES.get("import_file")
+            if not uploaded_file:
+                messages.error(request, "Choose a file to import.")
+            elif kind not in valid_kinds:
+                messages.error(request, "Invalid organization tab selected.")
+            else:
+                try:
+                    rows = _read_org_option_rows(uploaded_file)
+                except Exception as exc:  # pragma: no cover - defensive path
+                    messages.error(request, f"Import failed: {exc}")
+                else:
+                    created = 0
+                    skipped = 0
+                    for row in rows:
+                        name = str(row.get("name") or row.get("option_name") or "").strip()
+                        if not name:
+                            skipped += 1
+                            continue
+                        if OrgUnit.objects.filter(kind=kind, name__iexact=name, tenant=request.user.tenant).exists():
+                            skipped += 1
+                            continue
+                        OrgUnit.objects.create(
+                            kind=kind,
+                            name=name,
+                            description=str(row.get("description") or "").strip(),
+                            tenant=request.user.tenant,
+                            is_active=True,
+                        )
+                        created += 1
+                    messages.success(request, f"Imported {created} new {kind} option(s). Skipped {skipped} existing or blank row(s).")
+        elif action == "export_options":
+            if kind not in valid_kinds:
+                messages.error(request, "Invalid organization tab selected.")
+            else:
+                options = OrgUnit.objects.filter(kind=kind, tenant=request.user.tenant).order_by("name")
+                workbook = _build_org_option_export_workbook(kind, options)
+                output = io.BytesIO()
+                workbook.save(output)
+                output.seek(0)
+                response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                response["Content-Disposition"] = f'attachment; filename="{kind}_options.xlsx"'
+                return response
+        elif action == "download_template":
+            workbook = _build_org_option_template_workbook(ORG_KINDS)
+            output = io.BytesIO()
+            workbook.save(output)
+            output.seek(0)
+            response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = 'attachment; filename="organization_options_template.xlsx"'
+            return response
+        elif action == "add":
             name = (request.POST.get("name") or "").strip()
             if kind not in valid_kinds or not name:
                 messages.error(request, "Choose a type and enter a name.")
@@ -1205,16 +1857,15 @@ def organization(request):
         elif action == "delete":
             ou = OrgUnit.objects.filter(id=request.POST.get("option_id")).first()
             if ou:
-                if ou.kind == "department" and ou.members.exists():
-                    messages.error(request, f'Cannot delete "{ou.name}" - employees are assigned to it.')
-                else:
-                    ou.delete()
-                    messages.success(request, "Option deleted.")
-        return redirect("admin_organization")
+                ou.delete()
+                messages.success(request, "Option deleted.")
+        return redirect(f"{reverse('admin_organization')}?tab={tab}")
 
+    tab = request.GET.get("tab") or "department"
     return render(request, "admin/organization.html", {
         "kinds": ORG_KINDS,
         "options": _org_options(),
+        "active_tab": tab,
     })
 
 
@@ -1302,7 +1953,7 @@ def branding(request):
             AppSetting.set("site_logo", f"media/branding/{fname}", user=request.user)
         log_activity(request, action="update_branding", entity_type="settings",
                      description="Updated branding/appearance")
-        messages.success(request, "Branding saved — the whole portal now reflects your changes.")
+        messages.success(request, "Branding saved - the whole portal now reflects your changes.")
         return redirect("admin_branding")
 
     current = {k: (AppSetting.get(k) or BRANDING_DEFAULTS[k]) for k in BRANDING_DEFAULTS}
@@ -1516,6 +2167,161 @@ def email_statistics(request):
     })
 
 
+RESET_CONFIRM_PHRASE = "RESET DATABASE"
+PRESERVE_CURRENT_ADMIN_DEFAULT = True
+
+
+def _portal_reset_summary():
+    rows = [
+        ("Users", User.objects.count()),
+        ("Employees", User.objects.filter(role="employee").count()),
+        ("Staff", User.objects.exclude(role="employee").count()),
+        ("Departments", OrgUnit.objects.filter(kind="department").count()),
+        ("Locations", OrgUnit.objects.filter(kind="location").count()),
+        ("Forms", Form.objects.count()),
+        ("Form Responses", FormResponse.objects.count()),
+        ("Documents", OnboardingDocument.objects.count()),
+        ("Medical Records", MedicalRecord.objects.count()),
+        ("Content Items", Content.objects.count()),
+        ("Engagements", Engagement.objects.count()),
+        ("Notifications", Notification.objects.count()),
+        ("Audit Logs", AuditLog.objects.count()),
+        ("Stage Definitions", StageDefinition.objects.count()),
+        ("Stage Templates", StageTemplate.objects.count()),
+        ("Employee Stage Paths", EmployeeStagePath.objects.count()),
+        ("Offer Workflows", OfferWorkflow.objects.count()),
+        ("App Settings", AppSetting.objects.count()),
+    ]
+    return rows
+
+
+def _capture_super_admin_snapshot(user):
+    return {
+        "email": user.email,
+        "full_name": user.full_name,
+        "password": user.password,
+        "phone_number": user.phone_number,
+        "employee_id": user.employee_id,
+        "role": "super_admin",
+        "status": "completed",
+        "must_change_password": False,
+        "is_staff": True,
+        "is_superuser": True,
+        "is_active": True,
+    }
+
+
+def _restore_super_admin_snapshot(snapshot):
+    if not snapshot:
+        return None
+    user, _ = User.objects.get_or_create(
+        email=snapshot["email"],
+        defaults={
+            "full_name": snapshot["full_name"],
+            "role": snapshot["role"],
+            "status": snapshot["status"],
+            "must_change_password": snapshot["must_change_password"],
+            "is_staff": snapshot["is_staff"],
+            "is_superuser": snapshot["is_superuser"],
+            "is_active": snapshot["is_active"],
+            "phone_number": snapshot.get("phone_number"),
+            "employee_id": snapshot.get("employee_id"),
+        },
+    )
+    user.full_name = snapshot["full_name"]
+    user.role = snapshot["role"]
+    user.status = snapshot["status"]
+    user.must_change_password = snapshot["must_change_password"]
+    user.is_staff = snapshot["is_staff"]
+    user.is_superuser = snapshot["is_superuser"]
+    user.is_active = snapshot["is_active"]
+    user.phone_number = snapshot.get("phone_number")
+    user.employee_id = snapshot.get("employee_id")
+    user.tenant = None
+    user.password = snapshot["password"]
+    user.save()
+    return user
+
+
+def _clear_media_root():
+    from django.conf import settings as dj_settings
+
+    media_root = getattr(dj_settings, "MEDIA_ROOT", "")
+    if not media_root or not os.path.isdir(media_root):
+        return
+    for entry in os.listdir(media_root):
+        path = os.path.join(media_root, entry)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+
+def _wipe_core_data():
+    core_models = list(apps.get_app_config("core").get_models())
+    # Delete child tables first, leave auth/session tables alone, and remove
+    # the current user last so the request can still complete cleanly.
+    def sort_key(model):
+        name = model._meta.model_name
+        if name == "user":
+            return (2, name)
+        if name == "tenant":
+            return (1, name)
+        return (0, name)
+
+    for model in sorted(core_models, key=sort_key, reverse=True):
+        model.objects.all().delete()
+
+
+def _perform_portal_reset(preserve_super_admin_snapshot=None):
+    summary = _portal_reset_summary()
+    _wipe_core_data()
+    user = _restore_super_admin_snapshot(preserve_super_admin_snapshot)
+    cache.clear()
+    _clear_media_root()
+    return summary, user
+
+
+@roles_required("super_admin")
+@require_http_methods(["GET", "POST"])
+def portal_reset(request):
+    summary = _portal_reset_summary()
+    if request.method == "POST":
+        confirm_phrase = (request.POST.get("confirm_phrase") or "").strip()
+        if confirm_phrase != RESET_CONFIRM_PHRASE:
+            messages.error(request, f"Type {RESET_CONFIRM_PHRASE} exactly to confirm the reset.")
+            return redirect("admin_portal_reset")
+        preserve_current = request.POST.get("preserve_current_super_admin") != "off"
+        snapshot = _capture_super_admin_snapshot(request.user) if preserve_current else None
+        reset_result = _perform_portal_reset(snapshot)
+        if isinstance(reset_result, tuple) and len(reset_result) == 2:
+            summary, restored_user = reset_result
+        else:
+            summary, restored_user = reset_result, None
+        if restored_user is not None:
+            backend = settings.AUTHENTICATION_BACKENDS[0] if settings.AUTHENTICATION_BACKENDS else None
+            if backend:
+                auth_login(request, restored_user, backend=backend)
+        return render(request, "admin/system_reset.html", {
+            "reset_complete": True,
+            "summary": summary,
+            "summary_map": dict(summary),
+            "confirm_phrase": RESET_CONFIRM_PHRASE,
+            "preserve_current_super_admin": preserve_current,
+            "preserved_current_super_admin": preserve_current,
+        })
+    return render(request, "admin/system_reset.html", {
+        "reset_complete": False,
+        "summary": summary,
+        "summary_map": dict(summary),
+        "confirm_phrase": RESET_CONFIRM_PHRASE,
+        "preserve_current_super_admin": PRESERVE_CURRENT_ADMIN_DEFAULT,
+    })
+
+
 @roles_required("super_admin")
 @require_http_methods(["GET", "POST"])
 def roles(request):
@@ -1575,6 +2381,25 @@ def roles(request):
 
 @permission_required("manage_users")
 @require_http_methods(["POST"])
+def bulk_delete_users(request):
+    raw_ids = request.POST.getlist("selected_ids")
+    selected_ids = []
+    for value in raw_ids:
+        for item in value.split(","):
+            item = item.strip()
+            if item.isdigit():
+                selected_ids.append(int(item))
+    if selected_ids:
+        updated = User.objects.filter(id__in=selected_ids).exclude(id=request.user.id).exclude(status="deleted").update(status="deleted", is_active=False)
+        log_activity(request, action="bulk_delete_users", entity_type="user",
+                     description=f"Soft-deleted {updated} user(s)")
+        messages.success(request, f"Deleted {updated} selected user(s).")
+    else:
+        messages.warning(request, "No users were selected.")
+    return redirect("admin_users")
+
+@permission_required("manage_users")
+@require_http_methods(["POST"])
 def delete_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if user.id == request.user.id:
@@ -1596,7 +2421,7 @@ STAGE_CHOICES = ["pre_onboarding", "onboarding", "post_onboarding", "general"]
 @permission_required("manage_forms")
 def forms_list(request):
     forms = Form.objects.all().order_by("stage", "display_order", "id")
-    return render(request, "admin/forms.html", {"forms": forms})
+    return render(request, "admin/forms.html", {"forms": forms, "stages": STAGE_CHOICES})
 
 
 @permission_required("manage_forms")
@@ -1606,8 +2431,14 @@ def create_form(request):
         form = _save_form_from_post(request, Form())
         messages.success(request, "Form created.")
         return redirect("admin_edit_form", form_id=form.id)
+    
+    # If a kind was passed in URL (e.g. from Quiz List), pass it to context
+    # so the frontend can pre-select Quiz mode.
+    default_kind = "quiz" if request.path.startswith("/admin/quizzes/create") else "form"
+    
     return render(request, "admin/edit_form.html", {
         "form": None, "stages": STAGE_CHOICES, "schema_json": json.dumps({"sections": []}),
+        "default_kind": default_kind
     })
 
 
@@ -1632,10 +2463,16 @@ def _save_form_from_post(request, form):
     form.employee_type = (request.POST.get("employee_type") or "").strip() or None
     form.is_active = bool(request.POST.get("is_active"))
     form.form_kind = request.POST.get("form_kind") or "form"
+    form.is_anonymous = bool(request.POST.get("is_anonymous"))
+    form.allow_multiple_submissions = bool(request.POST.get("allow_multiple_submissions"))
+    form.show_progress_bar = bool(request.POST.get("show_progress_bar", True))
+    form.shuffle_questions = bool(request.POST.get("shuffle_questions"))
+
     try:
         form.display_order = int(request.POST.get("display_order") or 0)
     except ValueError:
         form.display_order = 0
+
     raw_schema = request.POST.get("schema_json") or '{"sections": []}'
     try:
         schema = json.loads(raw_schema)
@@ -1643,15 +2480,122 @@ def _save_form_from_post(request, form):
             schema = {"sections": []}
     except json.JSONDecodeError:
         schema = {"sections": []}
+
+    # Attach enterprise settings to schema
+    settings_dict = schema.get("settings", {})
+    if request.POST.get("passing_score"):
+        try:
+            settings_dict["passing_score"] = float(request.POST.get("passing_score"))
+        except ValueError:
+            settings_dict["passing_score"] = 80.0
+    if request.POST.get("max_attempts"):
+        try:
+            settings_dict["max_attempts"] = int(request.POST.get("max_attempts"))
+        except ValueError:
+            settings_dict["max_attempts"] = 1
+    if request.POST.get("time_limit_minutes"):
+        try:
+            settings_dict["time_limit_minutes"] = int(request.POST.get("time_limit_minutes"))
+        except ValueError:
+            settings_dict["time_limit_minutes"] = 0
+    
+    settings_dict["target_departments"] = request.POST.getlist("target_departments")
+    settings_dict["target_roles"] = request.POST.getlist("target_roles")
+    schema["settings"] = settings_dict
     form.schema = schema
-    if form.is_anonymous or request.POST.get("generate_share"):
+
+    if form.is_anonymous or request.POST.get("generate_share") or not form.share_token:
         form.generate_share_token()
     if form.tenant_id is None:
         form.tenant = request.user.tenant
     form.save()
     log_activity(request, action="save_form", entity_type="form", entity_id=form.id,
-                 description=f"Saved form {form.name}")
+                 description=f"Saved {form.form_kind} '{form.name}'")
     return form
+
+
+@permission_required("manage_forms")
+def form_analytics_view(request, form_id):
+    """Enterprise Analytics & Response Breakdown for Forms, Quizzes, and Surveys."""
+    from ..models import Form, FormResponse
+    form = get_object_or_404(Form, id=form_id)
+    responses = form.responses.select_related("employee").order_by("-submitted_at")
+    total_responses = responses.count()
+
+    settings_dict = form.schema.get("settings", {})
+    passing_score = settings_dict.get("passing_score", 80.0)
+
+    # Score stats for quizzes
+    scores = [r.score for r in responses if r.score is not None]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+    passed_count = sum(1 for s in scores if s >= passing_score)
+    failed_count = sum(1 for s in scores if s < passing_score)
+    pass_rate = round((passed_count / len(scores)) * 100, 1) if scores else 0
+
+    # Per-question response breakdown
+    all_fields = form.get_all_fields()
+    question_stats = []
+
+    for field in all_fields:
+        fname = field.get("field_name")
+        ftype = field.get("field_type")
+        label = field.get("label", fname)
+        options = field.get("options") or []
+
+        field_stat = {
+            "field_name": fname,
+            "label": label,
+            "field_type": ftype,
+            "total_answers": 0,
+            "option_counts": {},
+            "text_samples": []
+        }
+
+        if ftype in ("radio", "select", "checkbox", "rating", "nps", "likert"):
+            for opt in options:
+                opt_str = opt.get("label") if isinstance(opt, dict) else str(opt)
+                field_stat["option_counts"][opt_str] = 0
+
+        for r in responses:
+            ans = (r.answers or {}).get(fname)
+            if ans is not None and ans != "":
+                field_stat["total_answers"] += 1
+                if ftype in ("radio", "select", "rating", "nps") and str(ans) in field_stat["option_counts"]:
+                    field_stat["option_counts"][str(ans)] += 1
+                elif ftype == "checkbox" and isinstance(ans, list):
+                    for item in ans:
+                        if str(item) in field_stat["option_counts"]:
+                            field_stat["option_counts"][str(item)] += 1
+                elif len(field_stat["text_samples"]) < 10:
+                    field_stat["text_samples"].append(str(ans))
+
+        question_stats.append(field_stat)
+
+    return render(request, "admin/form_analytics.html", {
+        "form": form,
+        "responses": responses,
+        "total_responses": total_responses,
+        "avg_score": avg_score,
+        "pass_rate": pass_rate,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "passing_score": passing_score,
+        "question_stats": question_stats,
+    })
+
+
+@permission_required("manage_forms")
+@require_http_methods(["POST"])
+def toggle_form_active(request, form_id):
+    """Toggle active/inactive status of a form, quiz, or survey."""
+    form = get_object_or_404(Form, id=form_id)
+    form.is_active = not form.is_active
+    form.save(update_fields=["is_active"])
+    status_str = "activated" if form.is_active else "deactivated"
+    log_activity(request, action="toggle_form", entity_type="form", entity_id=form.id,
+                 description=f"{status_str.title()} form '{form.name}'")
+    messages.success(request, f"Project '{form.name}' has been {status_str}.")
+    return redirect("admin_forms")
 
 
 @permission_required("manage_forms")
@@ -1694,6 +2638,189 @@ def onboarding_documents(request):
     })
 
 
+def _normalize_medical_requirement_row(row):
+    def _lookup(*candidates):
+        normalized = {}
+        for key, value in row.items():
+            if key is None:
+                continue
+            normalized[str(key).strip().lower().replace(" ", "_").replace("-", "_")] = value
+        for candidate in candidates:
+            key = str(candidate).strip().lower().replace(" ", "_").replace("-", "_")
+            if key in normalized:
+                return normalized[key]
+        return None
+
+    def _normalize_bool(value):
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        text = str(value).strip().lower()
+        if text in {"1", "y", "yes", "true", "t", "on"}:
+            return True
+        if text in {"0", "n", "no", "false", "f", "off", ""}:
+            return False
+        return None
+
+    gender = _lookup("gender", "applies_to_gender", "applies_gender", "target_gender")
+    if isinstance(gender, str):
+        gender = gender.strip().lower()
+        if gender in {"male", "m"}:
+            gender = "male"
+        elif gender in {"female", "f"}:
+            gender = "female"
+        elif gender in {"other", "o", "everyone", "all", "any"}:
+            gender = ""
+        else:
+            gender = ""
+    else:
+        gender = ""
+
+    min_age = _lookup("min_age", "minimum_age", "age")
+    if isinstance(min_age, str):
+        min_age = min_age.strip()
+        if min_age.isdigit():
+            min_age = int(min_age)
+        else:
+            min_age = None
+    elif isinstance(min_age, (int, float)):
+        min_age = int(min_age)
+    else:
+        min_age = None
+
+    return {
+        "requirement_name": str(_lookup("requirement_name", "name", "requirement", "test_name") or "").strip(),
+        "description": str(_lookup("description", "details", "notes") or "").strip(),
+        "gender": gender,
+        "min_age": min_age,
+        "is_required": _normalize_bool(_lookup("is_required", "required")),
+        "is_active": _normalize_bool(_lookup("is_active", "active")),
+    }
+
+
+def _read_medical_requirement_rows(uploaded_file):
+    file_name = (getattr(uploaded_file, "name", "") or "").lower()
+    uploaded_file.seek(0)
+
+    if file_name.endswith(".csv"):
+        rows = list(csv.DictReader(io.StringIO(uploaded_file.read().decode("utf-8-sig"))))
+        return [_normalize_medical_requirement_row(row) for row in rows]
+
+    if file_name.endswith(".xlsx"):
+        workbook = load_workbook(uploaded_file, data_only=True)
+        sheet = workbook.active
+        rows = list(sheet.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+        parsed_rows = []
+        for row_values in rows[1:]:
+            row_data = {}
+            for index, header in enumerate(headers):
+                if index < len(row_values):
+                    row_data[header] = row_values[index]
+            parsed_rows.append(_normalize_medical_requirement_row(row_data))
+        return parsed_rows
+
+    raise ValueError("Please upload an .xlsx or .csv file.")
+
+
+def _build_medical_requirement_meta(request_data):
+    meta = {}
+    gender = (request_data.get("gender") or "").strip().lower()
+    if gender in ("male", "female"):
+        meta["gender"] = gender
+    min_age = (request_data.get("min_age") or "").strip()
+    if min_age.isdigit():
+        meta["min_age"] = int(min_age)
+    return meta
+
+
+def _read_org_option_rows(uploaded_file):
+    file_name = (getattr(uploaded_file, "name", "") or "").lower()
+    uploaded_file.seek(0)
+
+    if file_name.endswith(".csv"):
+        rows = list(csv.DictReader(io.StringIO(uploaded_file.read().decode("utf-8-sig"))))
+        return rows
+
+    if file_name.endswith(".xlsx"):
+        workbook = load_workbook(uploaded_file, data_only=True)
+        sheet = workbook.active
+        rows = list(sheet.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+        parsed_rows = []
+        for row_values in rows[1:]:
+            row_data = {}
+            for index, header in enumerate(headers):
+                if index < len(row_values):
+                    row_data[header] = row_values[index]
+            parsed_rows.append(row_data)
+        return parsed_rows
+
+    raise ValueError("Please upload an .xlsx or .csv file.")
+
+
+def _build_org_option_template_workbook(kinds):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Organization Options"
+    sheet.append(["kind", "name", "description"])
+    for kind, label in kinds:
+        sheet.append([kind, f"Example {label}", f"Sample {label} entry"])
+    return workbook
+
+
+def _build_org_option_export_workbook(kind, options):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Organization Options"
+    sheet.append(["kind", "name", "description"])
+    for option in options:
+        sheet.append([kind, option.name, option.description or ""])
+    return workbook
+
+
+def _build_medical_requirement_template_workbook():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Medical Requirements"
+    sheet.append([
+        "requirement_name", "description", "gender", "min_age", "is_required",
+        "is_active"
+    ])
+    sheet.append([
+        "Blood Test", "Annual screening", "Female", "40", "Yes", "Yes"
+    ])
+    return workbook
+
+
+def _build_medical_requirement_export_workbook(catalog):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Medical Requirements"
+    sheet.append([
+        "requirement_name", "description", "gender", "min_age", "is_required",
+        "is_active"
+    ])
+    for record in catalog:
+        meta = record.meta or {}
+        sheet.append([
+            record.requirement_name,
+            record.description or "",
+            meta.get("gender", ""),
+            meta.get("min_age", ""),
+            "Yes" if record.is_required else "No",
+            "Yes" if record.is_active else "No",
+        ])
+    return workbook
+
+
 # ── Medical requirements / review ────────────────────────────────────────────
 @permission_required("manage_medical_requirements")
 @require_http_methods(["GET", "POST"])
@@ -1707,7 +2834,7 @@ def medical_requirements(request):
                 is_required=bool(request.POST.get("is_required")),
                 is_catalog=True,
                 is_active=True,
-                meta=_medical_requirement_meta(request),
+                meta=_build_medical_requirement_meta(request.POST),
                 tenant=request.user.tenant,
             )
             messages.success(request, "Medical requirement added.")
@@ -1718,7 +2845,7 @@ def medical_requirements(request):
             rec.description = (request.POST.get("description") or "").strip()
             rec.is_required = bool(request.POST.get("is_required"))
             rec.is_active = bool(request.POST.get("is_active"))
-            rec.meta = _medical_requirement_meta(request)
+            rec.meta = _build_medical_requirement_meta(request.POST)
             rec.save(update_fields=[
                 "requirement_name", "description", "is_required", "is_active", "meta",
             ])
@@ -1735,6 +2862,66 @@ def medical_requirements(request):
             name = rec.requirement_name
             rec.delete()
             messages.success(request, f"Deleted medical requirement '{name}'.")
+        elif action == "import_requirements":
+            uploaded_file = request.FILES.get("import_file")
+            if not uploaded_file:
+                messages.error(request, "Please choose an Excel file to import.")
+            else:
+                try:
+                    rows = _read_medical_requirement_rows(uploaded_file)
+                except Exception as exc:  # pragma: no cover - defensive path
+                    messages.error(request, f"Import failed: {exc}")
+                else:
+                    created = 0
+                    updated = 0
+                    for row in rows:
+                        if not row.get("requirement_name"):
+                            continue
+                        defaults = {
+                            "description": row.get("description") or "",
+                            "is_required": row.get("is_required") if row.get("is_required") is not None else True,
+                            "is_active": row.get("is_active") if row.get("is_active") is not None else True,
+                            "meta": {
+                                key: value for key, value in {
+                                    "gender": row.get("gender") or "",
+                                    "min_age": row.get("min_age"),
+                                }.items() if value not in {None, ""}
+                            },
+                            "tenant": request.user.tenant,
+                        }
+                        rec, created_flag = MedicalRecord.objects.get_or_create(
+                            tenant=request.user.tenant,
+                            requirement_name=row["requirement_name"],
+                            is_catalog=True,
+                            defaults=defaults,
+                        )
+                        if created_flag:
+                            created += 1
+                        else:
+                            rec.description = defaults["description"]
+                            rec.is_required = defaults["is_required"]
+                            rec.is_active = defaults["is_active"]
+                            rec.meta = defaults["meta"]
+                            rec.save(update_fields=["description", "is_required", "is_active", "meta"])
+                            updated += 1
+                    messages.success(request, f"Imported {created} new requirement(s) and updated {updated} existing requirement(s).")
+        elif action == "export_requirements":
+            catalog = MedicalRecord.objects.filter(is_catalog=True).order_by("requirement_name")
+            workbook = _build_medical_requirement_export_workbook(catalog)
+            output = io.BytesIO()
+            workbook.save(output)
+            output.seek(0)
+            response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = 'attachment; filename="medical_requirements.xlsx"'
+            return response
+        elif action == "download_template":
+            workbook = _build_medical_requirement_template_workbook()
+            output = io.BytesIO()
+            workbook.save(output)
+            output.seek(0)
+            response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = 'attachment; filename="medical_requirements_template.xlsx"'
+            return response
         return redirect("admin_medical_requirements")
 
     catalog = MedicalRecord.objects.filter(is_catalog=True).order_by("requirement_name")
@@ -1743,12 +2930,37 @@ def medical_requirements(request):
     })
 
 
-def _medical_requirement_meta(request):
-    meta = {}
-    gender = (request.POST.get("gender") or "").strip().lower()
-    if gender in ("male", "female"):
-        meta["gender"] = gender
-    min_age = (request.POST.get("min_age") or "").strip()
-    if min_age.isdigit():
-        meta["min_age"] = int(min_age)
-    return meta
+@permission_required("send_offer")
+def admin_offer_pdf_export(request, offer_id):
+    """Admin endpoint to download single offer as PDF."""
+    from ..models_offers import Offer
+    from ..services.pdf_service import generate_offer_pdf_response
+    offer = get_object_or_404(Offer, id=offer_id)
+    if request.user.tenant and offer.tenant_id != request.user.tenant.id:
+        return HttpResponseForbidden("Not authorized")
+    return generate_offer_pdf_response(offer)
+
+
+@permission_required("send_offer")
+def offers_bulk_zip_export_view(request):
+    """Export all offers (or filtered list) as a ZIP archive containing individual PDF documents."""
+    import zipfile
+    import io
+    from ..models_offers import Offer
+    from ..services.pdf_service import render_html_to_pdf
+
+    offers = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for offer in offers:
+            html = offer.rendered_html or f"<h1>Offer {offer.offer_number}</h1><p>Candidate: {offer.candidate_name}</p>"
+            pdf_bytes = render_html_to_pdf(html)
+            filename = f"Offer_{offer.offer_number}_{offer.candidate_name.replace(' ', '_')}.pdf"
+            zf.writestr(filename, pdf_bytes)
+
+    zip_buffer.seek(0)
+    filename = f"Offers_Export_{timezone.now():%Y%m%d_%H%M%S}.zip"
+    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

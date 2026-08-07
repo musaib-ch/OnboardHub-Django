@@ -50,6 +50,18 @@ def _completed_ids(user, module_ids):
     ).values_list("content_id", flat=True))
 
 
+def _scoped_employees_qs(viewer, qs):
+    from ..permissions import role_scope_type
+    scope_type = role_scope_type(viewer.role)
+    if scope_type == "department":
+        depts = (viewer.scope or {}).get("departments") or []
+        return qs.filter(department_id__in=depts) if depts else qs.none()
+    if scope_type == "location":
+        locs = (viewer.scope or {}).get("locations") or []
+        return qs.filter(location_code__in=locs) if locs else qs.none()
+    return qs
+
+
 def recompute_enrollment(enrollment):
     """Recompute progress/status from module completions; stamp cert + recurrence.
 
@@ -185,6 +197,7 @@ def apply_assignment_rules(user=None, actor=None):
 @permission_required("manage_training")
 @require_http_methods(["GET", "POST"])
 def learning_paths(request):
+    hrbp_depts = (request.user.scope or {}).get("departments") or [] if request.user.role == "hrbp" else []
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "create":
@@ -195,20 +208,40 @@ def learning_paths(request):
                 category=(request.POST.get("category") or "").strip(),
                 body=(request.POST.get("description") or "").strip(),
                 meta={"modules": [], "due_days": 30, "recurrence_days": 0},
+                target_departments=hrbp_depts,
             )
             messages.success(request, "Learning path created — add modules next.")
             return redirect("admin_learning_path_edit", pk=path.id)
         if action == "delete":
-            Content.objects.filter(id=request.POST.get("path_id"), kind="learning_path").delete()
-            messages.success(request, "Learning path deleted.")
+            p = Content.objects.filter(id=request.POST.get("path_id"), kind="learning_path").first()
+            if p:
+                if request.user.role == "hrbp" and p.target_departments:
+                    if not any(int(tid) in hrbp_depts for tid in p.target_departments if str(tid).isdigit() or isinstance(tid, int)):
+                        messages.error(request, "This path is outside your scope.")
+                        return redirect("admin_learning_paths")
+                p.delete()
+                messages.success(request, "Learning path deleted.")
         elif action == "toggle":
             p = Content.objects.filter(id=request.POST.get("path_id"), kind="learning_path").first()
             if p:
+                if request.user.role == "hrbp" and p.target_departments:
+                    if not any(int(tid) in hrbp_depts for tid in p.target_departments if str(tid).isdigit() or isinstance(tid, int)):
+                        messages.error(request, "This path is outside your scope.")
+                        return redirect("admin_learning_paths")
                 p.is_active = not p.is_active
                 p.save(update_fields=["is_active"])
         return redirect("admin_learning_paths")
 
-    paths = list(Content.objects.filter(kind="learning_path").order_by("display_order", "-created_at"))
+    paths_qs = Content.objects.filter(kind="learning_path").order_by("display_order", "-created_at")
+    paths = []
+    depts_map = {d.id: d.name for d in OrgUnit.objects.filter(kind="department", is_active=True)}
+    for p in paths_qs:
+        target_ids = p.target_departments or []
+        if request.user.role == "hrbp":
+            if target_ids and not any(int(tid) in hrbp_depts for tid in target_ids if str(tid).isdigit() or isinstance(tid, int)):
+                continue
+        p.target_dept_names = ", ".join([depts_map.get(int(tid), str(tid)) for tid in target_ids if str(tid).isdigit() or isinstance(tid, int)]) or "Global / All"
+        paths.append(p)
     counts = {}
     for p in paths:
         counts[p.id] = {
@@ -223,6 +256,11 @@ def learning_paths(request):
 @require_http_methods(["GET", "POST"])
 def learning_path_edit(request, pk):
     path = get_object_or_404(Content, id=pk, kind="learning_path")
+    hrbp_depts = (request.user.scope or {}).get("departments") or [] if request.user.role == "hrbp" else []
+    if request.user.role == "hrbp" and path.target_departments:
+        if not any(int(tid) in hrbp_depts for tid in path.target_departments if str(tid).isdigit() or isinstance(tid, int)):
+            messages.error(request, "This learning path is outside your scope.")
+            return redirect("admin_learning_paths")
     if request.method == "POST":
         path.title = (request.POST.get("title") or path.title).strip()
         path.category = (request.POST.get("category") or "").strip()
@@ -250,6 +288,19 @@ def learning_path_edit(request, pk):
         except ValueError:
             meta["recurrence_days"] = 0
         path.meta = meta
+        
+        # Target departments
+        t_depts = []
+        for val in request.POST.getlist("target_departments"):
+            val = val.strip()
+            if val.isdigit():
+                t_depts.append(int(val))
+        if request.user.role == "hrbp":
+            t_depts = [tid for tid in t_depts if int(tid) in hrbp_depts]
+            if not t_depts:
+                t_depts = hrbp_depts
+        path.target_departments = t_depts
+        
         path.save()
         log_activity(request, action="edit_learning_path", entity_type="learning_path",
                      entity_id=path.id, description=f"Edited path {path.title}")
@@ -261,18 +312,126 @@ def learning_path_edit(request, pk):
     chosen_required = {e.get("content_id") for e in chosen if e.get("required", True)}
     modules_by_id = {c.id: c for c in Content.objects.filter(kind="training")}
     ordered_chosen = [modules_by_id[i] for i in chosen_ids if i in modules_by_id]
-    available = [c for c in Content.objects.filter(kind="training", is_active=True)
-                 .order_by("title") if c.id not in chosen_ids]
+    available_qs = Content.objects.filter(kind="training", is_active=True).order_by("title")
+    available = []
+    for c in available_qs:
+        if c.id in chosen_ids:
+            continue
+        if request.user.role == "hrbp":
+            t_depts = c.target_departments or []
+            if t_depts and not any(int(tid) in hrbp_depts for tid in t_depts if str(tid).isdigit() or isinstance(tid, int)):
+                continue
+        available.append(c)
+    from ..models import OrgUnit
+    depts = OrgUnit.objects.filter(kind="department", is_active=True)
+    if request.user.role == "hrbp":
+        depts = depts.filter(id__in=hrbp_depts)
+    t_depts_list = [int(tid) for tid in path.target_departments or [] if str(tid).isdigit() or isinstance(tid, int)]
+
     return render(request, "admin/learning_path_edit.html", {
         "path": path, "meta": path.meta or {},
         "chosen": ordered_chosen, "chosen_required": chosen_required,
         "available": available,
+        "departments": depts,
+        "target_departments_list": t_depts_list,
+    })
+
+
+@permission_required("manage_training")
+@require_http_methods(["GET", "POST"])
+def learning_path_analytics_view(request, pk):
+    """Real-Time Completion Matrix & Employee Transcript Tracking Dashboard for Learning Paths."""
+    from ..models import Content, Engagement, User
+    from ..services import notify, log_activity
+
+    path = get_object_or_404(Content, id=pk, kind="learning_path")
+    modules = (path.meta or {}).get("modules", [])
+    total_modules_count = len(modules)
+    module_ids = [m.get("content_id") for m in modules if m.get("content_id")]
+    module_objects = {c.id: c for c in Content.objects.filter(id__in=module_ids)}
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "nudge":
+            user_id = request.POST.get("user_id")
+            emp = User.objects.filter(id=user_id).first()
+            if emp:
+                notify(
+                    emp,
+                    f"Reminder: Complete {path.title}",
+                    f"Please complete your assigned learning path '{path.title}'.",
+                    link="/employee/content/training/",
+                    category="warning"
+                )
+                messages.success(request, f"Sent reminder nudge to {emp.full_name}.")
+            return redirect("admin_learning_path_analytics", pk=path.id)
+
+    # Enrollments
+    enrollments = Engagement.objects.filter(kind="enrollment", content=path).select_related("user").order_by("-created_at")
+
+    tracking_matrix = []
+    completed_total = 0
+    in_progress_total = 0
+    overdue_total = 0
+
+    now_date = timezone.now().date()
+
+    for eng in enrollments:
+        emp = eng.user
+        eng_data = eng.data or {}
+        completed_mod_ids = set(eng_data.get("completed_sections") or [])
+        
+        done_count = sum(1 for m_id in module_ids if m_id in completed_mod_ids)
+        progress_pct = round((done_count / total_modules_count * 100)) if total_modules_count > 0 else (100 if eng.status == "completed" else 0)
+
+        is_overdue = False
+        if eng.due_date and eng.due_date < now_date and eng.status != "completed":
+            is_overdue = True
+            overdue_total += 1
+
+        if eng.status == "completed" or progress_pct >= 100:
+            completed_total += 1
+            calc_status = "completed"
+        else:
+            in_progress_total += 1
+            calc_status = "overdue" if is_overdue else "in_progress"
+
+        completed_details = [
+            {
+                "id": m_id,
+                "title": module_objects[m_id].title if m_id in module_objects else f"Module #{m_id}",
+                "completed": m_id in completed_mod_ids
+            }
+            for m_id in module_ids
+        ]
+
+        tracking_matrix.append({
+            "engagement_id": eng.id,
+            "employee": emp,
+            "status": calc_status,
+            "is_overdue": is_overdue,
+            "progress": progress_pct,
+            "done_count": done_count,
+            "total_count": total_modules_count,
+            "due_date": eng.due_date,
+            "completed_at": eng.completed_at,
+            "modules": completed_details
+        })
+
+    return render(request, "admin/learning_path_analytics.html", {
+        "path": path,
+        "total_enrolled": len(enrollments),
+        "completed_total": completed_total,
+        "in_progress_total": in_progress_total,
+        "overdue_total": overdue_total,
+        "tracking_matrix": tracking_matrix,
     })
 
 
 @permission_required("assign_training")
 @require_http_methods(["GET", "POST"])
 def training_assignments(request):
+    hrbp_depts = (request.user.scope or {}).get("departments") or [] if request.user.role == "hrbp" else []
     if request.method == "POST":
         action = request.POST.get("action")
         rules = get_rules(ASSIGN_KEY)
@@ -282,6 +441,10 @@ def training_assignments(request):
                 val = (request.POST.get(key) or "").strip()
                 if val:
                     match[key] = val
+            if request.user.role == "hrbp":
+                dept_id = match.get("department_id")
+                if not dept_id or int(dept_id) not in hrbp_depts:
+                    match["department_id"] = str(hrbp_depts[0]) if hrbp_depts else ""
             match.setdefault("role", "employee")
             rules.append({
                 "id": secrets.token_hex(6),
@@ -294,7 +457,14 @@ def training_assignments(request):
             save_rules(ASSIGN_KEY, rules, user=request.user)
             messages.success(request, "Assignment rule added.")
         elif action == "delete_rule":
-            rules = [r for r in rules if r.get("id") != request.POST.get("rule_id")]
+            rule_id = request.POST.get("rule_id")
+            rule = next((r for r in rules if r.get("id") == rule_id), None)
+            if rule and request.user.role == "hrbp":
+                dept_id = rule.get("match", {}).get("department_id")
+                if not dept_id or int(dept_id) not in hrbp_depts:
+                    messages.error(request, "This rule is outside your department scope.")
+                    return redirect("admin_training_assignments")
+            rules = [r for r in rules if r.get("id") != rule_id]
             save_rules(ASSIGN_KEY, rules, user=request.user)
             messages.success(request, "Assignment rule removed.")
         elif action == "run_now":
@@ -302,9 +472,16 @@ def training_assignments(request):
             messages.success(request, f"Rules applied — {n} new enrollment(s) created.")
         elif action == "manual_assign":
             path = Content.objects.filter(id=request.POST.get("path_content_id"),
-                                          kind="learning_path").first()
+                                           kind="learning_path").first()
             emp = User.objects.filter(id=request.POST.get("employee_id"), role="employee").first()
             if path and emp:
+                if request.user.role == "hrbp":
+                    if path.target_departments and not any(int(tid) in hrbp_depts for tid in path.target_departments if str(tid).isdigit() or isinstance(tid, int)):
+                        messages.error(request, "This path is outside your department scope.")
+                        return redirect("admin_training_assignments")
+                    if emp.department_id not in hrbp_depts:
+                        messages.error(request, "This employee is outside your department scope.")
+                        return redirect("admin_training_assignments")
                 assign_path_to_user(emp, path, due_days=request.POST.get("due_days") or None,
                                     actor=request.user)
                 log_activity(request, action="assign_training", entity_type="learning_path",
@@ -314,13 +491,34 @@ def training_assignments(request):
                 messages.error(request, "Pick both a path and an employee.")
         return redirect("admin_training_assignments")
 
-    rules = get_rules(ASSIGN_KEY)
-    paths = Content.objects.filter(kind="learning_path", is_active=True).order_by("title")
+    rules_raw = get_rules(ASSIGN_KEY)
+    rules = []
+    for r in rules_raw:
+        if request.user.role == "hrbp":
+            dept_id = r.get("match", {}).get("department_id")
+            if not dept_id or int(dept_id) not in hrbp_depts:
+                continue
+        rules.append(r)
+
+    paths_qs = Content.objects.filter(kind="learning_path", is_active=True).order_by("title")
+    paths = []
+    for p in paths_qs:
+        if request.user.role == "hrbp":
+            if p.target_departments and not any(int(tid) in hrbp_depts for tid in p.target_departments if str(tid).isdigit() or isinstance(tid, int)):
+                continue
+        paths.append(p)
+
     path_titles = {p.id: p.title for p in Content.objects.filter(kind="learning_path")}
+    depts = OrgUnit.objects.filter(kind="department", is_active=True)
+    if request.user.role == "hrbp":
+        depts = depts.filter(id__in=hrbp_depts)
+    employees = User.objects.filter(role="employee").exclude(status="deleted").order_by("full_name")
+    employees = _scoped_employees_qs(request.user, employees)
+
     return render(request, "admin/training_assignments.html", {
         "rules": rules, "paths": paths, "path_titles": path_titles,
-        "departments": OrgUnit.objects.filter(kind="department", is_active=True),
-        "employees": User.objects.filter(role="employee").exclude(status="deleted").order_by("full_name"),
+        "departments": depts,
+        "employees": employees,
     })
 
 
@@ -347,6 +545,9 @@ def my_learning(request):
     enrollments = (Engagement.objects.filter(user=user, kind="enrollment",
                                               content__kind="learning_path")
                    .select_related("content"))
+    if not enrollments.exists():
+        messages.warning(request, "No learning paths have been assigned to you yet.")
+        return redirect("employee_home")
     assigned, completed = [], []
     enrolled_ids = set()
     for e in enrollments:

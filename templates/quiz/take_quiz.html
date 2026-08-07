@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto" style="max-width: 800px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{% url 'my_quizzes' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Exit</a>
+        {% if time_limit %}
+        <div class="fw-bold text-danger border border-danger rounded px-3 py-1 bg-white shadow-sm" id="timerDisplay">
+            <i class="bi bi-stopwatch me-1"></i> <span id="timeRemaining">{{ time_limit }}:00</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="glass-card border-top border-primary border-4 p-4 p-md-5">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-dark">{{ quiz.name }}</h2>
+            {% if quiz.description %}
+            <p class="text-muted">{{ quiz.description }}</p>
+            {% endif %}
+            
+            <div class="d-flex justify-content-center gap-3 mt-3">
+                <span class="badge bg-light text-dark border"><i class="bi bi-question-circle me-1"></i>{{ questions|length }} Questions</span>
+                <span class="badge bg-light text-dark border"><i class="bi bi-check2-circle me-1"></i>{{ passing_score }}% to pass</span>
+                <span class="badge bg-light text-dark border"><i class="bi bi-arrow-repeat me-1"></i>Attempt {{ attempt_number }}{% if max_attempts > 0 %} of {{ max_attempts }}{% endif %}</span>
+            </div>
+        </div>
+
+        <hr class="mb-4">
+
+        <form method="POST" id="quizForm">
+            {% csrf_token %}
+            {% for q in questions %}
+            <div class="mb-4 p-3 border rounded bg-white shadow-sm">
+                <div class="d-flex mb-2">
+                    <div class="fw-bold me-2 text-primary fs-5">{{ forloop.counter }}.</div>
+                    <div>
+                        <div class="fw-semibold mb-1 fs-5">{{ q.label }} {% if q.is_required %}<span class="text-danger">*</span>{% endif %}</div>
+                        {% if q.help_text %}
+                        <div class="small text-muted mb-2">{{ q.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="ms-auto text-muted small fw-medium">{{ q.points|default:1 }} pt{{ q.points|default:1|pluralize }}</div>
+                </div>
+
+                <div class="ps-4">
+                    {% if q.field_type == 'radio' %}
+                        {% for opt in q.options %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}" value="{{ opt }}" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" style="cursor: pointer" for="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                        </div>
+                        {% endfor %}
+                    {% elif q.field_type == 'checkbox' %}
+                        {% for opt in q.options %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}" value="{{ opt }}">
+                            <label class="form-check-label" style="cursor: pointer" for="q_{{ q.field_name|default:q.id }}_{{ forloop.counter }}">{{ opt }}</label>
+                        </div>
+                        {% endfor %}
+                    {% elif q.field_type == 'dropdown' %}
+                        <select class="form-select w-auto" name="q_{{ q.field_name|default:q.id }}" {% if q.is_required %}required{% endif %}>
+                            <option value="">-- Select --</option>
+                            {% for opt in q.options %}
+                            <option value="{{ opt }}">{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    {% elif q.field_type == 'yesno' %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_yes" value="yes" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" style="cursor: pointer" for="q_{{ q.field_name|default:q.id }}_yes">Yes</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="q_{{ q.field_name|default:q.id }}" id="q_{{ q.field_name|default:q.id }}_no" value="no" {% if q.is_required %}required{% endif %}>
+                            <label class="form-check-label" style="cursor: pointer" for="q_{{ q.field_name|default:q.id }}_no">No</label>
+                        </div>
+                    {% elif q.field_type == 'textarea' %}
+                        <textarea class="form-control" name="q_{{ q.field_name|default:q.id }}" rows="3" placeholder="{{ q.placeholder|default:'' }}" {% if q.is_required %}required{% endif %}></textarea>
+                    {% else %}
+                        <input type="text" class="form-control" name="q_{{ q.field_name|default:q.id }}" placeholder="{{ q.placeholder|default:'' }}" {% if q.is_required %}required{% endif %}>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="d-grid mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Submit Answers</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if time_limit %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let timeLeft = {{ time_limit }} * 60;
+    const display = document.getElementById('timeRemaining');
+    const container = document.getElementById('timerDisplay');
+    const form = document.getElementById('quizForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    const timer = setInterval(function() {
+        timeLeft--;
+        
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        display.textContent = minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+        
+        if (timeLeft <= 60) {
+            container.classList.add('bg-danger', 'text-white');
+            container.classList.remove('bg-white', 'text-danger');
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            submitBtn.textContent = 'Time Up! Submitting...';
+            submitBtn.disabled = true;
+            
+            // Remove required attributes so form can submit even if incomplete
+            form.querySelectorAll('[required]').forEach(el => el.removeAttribute('required'));
+            form.submit();
+        }
+    }, 1000);
+});
+</script>
+{% endif %}
+{% endblock %}
