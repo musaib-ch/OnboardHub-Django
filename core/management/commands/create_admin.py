@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = "Create the initial Django superuser if it does not already exist."
+    help = "Create or upgrade the initial Django superuser."
 
     def handle(self, *args, **options):
         User = get_user_model()
@@ -21,10 +21,25 @@ class Command(BaseCommand):
             )
             return
 
-        if User.objects.filter(email=email).exists():
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            user.is_staff = True
+            user.is_superuser = True
+            user.role = "super_admin"
+            user.must_change_password = False
+            user.save(
+                update_fields=[
+                    "is_staff",
+                    "is_superuser",
+                    "role",
+                    "must_change_password",
+                ]
+            )
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Superuser with email '{email}' already exists."
+                    f"User '{email}' upgraded to superuser successfully."
                 )
             )
             return
@@ -36,6 +51,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Superuser with email '{email}' created successfully."
+                f"Superuser '{email}' created successfully."
             )
         )
