@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Medical Setup{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div>
+        <h1 class="mb-0"><i class="bi bi-clipboard-pulse me-2"></i>Medical Setup</h1>
+        <p class="text-muted mb-0">Create and manage medical test requirements here.</p>
+    </div>
+    <a href="{% url 'admin_medical_review' %}" class="btn btn-success"><i class="bi bi-heart-pulse me-1"></i>Open Medical Review</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="glass-card mb-4">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#mr_import" aria-expanded="false">
+                <h6 class="mb-0">Import & Export</h6>
+                <i class="bi bi-chevron-down collapse-chevron"></i>
+            </div>
+            <div class="collapse" id="mr_import" data-persist><div class="card-body">
+                <form method="POST" enctype="multipart/form-data" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="import_requirements">
+                    <label class="form-label">Import from Excel or CSV</label>
+                    <input type="file" name="import_file" accept=".xlsx,.csv" class="form-control form-control-sm mb-2" required>
+                    <div class="form-text mb-2">Upload a sheet with columns: requirement name, description, gender, min age, is required, is active.</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import</button>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm" formaction="" name="action" value="download_template"><i class="bi bi-download me-1"></i>Download Template</button>
+                    </div>
+                </form>
+                <form method="POST" class="d-flex gap-2 flex-wrap">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="export_requirements">
+                    <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-download me-1"></i>Export Excel</button>
+                </form>
+            </div></div>
+        </div>
+
+        <div class="glass-card mb-4">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#mr_add" aria-expanded="false">
+                <h6 class="mb-0">Add Requirement</h6>
+                <i class="bi bi-chevron-down collapse-chevron"></i>
+            </div>
+            <div class="collapse" id="mr_add" data-persist><div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_requirement">
+                <label class="form-label">Requirement Name</label>
+                <input type="text" name="requirement_name" class="form-control mb-2" required>
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control mb-2" rows="2"></textarea>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Applies to gender</label>
+                        <select name="gender" class="form-select form-select-sm">
+                            <option value="">Everyone</option>
+                            <option value="male">Male only</option>
+                            <option value="female">Female only</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Minimum age</label>
+                        <input type="number" name="min_age" class="form-control form-control-sm" min="0" placeholder="e.g. 40">
+                    </div>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="is_required" id="req" checked>
+                    <label class="form-check-label" for="req">Required</label>
+                </div>
+                <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Leave gender/age blank to require for everyone. If set, the test only applies to matching employees (and shows as optional when an employee's age/gender is unknown).</div>
+                <button type="submit" class="btn btn-primary w-100">Add Requirement</button>
+            </form>
+            </div></div>
+        </div>
+
+        <div class="glass-card">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#mr_catalog" aria-expanded="false">
+                <h6 class="mb-0">Requirement Catalog</h6>
+                <i class="bi bi-chevron-down collapse-chevron"></i>
+            </div>
+            <div class="collapse" id="mr_catalog" data-persist><div class="card-body">
+            <ul class="list-group list-group-flush">
+                {% for c in catalog %}
+                <li class="list-group-item px-0 {% if not c.is_active %}opacity-75{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <span class="flex-grow-1">
+                            <span class="fw-medium">{{ c.requirement_name }}</span>
+                            {% if c.description %}<small class="text-muted d-block">{{ c.description }}</small>{% endif %}
+                            {% if c.meta.gender or c.meta.min_age %}
+                            <small class="text-info d-block"><i class="bi bi-funnel me-1"></i>{% if c.meta.gender %}{{ c.meta.gender|capfirst }}{% endif %}{% if c.meta.gender and c.meta.min_age %}, {% endif %}{% if c.meta.min_age %}age {{ c.meta.min_age }}+{% endif %}</small>
+                            {% endif %}
+                        </span>
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0 justify-content-end">
+                            {% if c.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+                            {% if c.is_required %}<span class="badge bg-primary">Required</span>{% else %}<span class="badge bg-secondary">Optional</span>{% endif %}
+                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editReq{{ c.id }}" aria-expanded="false" aria-controls="editReq{{ c.id }}" title="Edit"><i class="bi bi-pencil"></i></button>
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle_requirement">
+                                <input type="hidden" name="requirement_id" value="{{ c.id }}">
+                                <button class="btn btn-sm btn-outline-secondary" title="{% if c.is_active %}Deactivate{% else %}Activate{% endif %}"><i class="bi {% if c.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i></button>
+                            </form>
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_requirement">
+                                <input type="hidden" name="requirement_id" value="{{ c.id }}">
+                                <button class="btn btn-sm btn-outline-danger" title="Delete" data-confirm="Delete this medical requirement? Existing employee submissions will remain, but this catalog item will be removed."><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="collapse mt-3" id="editReq{{ c.id }}">
+                        <form method="POST" class="border rounded p-3 bg-light bg-opacity-50">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="edit_requirement">
+                            <input type="hidden" name="requirement_id" value="{{ c.id }}">
+                            <label class="form-label small mb-1">Requirement Name</label>
+                            <input type="text" name="requirement_name" class="form-control form-control-sm mb-2" value="{{ c.requirement_name }}" required>
+                            <label class="form-label small mb-1">Description</label>
+                            <textarea name="description" class="form-control form-control-sm mb-2" rows="2">{{ c.description|default_if_none:"" }}</textarea>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Applies to gender</label>
+                                    <select name="gender" class="form-select form-select-sm">
+                                        <option value="">Everyone</option>
+                                        <option value="male" {% if c.meta.gender == "male" %}selected{% endif %}>Male only</option>
+                                        <option value="female" {% if c.meta.gender == "female" %}selected{% endif %}>Female only</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Minimum age</label>
+                                    <input type="number" name="min_age" class="form-control form-control-sm" min="0" value="{{ c.meta.min_age|default_if_none:'' }}">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_required" id="req{{ c.id }}" {% if c.is_required %}checked{% endif %}>
+                                    <label class="form-check-label" for="req{{ c.id }}">Required</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_active" id="active{{ c.id }}" {% if c.is_active %}checked{% endif %}>
+                                    <label class="form-check-label" for="active{{ c.id }}">Active</label>
+                                </div>
+                                <button class="btn btn-sm btn-primary ms-auto"><i class="bi bi-check2 me-1"></i>Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </li>
+                {% empty %}<li class="list-group-item px-0 text-muted">No requirements defined.</li>{% endfor %}
+            </ul>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="glass-card h-100 d-flex align-items-center justify-content-center p-4 text-center">
+            <div style="max-width: 460px;">
+                <div class="mb-3"><i class="bi bi-heart-pulse" style="font-size:2rem;"></i></div>
+                <h5 class="mb-2">Review submissions on the dedicated page</h5>
+                <p class="text-muted mb-3">This page is for creating and managing medical requirements only. To approve uploaded medical documents, use the separate Medical Review page.</p>
+                <a href="{% url 'admin_medical_review' %}" class="btn btn-success"><i class="bi bi-arrow-right-circle me-1"></i>Go to Medical Review</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1888 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+
+{% block title %}Forms, Surveys & Assessments Studio | OnboardHub{% endblock %}
+
+{% block extra_head %}
+
+<style>
+
+/* =========================================================
+   FORMS / SURVEYS / ASSESSMENTS STUDIO
+   FULL-WIDTH PAGE CANVAS
+   ========================================================= */
+
+.studio-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 28px 32px 40px;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.studio-page-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.studio-page-header-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.studio-page-header h2 {
+    line-height: 1.25;
+    margin-bottom: 6px;
+}
+
+.studio-page-header p {
+    margin-bottom: 0;
+    line-height: 1.5;
+    max-width: 1000px;
+}
+
+.studio-create-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.studio-tabs-wrapper {
+    width: 100%;
+    margin-bottom: 24px;
+    overflow: visible;
+}
+
+.nav-tabs-studio {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.nav-tabs-studio .nav-item {
+    flex-shrink: 0;
+}
+
+.nav-tabs-studio .nav-link {
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    background: transparent;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.nav-tabs-studio .nav-link:hover {
+    color: #4f46e5;
+    border-bottom-color: #c7d2fe;
+}
+
+.nav-tabs-studio .nav-link.active {
+    color: #4f46e5;
+    border-bottom-color: #4f46e5;
+    background: transparent;
+}
+
+
+/* =========================================================
+   PROJECT TABLE CARD
+   ========================================================= */
+
+.studio-table-card {
+    width: 100%;
+    max-width: none;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.studio-table-header {
+    width: 100%;
+    min-height: 62px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+    box-sizing: border-box;
+}
+
+.studio-table-header h5 {
+    margin: 0;
+    line-height: 1.3;
+}
+
+
+/* =========================================================
+   TABLE WRAPPER
+   ========================================================= */
+
+.studio-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.studio-table {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    margin: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+
+/* =========================================================
+   TABLE COLUMN WIDTHS
+   ========================================================= */
+
+/*
+   Total = 100%
+
+   Project Name  24%
+   Type          10%
+   Stage         11%
+   Questions      7%
+   Responses      7%
+   Status         9%
+   Actions       32%
+*/
+
+.studio-table th:nth-child(1),
+.studio-table td:nth-child(1) {
+    width: 24%;
+}
+
+.studio-table th:nth-child(2),
+.studio-table td:nth-child(2) {
+    width: 10%;
+}
+
+.studio-table th:nth-child(3),
+.studio-table td:nth-child(3) {
+    width: 11%;
+}
+
+.studio-table th:nth-child(4),
+.studio-table td:nth-child(4) {
+    width: 7%;
+}
+
+.studio-table th:nth-child(5),
+.studio-table td:nth-child(5) {
+    width: 7%;
+}
+
+.studio-table th:nth-child(6),
+.studio-table td:nth-child(6) {
+    width: 9%;
+}
+
+.studio-table th:nth-child(7),
+.studio-table td:nth-child(7) {
+    width: 32%;
+}
+
+
+/* =========================================================
+   TABLE HEADER
+   ========================================================= */
+
+.studio-table thead th {
+    padding: 13px 12px;
+    vertical-align: middle;
+    font-size: 0.70rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   TABLE BODY
+   ========================================================= */
+
+.studio-table tbody td {
+    padding: 14px 12px;
+    vertical-align: middle;
+    overflow: hidden;
+}
+
+.studio-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.studio-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.015);
+}
+
+
+/* =========================================================
+   PROJECT NAME
+   ========================================================= */
+
+.studio-project-cell {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.studio-project-name {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.studio-project-description {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   TYPE / STAGE BADGES
+   ========================================================= */
+
+.studio-type-badge,
+.studio-stage-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   NUMBER CELLS
+   ========================================================= */
+
+.studio-number-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.studio-status-cell {
+    white-space: nowrap;
+}
+
+.studio-status-button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+
+/* =========================================================
+   ACTIONS AREA
+   ========================================================= */
+
+/*
+   IMPORTANT:
+   Every row has exactly SIX action slots.
+
+   1. Builder
+   2. Analytics
+   3. Export
+   4. Pause/Play
+   5. Public Link
+   6. Delete
+
+   This keeps every row perfectly aligned even when
+   a project does not have a share_token.
+*/
+
+.studio-actions {
+    text-align: right;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    padding-right: 12px !important;
+}
+
+
+/*
+   Fixed grid instead of flex.
+
+   Every button gets the same physical position
+   in every row.
+*/
+
+.studio-action-grid {
+    display: grid;
+
+    grid-template-columns:
+        78px
+        82px
+        98px
+        40px
+        40px
+        40px;
+
+    gap: 4px;
+
+    justify-content: end;
+    align-items: center;
+
+    width: 100%;
+}
+
+
+/*
+   Every direct child occupies one grid slot.
+*/
+
+.studio-action-grid > * {
+    margin: 0 !important;
+}
+
+
+/*
+   Forms must behave like grid items.
+*/
+
+.studio-action-grid form {
+    display: block;
+    width: 100%;
+}
+
+
+/*
+   All action buttons have consistent dimensions.
+*/
+
+.studio-action-grid .btn {
+    width: 100%;
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 5px 6px;
+
+    font-size: 0.76rem;
+    line-height: 1.1;
+
+    white-space: nowrap;
+
+    border-radius: 6px !important;
+}
+
+
+/*
+   Icon-only buttons.
+*/
+
+.studio-action-icon {
+    width: 40px !important;
+}
+
+
+/*
+   Empty Public Link slot.
+
+   It occupies exactly the same space as the real
+   Public Link button, but is invisible.
+*/
+
+.studio-action-placeholder {
+    width: 40px;
+    height: 40px;
+    visibility: hidden;
+}
+
+
+/*
+   Keep icons nicely centered.
+*/
+
+.studio-action-grid .btn i {
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.studio-empty-state {
+    padding: 60px 20px !important;
+}
+
+
+/* =========================================================
+   PRESET CARDS
+   ========================================================= */
+
+.studio-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+}
+
+.studio-preset-card {
+    width: 100%;
+    min-height: 175px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.studio-preset-card:hover {
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.12);
+}
+
+.preset-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+}
+
+.studio-preset-card h6 {
+    line-height: 1.3;
+}
+
+.studio-preset-card small {
+    display: block;
+    line-height: 1.45;
+}
+
+
+/* =========================================================
+   CREATE PROJECT MODAL
+   ========================================================= */
+
+.studio-modal .modal-dialog {
+    max-width: 850px;
+}
+
+.studio-modal .modal-content {
+    border: 0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.studio-modal .modal-header {
+    padding: 18px 24px 12px;
+}
+
+.studio-modal .modal-body {
+    padding: 20px 24px;
+    background: #f8fafc;
+}
+
+.studio-modal .modal-footer {
+    padding: 14px 24px 18px;
+}
+
+.studio-modal-section {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 18px;
+}
+
+.studio-modal .form-control,
+.studio-modal .form-select {
+    border-radius: 7px;
+}
+
+.studio-modal .form-control-lg {
+    min-height: 48px;
+}
+
+
+/* =========================================================
+   LARGE DESKTOP
+   ========================================================= */
+
+@media (min-width: 1400px) {
+
+    .studio-page {
+        padding-left: 36px;
+        padding-right: 36px;
+    }
+
+    .studio-table thead th {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .studio-table tbody td {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+}
+
+
+/* =========================================================
+   LAPTOP
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+    .studio-page {
+        padding-left: 22px;
+        padding-right: 22px;
+    }
+
+    .studio-table thead th {
+        font-size: 0.64rem;
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .studio-table tbody td {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    /*
+       Slightly smaller action slots.
+    */
+
+    .studio-action-grid {
+        grid-template-columns:
+            68px
+            72px
+            88px
+            36px
+            36px
+            36px;
+
+        gap: 3px;
+    }
+
+    .studio-action-grid .btn {
+        min-height: 36px;
+        font-size: 0.68rem;
+        padding: 4px;
+    }
+
+    .studio-action-placeholder {
+        width: 36px;
+        height: 36px;
+    }
+
+    .studio-action-icon {
+        width: 36px !important;
+    }
+
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .studio-page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .studio-create-btn {
+        width: auto;
+    }
+
+    .studio-preset-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /*
+       On smaller screens allow the action grid
+       to use two rows, but positions remain identical.
+    */
+
+    .studio-action-grid {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+
+        gap: 4px;
+        justify-content: stretch;
+    }
+
+    .studio-action-grid .btn {
+        width: 100%;
+    }
+
+    .studio-action-placeholder {
+        width: 100%;
+    }
+
+    .studio-action-icon {
+        width: 100% !important;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL SCREEN
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .studio-page {
+        padding: 18px 12px 28px;
+    }
+
+    .nav-tabs-studio {
+        flex-wrap: wrap;
+    }
+
+    .nav-tabs-studio .nav-link {
+        padding: 10px 12px;
+        font-size: 0.82rem;
+    }
+
+    .studio-table thead th {
+        font-size: 0.55rem;
+        padding: 8px 5px;
+    }
+
+    .studio-table tbody td {
+        padding: 9px 5px;
+        font-size: 0.75rem;
+    }
+
+    .studio-type-badge,
+    .studio-stage-badge {
+        font-size: 0.68rem;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
+    }
+
+    .studio-status-cell .badge {
+        font-size: 0.68rem;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
+    }
+
+    .studio-modal .modal-dialog {
+        margin: 10px;
+    }
+
+    .studio-modal .modal-body {
+        padding: 15px;
+    }
+
+    .studio-preset-card {
+        min-height: auto;
+    }
+
+}
+
+
+/* =========================================================
+   VERY SMALL SCREEN
+   ========================================================= */
+
+@media (max-width: 480px) {
+
+    .studio-page {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .studio-page-header h2 {
+        font-size: 1.15rem;
+    }
+
+    .studio-page-header p {
+        font-size: 0.82rem;
+    }
+
+    .studio-table thead th {
+        font-size: 0.50rem;
+        padding: 7px 3px;
+    }
+
+    .studio-table tbody td {
+        padding: 7px 3px;
+        font-size: 0.70rem;
+    }
+
+    .studio-action-grid {
+        gap: 3px;
+    }
+
+    .studio-action-grid .btn {
+        font-size: 0.60rem;
+        padding: 3px;
+    }
+
+}
+
+</style>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="studio-page">
+
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="studio-page-header">
+
+        <div class="studio-page-header-content">
+
+            <h2 class="h3 fw-bold mb-1">
+
+                <i class="bi bi-file-earmark-text text-primary me-2"></i>
+
+                Forms, Surveys & Quizzes Studio
+
+            </h2>
+
+            <p class="text-muted mb-0">
+
+                Build interactive intake forms, compliance quizzes,
+                and employee pulse surveys with full analytics.
+
+            </p>
+
+        </div>
+
+
+        <button
+            type="button"
+            class="btn btn-primary fw-semibold px-4 studio-create-btn"
+            data-bs-toggle="modal"
+            data-bs-target="#newFormModal">
+
+            <i class="bi bi-plus-circle me-1"></i>
+
+            Create Project
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTER TABS
+         ===================================================== -->
+
+    <div class="studio-tabs-wrapper">
+
+        <ul
+            class="nav nav-tabs nav-tabs-studio"
+            id="studioTab">
+
+            <li class="nav-item">
+
+                <button
+                    type="button"
+                    class="nav-link active"
+                    onclick="filterStudioTab('all', this)">
+
+                    <i class="bi bi-grid me-1"></i>
+
+                    All Projects
+                    (<span id="count-all">{{ forms|length }}</span>)
+
+                </button>
+
+            </li>
+
+
+            <li class="nav-item">
+
+                <button
+                    type="button"
+                    class="nav-link"
+                    onclick="filterStudioTab('quiz', this)">
+
+                    <i class="bi bi-patch-question text-primary me-1"></i>
+
+                    Quizzes & Assessments
+                    (<span id="count-quiz">0</span>)
+
+                </button>
+
+            </li>
+
+
+            <li class="nav-item">
+
+                <button
+                    type="button"
+                    class="nav-link"
+                    onclick="filterStudioTab('survey', this)">
+
+                    <i class="bi bi-bar-chart text-info me-1"></i>
+
+                    Surveys & Pulse
+                    (<span id="count-survey">0</span>)
+
+                </button>
+
+            </li>
+
+
+            <li class="nav-item">
+
+                <button
+                    type="button"
+                    class="nav-link"
+                    onclick="filterStudioTab('form', this)">
+
+                    <i class="bi bi-file-earmark-text text-secondary me-1"></i>
+
+                    Standard Forms
+                    (<span id="count-form">0</span>)
+
+                </button>
+
+            </li>
+
+        </ul>
+
+    </div>
+
+
+    <!-- =====================================================
+         PROJECTS TABLE
+         ===================================================== -->
+
+    <div class="card shadow-sm studio-table-card">
+
+        <div class="studio-table-header">
+
+            <h5 class="fw-bold">
+
+                <i class="bi bi-list-stars me-2 text-primary"></i>
+
+                All Projects
+
+            </h5>
+
+        </div>
+
+
+        <div class="card-body p-0">
+
+            <div class="studio-table-wrapper">
+
+                <table
+                    class="table align-middle table-hover studio-table">
+
+                    <thead class="table-light">
+
+                        <tr>
+
+                            <th>
+                                Project Name
+                            </th>
+
+                            <th>
+                                Type
+                            </th>
+
+                            <th>
+                                Stage
+                            </th>
+
+                            <th class="text-center">
+                                Questions
+                            </th>
+
+                            <th class="text-center">
+                                Responses
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                            <th class="text-end">
+                                Actions & Analytics
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody id="projectsTableBody">
+
+                        {% for f in forms %}
+
+                        <tr
+                            class="project-row"
+                            data-kind="{{ f.form_kind }}">
+
+
+                            <!-- =================================================
+                                 PROJECT NAME
+                                 ================================================= -->
+
+                            <td>
+
+                                <div class="studio-project-cell">
+
+                                    <a
+                                        href="{% url 'admin_edit_form' f.id %}"
+                                        class="studio-project-name text-decoration-none">
+
+                                        {{ f.name }}
+
+                                    </a>
+
+
+                                    {% if f.description %}
+
+                                    <span class="studio-project-description">
+
+                                        {{ f.description|truncatechars:60 }}
+
+                                    </span>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 TYPE
+                                 ================================================= -->
+
+                            <td>
+
+                                {% if f.form_kind == 'quiz' %}
+
+                                <span
+                                    class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill studio-type-badge">
+
+                                    <i class="bi bi-patch-question me-1"></i>
+
+                                    Quiz
+
+                                </span>
+
+
+                                {% elif f.form_kind == 'survey' %}
+
+                                <span
+                                    class="badge bg-info-subtle text-info border border-info-subtle px-3 py-1 rounded-pill studio-type-badge">
+
+                                    <i class="bi bi-bar-chart me-1"></i>
+
+                                    Survey
+
+                                </span>
+
+
+                                {% else %}
+
+                                <span
+                                    class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill studio-type-badge">
+
+                                    <i class="bi bi-file-earmark-text me-1"></i>
+
+                                    Form
+
+                                </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 STAGE
+                                 ================================================= -->
+
+                            <td>
+
+                                <span
+                                    class="badge bg-light text-dark border studio-stage-badge">
+
+                                    {{ f.stage|humanize_status }}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 QUESTIONS
+                                 ================================================= -->
+
+                            <td class="studio-number-cell fw-semibold">
+
+                                {{ f.get_all_fields|length }}
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 RESPONSES
+                                 ================================================= -->
+
+                            <td class="studio-number-cell">
+
+                                <span
+                                    class="badge bg-light text-primary border fw-bold px-2 py-1">
+
+                                    {{ f.responses.count }}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 STATUS
+                                 ================================================= -->
+
+                            <td class="studio-status-cell">
+
+                                <form
+                                    method="POST"
+                                    action="{% url 'admin_toggle_form' f.id %}"
+                                    class="d-inline">
+
+                                    {% csrf_token %}
+
+                                    <button
+                                        type="submit"
+                                        class="studio-status-button"
+                                        title="Click to {% if f.is_active %}deactivate{% else %}activate{% endif %}">
+
+                                        {% if f.is_active %}
+
+                                        <span
+                                            class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">
+
+                                            <i
+                                                class="bi bi-circle-fill me-1"
+                                                style="font-size:0.5rem;">
+                                            </i>
+
+                                            Active
+
+                                        </span>
+
+
+                                        {% else %}
+
+                                        <span
+                                            class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">
+
+                                            <i
+                                                class="bi bi-circle-fill me-1"
+                                                style="font-size:0.5rem;">
+                                            </i>
+
+                                            Inactive
+
+                                        </span>
+
+                                        {% endif %}
+
+                                    </button>
+
+                                </form>
+
+                            </td>
+
+
+                            <!-- =================================================
+                                 ACTIONS
+                                 ================================================= -->
+
+                            <td class="studio-actions">
+
+                                <div class="studio-action-grid">
+
+
+                                    <!-- =================================================
+                                         1. BUILDER
+                                         ================================================= -->
+
+                                    <a
+                                        href="{% url 'admin_edit_form' f.id %}"
+                                        class="btn btn-outline-primary"
+                                        title="Open Studio Builder">
+
+                                        <i class="bi bi-pencil me-1"></i>
+
+                                        Builder
+
+                                    </a>
+
+
+                                    <!-- =================================================
+                                         2. ANALYTICS
+                                         ================================================= -->
+
+                                    <a
+                                        href="{% url 'admin_form_analytics' f.id %}"
+                                        class="btn btn-outline-info"
+                                        title="View Analytics Dashboard">
+
+                                        <i class="bi bi-graph-up me-1"></i>
+
+                                        Analytics
+
+                                    </a>
+
+
+                                    <!-- =================================================
+                                         3. EXPORT
+                                         ================================================= -->
+
+                                    <a
+                                        href="{% url 'admin_export_form_responses' f.id %}"
+                                        class="btn btn-outline-success"
+                                        title="Export all user questions and answers to Excel / CSV">
+
+                                        <i class="bi bi-file-earmark-excel me-1"></i>
+
+                                        Export Excel
+
+                                    </a>
+
+
+                                    <!-- =================================================
+                                         4. PAUSE / PLAY
+                                         ================================================= -->
+
+                                    <form
+                                        method="POST"
+                                        action="{% url 'admin_toggle_form' f.id %}">
+
+                                        {% csrf_token %}
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-warning studio-action-icon"
+                                            title="Toggle Active Status">
+
+                                            {% if f.is_active %}
+
+                                            <i class="bi bi-pause-circle"></i>
+
+                                            {% else %}
+
+                                            <i class="bi bi-play-circle"></i>
+
+                                            {% endif %}
+
+                                        </button>
+
+                                    </form>
+
+
+                                    <!-- =================================================
+                                         5. PUBLIC LINK
+                                         ================================================= -->
+
+                                    {% if f.share_token %}
+
+                                    <a
+                                        href="{% url 'public_form_view' f.share_token %}"
+                                        target="_blank"
+                                        class="btn btn-outline-secondary studio-action-icon"
+                                        title="Open Public Link">
+
+                                        <i class="bi bi-box-arrow-up-right"></i>
+
+                                    </a>
+
+                                    {% else %}
+
+                                    <!--
+                                        Empty placeholder.
+                                        IMPORTANT:
+                                        This occupies exactly the same
+                                        grid position as Public Link.
+                                    -->
+
+                                    <span
+                                        class="studio-action-placeholder"
+                                        aria-hidden="true">
+                                    </span>
+
+                                    {% endif %}
+
+
+                                    <!-- =================================================
+                                         6. DELETE
+                                         ================================================= -->
+
+                                    <form
+                                        method="POST"
+                                        action="{% url 'admin_delete_form' f.id %}"
+                                        onsubmit="return confirm('Delete project {{ f.name|escapejs }}?');">
+
+                                        {% csrf_token %}
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-danger studio-action-icon"
+                                            title="Delete Project">
+
+                                            <i class="bi bi-trash"></i>
+
+                                        </button>
+
+                                    </form>
+
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td
+                                colspan="7"
+                                class="text-center text-muted studio-empty-state">
+
+                                <i
+                                    class="bi bi-inbox fs-1 text-secondary d-block mb-2">
+                                </i>
+
+                                <p class="mb-2">
+
+                                    No form, quiz, or survey projects created yet.
+
+                                </p>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-primary btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#newFormModal">
+
+                                    <i class="bi bi-plus-lg me-1"></i>
+
+                                    Create Your First Project
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+
+                        <!-- =================================================
+                             FILTER EMPTY STATE
+                             ================================================= -->
+
+                        <tr
+                            id="emptyFilterRow"
+                            class="d-none">
+
+                            <td
+                                colspan="7"
+                                class="text-center text-muted studio-empty-state">
+
+                                <i
+                                    class="bi bi-funnel fs-1 text-secondary d-block mb-2">
+                                </i>
+
+                                <p class="mb-0">
+
+                                    No projects matching this filter.
+
+                                </p>
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     NEW PROJECT MODAL
+     ========================================================= -->
+
+<div
+    class="modal fade studio-modal"
+    id="newFormModal"
+    tabindex="-1"
+    aria-labelledby="newFormModalLabel"
+    aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content shadow-lg">
+
+            <form
+                method="POST"
+                action="{% url 'admin_create_form' %}">
+
+                {% csrf_token %}
+
+
+                <!-- =================================================
+                     MODAL HEADER
+                     ================================================= -->
+
+                <div class="modal-header border-bottom-0">
+
+                    <h5
+                        class="modal-title fw-bold"
+                        id="newFormModalLabel">
+
+                        <i class="bi bi-magic text-primary me-2"></i>
+
+                        Create New Project
+
+                    </h5>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close">
+                    </button>
+
+                </div>
+
+
+                <!-- =================================================
+                     MODAL BODY
+                     ================================================= -->
+
+                <div class="modal-body">
+
+                    <p class="text-muted mb-4">
+
+                        Select the type of project you wish to build:
+
+                    </p>
+
+
+                    <!-- =================================================
+                         PRESET CARDS
+                         ================================================= -->
+
+                    <div class="studio-preset-grid">
+
+
+                        <!-- QUIZ -->
+
+                        <div
+                            class="studio-preset-card"
+                            onclick="selectPreset(
+                                'quiz',
+                                'Compliance & Skills Assessment'
+                            )">
+
+                            <div
+                                class="preset-icon bg-primary-subtle text-primary">
+
+                                <i class="bi bi-patch-question-fill"></i>
+
+                            </div>
+
+                            <h6 class="fw-bold mb-1">
+
+                                Quiz / Assessment
+
+                            </h6>
+
+                            <small class="text-muted">
+
+                                Pass/fail benchmarks, attempt limits,
+                                timer & auto-grading.
+
+                            </small>
+
+                        </div>
+
+
+                        <!-- SURVEY -->
+
+                        <div
+                            class="studio-preset-card"
+                            onclick="selectPreset(
+                                'survey',
+                                'Employee Satisfaction Survey'
+                            )">
+
+                            <div
+                                class="preset-icon bg-info-subtle text-info">
+
+                                <i class="bi bi-bar-chart-fill"></i>
+
+                            </div>
+
+                            <h6 class="fw-bold mb-1">
+
+                                Survey & Pulse
+
+                            </h6>
+
+                            <small class="text-muted">
+
+                                Likert rating matrices, NPS scales &
+                                anonymous submission controls.
+
+                            </small>
+
+                        </div>
+
+
+                        <!-- FORM -->
+
+                        <div
+                            class="studio-preset-card"
+                            onclick="selectPreset(
+                                'form',
+                                'Pre-Onboarding Information Form'
+                            )">
+
+                            <div
+                                class="preset-icon bg-secondary-subtle text-secondary">
+
+                                <i class="bi bi-file-earmark-text-fill"></i>
+
+                            </div>
+
+                            <h6 class="fw-bold mb-1">
+
+                                Standard Form
+
+                            </h6>
+
+                            <small class="text-muted">
+
+                                Data intake forms, document requests &
+                                custom field collections.
+
+                            </small>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         PROJECT NAME
+                         ================================================= -->
+
+                    <div class="mb-4">
+
+                        <label
+                            class="form-label fw-bold small text-uppercase">
+
+                            Project Name
+                            <span class="text-danger">*</span>
+
+                        </label>
+
+                        <input
+                            type="text"
+                            name="name"
+                            id="modalProjectName"
+                            class="form-control form-control-lg"
+                            required
+                            placeholder="e.g. Q3 Compliance & Safety Quiz">
+
+                    </div>
+
+
+                    <!-- =================================================
+                         FORM KIND
+                         ================================================= -->
+
+                    <input
+                        type="hidden"
+                        name="form_kind"
+                        id="modalFormKind"
+                        value="quiz">
+
+
+                    <!-- =================================================
+                         ONBOARDING STAGE
+                         ================================================= -->
+
+                    <div>
+
+                        <label
+                            class="form-label fw-bold small text-uppercase">
+
+                            Onboarding Stage
+
+                        </label>
+
+                        <select
+                            name="stage"
+                            class="form-select">
+
+                            {% for s in stages %}
+
+                            <option value="{{ s }}">
+
+                                {{ s|humanize_status }}
+
+                            </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     MODAL FOOTER
+                     ================================================= -->
+
+                <div class="modal-footer border-top-0">
+
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        data-bs-dismiss="modal">
+
+                        Cancel
+
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary px-4 fw-semibold">
+
+                        <i class="bi bi-arrow-right-circle me-1"></i>
+
+                        Open Studio Builder
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+/* =========================================================
+   FILTER PROJECTS
+   ========================================================= */
+
+function filterStudioTab(kind, btnEl) {
+
+    /*
+     * Remove active state from all tabs.
+     */
+
+    document
+        .querySelectorAll('#studioTab .nav-link')
+        .forEach(function(el) {
+
+            el.classList.remove('active');
+
+        });
+
+
+    /*
+     * Activate selected tab.
+     */
+
+    if (btnEl) {
+
+        btnEl.classList.add('active');
+
+    }
+
+
+    /*
+     * Find all project rows.
+     */
+
+    var rows =
+        document.querySelectorAll('.project-row');
+
+    var visibleCount = 0;
+
+
+    /*
+     * Show / hide rows.
+     */
+
+    rows.forEach(function(row) {
+
+        var rowKind =
+            row.getAttribute('data-kind');
+
+
+        if (
+            kind === 'all' ||
+            rowKind === kind
+        ) {
+
+            row.style.display = '';
+
+            visibleCount++;
+
+        }
+        else {
+
+            row.style.display = 'none';
+
+        }
+
+    });
+
+
+    /*
+     * Filter empty state.
+     */
+
+    var emptyRow =
+        document.getElementById('emptyFilterRow');
+
+
+    if (emptyRow) {
+
+        if (
+            visibleCount === 0 &&
+            rows.length > 0
+        ) {
+
+            emptyRow.classList.remove('d-none');
+
+        }
+        else {
+
+            emptyRow.classList.add('d-none');
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   UPDATE TAB COUNTS
+   ========================================================= */
+
+function updateTabCounts() {
+
+    var rows =
+        document.querySelectorAll('.project-row');
+
+
+    var quizCount = 0;
+    var surveyCount = 0;
+    var formCount = 0;
+
+
+    rows.forEach(function(row) {
+
+        var kind =
+            row.getAttribute('data-kind');
+
+
+        if (kind === 'quiz') {
+
+            quizCount++;
+
+        }
+        else if (kind === 'survey') {
+
+            surveyCount++;
+
+        }
+        else if (kind === 'form') {
+
+            formCount++;
+
+        }
+
+    });
+
+
+    var quizElement =
+        document.getElementById('count-quiz');
+
+    if (quizElement) {
+
+        quizElement.textContent = quizCount;
+
+    }
+
+
+    var surveyElement =
+        document.getElementById('count-survey');
+
+    if (surveyElement) {
+
+        surveyElement.textContent = surveyCount;
+
+    }
+
+
+    var formElement =
+        document.getElementById('count-form');
+
+    if (formElement) {
+
+        formElement.textContent = formCount;
+
+    }
+
+}
+
+
+/* =========================================================
+   PRESET SELECTION
+   ========================================================= */
+
+function selectPreset(kind, defaultName) {
+
+    var kindInput =
+        document.getElementById('modalFormKind');
+
+    var nameInput =
+        document.getElementById('modalProjectName');
+
+
+    /*
+     * Set selected form type.
+     */
+
+    if (kindInput) {
+
+        kindInput.value = kind;
+
+    }
+
+
+    /*
+     * Only apply the default name if
+     * the user has not typed one.
+     */
+
+    if (
+        nameInput &&
+        !nameInput.value.trim()
+    ) {
+
+        nameInput.value = defaultName;
+
+    }
+
+}
+
+
+/* =========================================================
+   PAGE INITIALIZATION
+   ========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+        updateTabCounts();
+
+    }
+);
+
+</script>
+
+{% endblock %}

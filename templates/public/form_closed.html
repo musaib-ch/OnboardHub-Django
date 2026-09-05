@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ title|default:"Form Unavailable" }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="card border-0 shadow p-5 rounded-4">
+                <div class="mb-3 text-warning">
+                    <i class="bi bi-lock-fill display-1"></i>
+                </div>
+                <h3 class="fw-bold mb-2">{{ title|default:"This form is currently unavailable" }}</h3>
+                <p class="text-muted mb-4">{{ message|default:"This form or survey is not accepting submissions at this time." }}</p>
+                <a href="/" class="btn btn-outline-primary px-4 fw-semibold">Return to Home</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

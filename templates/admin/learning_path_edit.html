@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ path.title }} — Learning Studio{% endblock %}
+{% block content %}
+<style>
+    .studio-card {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: var(--radius-md, 12px);
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'admin_learning_paths' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+        <div>
+            <h4 class="fw-bold text-dark mb-0"><i class="bi bi-signpost-split me-2 text-primary"></i>{{ path.title }}</h4>
+            <small class="text-muted">Configure module sequence, department targeting, and completion rules.</small>
+        </div>
+    </div>
+    <a href="{% url 'admin_learning_path_analytics' path.id %}" class="btn btn-outline-info btn-sm fw-semibold">
+        <i class="bi bi-graph-up me-1"></i>Analytics
+    </a>
+</div>
+
+<form method="POST">
+    {% csrf_token %}
+    <div class="row g-4 mb-5">
+        <!-- Path Details Studio -->
+        <div class="col-lg-4">
+            <div class="studio-card p-4">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear me-1 text-primary"></i>Path Settings</h6>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Path Title</label>
+                    <input type="text" name="title" class="form-control" value="{{ path.title }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Category</label>
+                    <input type="text" name="category" class="form-control" value="{{ path.category }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Description</label>
+                    <textarea name="description" class="form-control" rows="3">{{ path.body }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Target Departments <span class="text-muted">(empty = all)</span></label>
+                    <div class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
+                        {% for dept in departments %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="target_departments" value="{{ dept.id }}" id="dept_{{ dept.id }}"
+                                   {% if dept.id in target_departments_list %}checked{% endif %}>
+                            <label class="form-check-label text-dark small" for="dept_{{ dept.id }}">{{ dept.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small text-dark">Due (days)</label>
+                        <input type="number" name="due_days" min="0" class="form-control" value="{{ meta.due_days|default:30 }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-semibold small text-dark">Repeat (days)</label>
+                        <input type="number" name="recurrence_days" min="0" class="form-control" value="{{ meta.recurrence_days|default:0 }}">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary w-100 fw-semibold mt-2"><i class="bi bi-check2-circle me-1"></i>Save Path Configuration</button>
+            </div>
+        </div>
+
+        <!-- Modules Drag & Drop Sequencer -->
+        <div class="col-lg-8">
+            <div class="studio-card p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-nested me-1 text-primary"></i>Module Sequencer &amp; Rules</h6>
+                        <small class="text-muted">Drag rows to set sequence. Check "Use" to include in path.</small>
+                    </div>
+                    <a href="{% url 'content_manage' 'training' %}" target="_blank" class="btn btn-xs btn-outline-primary fw-semibold">
+                        <i class="bi bi-plus-lg me-1"></i>New Module
+                    </a>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:28px"></th>
+                                <th style="width:60px">Use</th>
+                                <th style="width:60px">#</th>
+                                <th>Training Module</th>
+                                <th style="width:100px">Required</th>
+                            </tr>
+                        </thead>
+                        <tbody id="moduleRows">
+                            {% for m in chosen %}
+                            <tr draggable="true" data-id="{{ m.id }}" class="bg-primary-subtle">
+                                <td class="drag-handle text-muted" style="cursor:grab"><i class="bi bi-grip-vertical"></i></td>
+                                <td><input class="form-check-input" type="checkbox" name="module_ids" value="{{ m.id }}" checked></td>
+                                <td><input class="form-control form-control-sm js-order font-bold" type="number" name="order_{{ m.id }}" value="{{ forloop.counter }}" style="width:50px" readonly></td>
+                                <td>
+                                    <span class="fw-bold text-dark">{{ m.title }}</span>
+                                    {% if m.category %}<span class="badge bg-primary ms-1" style="font-size:0.7rem;">{{ m.category }}</span>{% endif %}
+                                </td>
+                                <td><input class="form-check-input" type="checkbox" name="required_ids" value="{{ m.id }}" {% if m.id in chosen_required %}checked{% endif %}></td>
+                            </tr>
+                            {% endfor %}
+                            {% for m in available %}
+                            <tr draggable="true" data-id="{{ m.id }}">
+                                <td class="drag-handle text-muted" style="cursor:grab"><i class="bi bi-grip-vertical"></i></td>
+                                <td><input class="form-check-input" type="checkbox" name="module_ids" value="{{ m.id }}"></td>
+                                <td><input class="form-control form-control-sm js-order" type="number" name="order_{{ m.id }}" value="{{ chosen|length|add:forloop.counter }}" style="width:50px" readonly></td>
+                                <td>
+                                    <span class="text-dark">{{ m.title }}</span>
+                                    {% if m.category %}<span class="badge bg-secondary ms-1" style="font-size:0.7rem;">{{ m.category }}</span>{% endif %}
+                                </td>
+                                <td><input class="form-check-input" type="checkbox" name="required_ids" value="{{ m.id }}" checked></td>
+                            </tr>
+                            {% endfor %}
+                            {% if not chosen and not available %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">No training modules exist yet. <a href="{% url 'content_manage' 'training' %}">Add training modules first.</a></td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pt-3 border-top mt-3 text-end">
+                    <button class="btn btn-primary px-4 fw-semibold"><i class="bi bi-check-lg me-1"></i>Save Learning Path</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const tbody = document.getElementById("moduleRows");
+    if (!tbody) return;
+    let dragRow = null;
+    function renumber() {
+        [...tbody.querySelectorAll("tr[data-id]")].forEach((r, i) => {
+            const o = r.querySelector(".js-order"); if (o) o.value = i + 1;
+        });
+    }
+    tbody.addEventListener("dragstart", e => { dragRow = e.target.closest("tr"); if (dragRow) dragRow.style.opacity = ".4"; });
+    tbody.addEventListener("dragend", () => { if (dragRow) dragRow.style.opacity = ""; dragRow = null; });
+    tbody.addEventListener("dragover", e => {
+        e.preventDefault();
+        const over = e.target.closest("tr");
+        if (!over || over === dragRow || !dragRow) return;
+        const rect = over.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        tbody.insertBefore(dragRow, after ? over.nextSibling : over);
+        renumber();
+    });
+})();
+</script>
+{% endblock %}

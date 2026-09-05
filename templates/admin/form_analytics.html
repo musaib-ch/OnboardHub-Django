@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ form.name }} — Analytics & Responses{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <h2 class="h3 fw-bold mb-0">{{ form.name }}</h2>
+        {% if form.form_kind == 'quiz' %}
+        <span class="badge bg-primary px-3 py-2 fs-6"><i class="bi bi-patch-question me-1"></i> Quiz / Assessment</span>
+        {% elif form.form_kind == 'survey' %}
+        <span class="badge bg-info px-3 py-2 fs-6"><i class="bi bi-bar-chart me-1"></i> Survey</span>
+        {% else %}
+        <span class="badge bg-secondary px-3 py-2 fs-6"><i class="bi bi-file-earmark-text me-1"></i> Form</span>
+        {% endif %}
+      </div>
+      <p class="text-muted mb-0">Real-time response analytics, score distributions, and completion logs.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'admin_edit_form' form.id %}" class="btn btn-outline-primary">
+        <i class="bi bi-pencil-square me-1"></i> Edit Builder
+      </a>
+      <a href="{% url 'admin_export_form_responses' form.id %}" class="btn btn-success fw-semibold">
+        <i class="bi bi-file-earmark-excel me-1"></i> Export Excel / CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Overview Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Total Submissions</small>
+        <h3 class="fw-bold mb-0 text-dark mt-1">{{ total_responses }}</h3>
+        <small class="text-muted mt-1"><i class="bi bi-people me-1"></i>Respondents recorded</small>
+      </div>
+    </div>
+
+    {% if form.form_kind == 'quiz' %}
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Average Quiz Score</small>
+        <h3 class="fw-bold mb-0 text-primary mt-1">{{ avg_score }}%</h3>
+        <small class="text-muted mt-1">Target Pass Benchmark: <strong>{{ passing_score }}%</strong></small>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Pass Rate</small>
+        <h3 class="fw-bold mb-0 text-success mt-1">{{ pass_rate }}%</h3>
+        <small class="text-muted mt-1"><strong>{{ passed_count }}</strong> Passed | <strong>{{ failed_count }}</strong> Needs Improvement</small>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm p-3">
+        <small class="text-muted fw-semibold text-uppercase" style="font-size:0.75rem;">Status & Access</small>
+        <h3 class="fw-bold mb-0 text-dark mt-1">{% if form.is_active %}<span class="text-success fs-4"><i class="bi bi-check-circle-fill me-1"></i> Active</span>{% else %}<span class="text-muted fs-4">Inactive</span>{% endif %}</h3>
+        <small class="text-muted mt-1">{% if form.is_anonymous %}Anonymous Submissions{% else %}Tracked Candidate Submissions{% endif %}</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Per Question Analysis -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h5 class="card-title fw-bold mb-0"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Question-by-Question Response Breakdown</h5>
+        </div>
+        <div class="card-body p-4">
+          {% if question_stats %}
+            {% for q in question_stats %}
+            <div class="mb-4 pb-3 border-bottom">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6 class="fw-bold text-dark mb-0">{{ forloop.counter }}. {{ q.label }}</h6>
+                <span class="badge bg-light text-dark border" style="font-size:0.75rem;">{{ q.field_type|upper }}</span>
+              </div>
+              <small class="text-muted d-block mb-3">{{ q.total_answers }} response(s) answered</small>
+
+              {% if q.option_counts %}
+                <div class="space-y-2">
+                  {% for opt, count in q.option_counts.items %}
+                  <div class="mb-2">
+                    <div class="d-flex justify-content-between small fw-semibold mb-1">
+                      <span>{{ opt }}</span>
+                      <span>{{ count }} answer(s)</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                      <div class="progress-bar bg-primary" role="progressbar" style="width: {% if q.total_answers > 0 %}{% widthratio count q.total_answers 100 %}{% else %}0{% endif %}%;"></div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              {% elif q.text_samples %}
+                <div class="bg-light p-3 rounded-3">
+                  <small class="fw-bold text-uppercase text-muted d-block mb-2" style="font-size:0.7rem;">Recent Sample Answers:</small>
+                  <ul class="list-unstyled mb-0 small">
+                    {% for sample in q.text_samples %}
+                    <li class="mb-1 text-dark"><i class="bi bi-chat-left-text me-2 text-primary"></i>"{{ sample }}"</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted text-center py-4">No questions configured for this form.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Individual Responses Log Table -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h5 class="card-title fw-bold mb-0"><i class="bi bi-clock-history me-2 text-indigo"></i>Submission Log ({{ responses|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+          {% if responses %}
+          <div class="list-group list-group-flush">
+            {% for r in responses %}
+            <div class="list-group-item p-3">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <div>
+                  <h6 class="fw-bold mb-0 me-2">
+                    {% if r.employee %}
+                      {{ r.employee.full_name }}
+                    {% elif r.respondent_name %}
+                      {{ r.respondent_name }}
+                    {% else %}
+                      Anonymous Respondent
+                    {% endif %}
+                  </h6>
+                  <small class="text-muted">{{ r.submitted_at|date:"M d, Y H:i" }}</small>
+                </div>
+                {% if r.score is not None %}
+                  {% if r.score >= passing_score %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">{{ r.score }}% Passed</span>
+                  {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">{{ r.score }}% Failed</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-inbox fs-1 text-secondary mb-2 d-block"></i>
+            <p class="mb-0">No submissions recorded yet.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

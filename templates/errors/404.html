@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block title %}Not Found{% endblock %}
+{% block content %}<div class="empty-state glass-card mt-5"><i class="bi bi-question-circle"></i><h3>404 — Page not found</h3><p>The page you're looking for doesn't exist.</p><a href="{% url 'index' %}" class="btn btn-primary">Go Home</a></div>{% endblock %}
+{% block auth_content %}<div class="empty-state glass-card mt-5"><i class="bi bi-question-circle"></i><h3>404 — Page not found</h3><p>The page you're looking for doesn't exist.</p><a href="{% url 'login' %}" class="btn btn-primary">Sign In</a></div>{% endblock %}

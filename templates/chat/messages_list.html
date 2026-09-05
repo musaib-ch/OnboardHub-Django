@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-chat-dots me-2"></i>Messages</h1>
+        <p class="text-muted mb-0">Direct messages with your team</p>
+    </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#startChatModal">
+        <i class="bi bi-plus me-1"></i>New Chat
+    </button>
+</div>
+
+<!-- Pending Requests Banner -->
+{% if pending_requests %}
+<div class="glass-card mb-4 border-warning border-2">
+    <div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-person-plus me-2 text-warning"></i>Chat Requests ({{ pending_count }})</h6>
+        {% for req in pending_requests %}
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+                <strong>{{ req.from_user_name }}</strong>
+                <span class="badge bg-secondary ms-1">{{ req.from_user_role|title }}</span>
+                <br>
+                <small class="text-muted">{{ req.first_message|truncatechars:80 }}</small>
+            </div>
+            <div class="d-flex gap-2 ms-3">
+                <form method="POST" action="{% url 'accept_chat_request' req.chat_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check me-1"></i>Accept</button>
+                </form>
+                <form method="POST" action="{% url 'reject_chat_request' req.chat_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x me-1"></i>Decline</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <div class="mb-3">
+                <input type="text" class="form-control" id="searchBox" placeholder="Search conversations..." value="{{ search_query }}">
+            </div>
+
+            {% if conversations %}
+            <div class="list-group list-group-flush">
+                {% for conv in conversations %}
+                <div class="list-group-item d-flex justify-content-between align-items-center gap-2 {% if conv.unread_count > 0 %}border-start border-primary border-3{% endif %}" style="padding: 0.75rem 0;">
+                    <a href="{% url 'chat_with_user' conv.user_id %}" class="flex-grow-1 text-decoration-none text-body min-width-0">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <strong>{{ conv.user_name }}</strong>
+                            <span class="badge bg-light text-muted small">{{ conv.user_role|title }}</span>
+                            {% if conv.unread_count > 0 %}
+                            <span class="badge bg-primary">{{ conv.unread_count }}</span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted d-block">{{ conv.last_sender_name }}: {{ conv.last_message }}</small>
+                        <small class="text-muted">{{ conv.last_message_at|slice:":10" }}</small>
+                    </a>
+                    {% if can_delete %}
+                    <form method="POST" action="{% url 'delete_chat' conv.chat_id %}" onsubmit="return confirm('Delete this entire conversation? This cannot be undone.');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete conversation">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-chat-dots" style="font-size: 2.5rem; opacity: 0.2;"></i>
+                <p class="text-muted mt-3">No conversations yet. Start one below.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>How Messaging Works</h6>
+            <ul class="list-unstyled small text-muted mb-0">
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Employees can message <strong>Admin or HR</strong> only</li>
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>First message requires <strong>recipient approval</strong></li>
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Attachments auto-delete after <strong>{{ attachment_retention_days }} days</strong></li>
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Use <code>@name</code> to mention someone</li>
+                {% if can_delete %}
+                <li class="mb-2"><i class="bi bi-shield-check text-warning me-2"></i>You can delete any conversation</li>
+                {% endif %}
+            </ul>
+            {% if can_delete %}
+            <hr>
+            <a href="{% url 'chat_settings' %}" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-gear me-1"></i>Chat Settings
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="startChatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-chat-plus me-2"></i>New Chat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control mb-3" id="userSearchInput" placeholder="Search by name...">
+                <div id="userSearchResults"></div>
+                <small class="text-muted">
+                    {% if request.user.role == "employee" %}
+                    As an employee, you can only message Admins or HR.
+                    {% else %}
+                    Search for any active user.
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('searchBox').addEventListener('input', function(e) {
+    const q = e.target.value.trim();
+    window.location.search = q ? '?q=' + encodeURIComponent(q) : '';
+});
+
+async function loadUserSuggestions(query = '') {
+    const results = document.getElementById('userSearchResults');
+    const data = await fetch('/api/users/search/?q=' + encodeURIComponent(query)).then(r => r.json());
+    if (!data.results.length) {
+        results.innerHTML = '<p class="text-muted small">No eligible users found.</p>';
+        return;
+    }
+    results.innerHTML = data.results.map(u =>
+        `<a href="/messages/${u.id}/" class="list-group-item list-group-item-action">
+            <strong>${u.full_name}</strong>
+            <span class="badge bg-light text-muted ms-1">${u.role}</span>
+            <br><small class="text-muted">${u.email}</small>
+        </a>`
+    ).join('');
+}
+
+const userSearchInput = document.getElementById('userSearchInput');
+const startChatModal = document.getElementById('startChatModal');
+
+userSearchInput.addEventListener('focus', function() {
+    loadUserSuggestions('');
+});
+
+userSearchInput.addEventListener('input', function(e) {
+    loadUserSuggestions(e.target.value.trim());
+});
+
+startChatModal.addEventListener('shown.bs.modal', function() {
+    loadUserSuggestions('');
+    userSearchInput.focus();
+});
+</script>
+{% endblock %}

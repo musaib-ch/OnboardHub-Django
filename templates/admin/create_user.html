@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Create User{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex align-items-center">
+        <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary me-3 js-back-link"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-person-plus me-2"></i>Create New User</h1>
+            <p class="text-muted mb-0">Add a new user to the system</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" id="createForm">
+    {% csrf_token %}
+    <div class="glass-card mb-4 animate-fadeIn">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-person me-2"></i>Basic Information</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Full Name <span class="text-danger">*</span></label>
+                    <input type="text" name="full_name" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Email <span class="text-danger">*</span></label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Employee ID</label>
+                    <input type="text" name="employee_id" class="form-control" placeholder="e.g. EMP-0001" pattern="[A-Za-z0-9\-]+" title="Letters, digits, and hyphens only">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Role <span class="text-danger">*</span></label>
+                    <select name="role" id="roleSelect" class="form-select" onchange="updateUI()">
+                        {% for value, label, base, scope_type in roles %}<option value="{{ value }}" data-base="{{ base }}" data-scope-type="{{ scope_type|default:'' }}">{{ label }}</option>{% endfor %}
+                    </select>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Super Admin cannot be created here.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Department</label>
+                    <select name="department" class="form-select">
+                        <option value="">-- None --</option>
+                        {% for d in org.department %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4" id="empTypeDiv">
+                    <label class="form-label fw-medium">Employee Type</label>
+                    <select name="employee_type" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.employee_type %}<option value="{{ o.name }}">{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Phone</label>
+                    <input type="text" name="phone_number" class="form-control" placeholder="+92-300-0000000">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Date of Birth</label>
+                    <input type="date" name="date_of_birth" class="form-control">
+                    <small class="text-muted">Drives age-based medical tests (40+).</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Gender</label>
+                    <select name="gender" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for value, label in genders %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Grade</label>
+                    <select name="grade" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.grade %}<option value="{{ o.name }}">{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Location</label>
+                    <select name="location_code" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.location %}<option value="{{ o.name }}">{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Payroll</label>
+                    <select name="payroll" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.payroll %}<option value="{{ o.name }}">{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-12" id="quizAccessDiv" style="display:none">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="quiz_access_only" id="quizAccessOnly">
+                        <label class="form-check-label fw-medium" for="quizAccessOnly"><i class="bi bi-question-circle me-2"></i>Quiz Access Only</label>
+                        <div class="form-text">User can only access and attempt quizzes; other features hidden.</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enable_email_notifications" id="een" checked>
+                        <label class="form-check-label fw-medium" for="een">Enable Email Notifications</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enable_in_app_notifications" id="ein" checked>
+                        <label class="form-check-label fw-medium" for="ein">Enable In-App Notifications</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3 mb-0 small"><i class="bi bi-info-circle me-1"></i>A temporary password will be generated and shown after creation. The user must change it at first login.</div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4" id="hrbpScopeDiv" style="display:none">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Department Assignments (HRBP)</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">This role will only see and manage employees in the selected departments.</p>
+            <div class="row g-2">
+                {% for d in org.department %}
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="scope_departments" value="{{ d.id }}" id="sd{{ d.id }}"><label class="form-check-label" for="sd{{ d.id }}">{{ d.name }}</label></div></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4" id="medScopeDiv" style="display:none">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location Assignments (Medical Approver)</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">This role will only see/review employees at the selected locations.</p>
+            <div class="row g-2">
+                {% for o in org.location %}
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="scope_locations" value="{{ o.name }}" id="sl{{ forloop.counter }}"><label class="form-check-label" for="sl{{ forloop.counter }}">{{ o.name }}</label></div></div>
+                {% empty %}<div class="col-12 text-muted small">No locations configured — add them in Organization Setup.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- WORKFLOW SELECTION (only for employees) -->
+    <div class="glass-card mb-4" id="workflowDiv" style="display:none">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-diagram-2 me-2"></i>Onboarding Workflow</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Choose which stages this employee will go through.</p>
+
+            <!-- Workflow Choice: Default, Template, or Custom -->
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="workflow_choice" value="default" id="wf_default" checked onchange="updateWorkflowUI()">
+                        <label class="form-check-label fw-medium" for="wf_default">
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>Use Default Workflow
+                        </label>
+                        <div class="form-text mt-1">
+                            <small class="text-success"><strong>✓ Recommended</strong></small> - Uses organization's default template
+                            <br><span class="d-block mt-1">Stages: {% for stage in default_stages %}<span class="badge bg-primary me-1">{{ stage }}</span>{% endfor %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="workflow_choice" value="template" id="wf_template" onchange="updateWorkflowUI()">
+                        <label class="form-check-label fw-medium" for="wf_template">
+                            <i class="bi bi-layers me-1"></i>Choose a Template
+                        </label>
+                    </div>
+                    <div id="templateDiv" style="display:none; margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <select name="template_name" class="form-select">
+                            <option value="">-- Select a template --</option>
+                            {% for template in stage_templates %}
+                            <option value="{{ template.name }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Select from pre-built templates for different hire types</small>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="workflow_choice" value="custom" id="wf_custom" onchange="updateWorkflowUI()">
+                        <label class="form-check-label fw-medium" for="wf_custom">Customize</label>
+                    </div>
+                    <div id="customDiv" style="display:none; margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <div class="row g-2">
+                            {% for stage in all_stages %}
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="custom_stages" value="{{ stage.stage_key }}" id="stage_{{ stage.stage_key }}">
+                                    <label class="form-check-label" for="stage_{{ stage.stage_key }}">
+                                        <strong>{{ stage.label }}</strong>
+                                        <small class="text-muted d-block">{{ stage.description }}</small>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Permissions</h5>
+            <span class="small text-muted">Pre-filled from the role; tick/untick to customise per user.</span>
+        </div>
+        <div class="card-body">
+            {% include "components/permission_matrix.html" %}
+        </div>
+        <div class="card-footer bg-transparent">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i>Create User</button>
+            <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary js-back-link">Cancel</a>
+        </div>
+    </div>
+</form>
+{{ role_perms_map|json_script:"rolePerms" }}
+
+<script>
+    (function() {
+        function getQueryParam(name) { const params = new URLSearchParams(window.location.search); return params.get(name); }
+        const next = getQueryParam('next');
+        if (next) {
+            document.querySelectorAll('.js-back-link').forEach(a => a.setAttribute('href', next));
+        }
+    })();
+
+    var ROLE_PERMS = JSON.parse(document.getElementById('rolePerms').textContent);
+    function applyRolePerms() {
+        var role = document.getElementById('roleSelect').value;
+        var perms = ROLE_PERMS[role] || [];
+        document.querySelectorAll('.perm-check').forEach(function (cb) {
+            cb.checked = perms.indexOf(cb.value) >= 0;
+        });
+    }
+    function updateUI() {
+        var opt = document.getElementById('roleSelect').selectedOptions[0];
+        var base = opt ? opt.dataset.base : '';
+        var scope = opt ? opt.dataset.scopeType : '';
+        var isEmployee = base === 'employee';
+        document.getElementById('empTypeDiv').style.display = isEmployee ? 'block' : 'none';
+        document.getElementById('quizAccessDiv').style.display = isEmployee ? 'block' : 'none';
+        document.getElementById('workflowDiv').style.display = isEmployee ? 'block' : 'none';
+        document.getElementById('hrbpScopeDiv').style.display = (scope === 'department') ? 'block' : 'none';
+        document.getElementById('medScopeDiv').style.display = (scope === 'location') ? 'block' : 'none';
+        if (isEmployee) updateWorkflowUI();
+    }
+    function updateWorkflowUI() {
+        var choice = document.querySelector('input[name="workflow_choice"]:checked').value;
+        document.getElementById('templateDiv').style.display = (choice === 'template') ? 'block' : 'none';
+        document.getElementById('customDiv').style.display = (choice === 'custom') ? 'block' : 'none';
+    }
+    // On create, sync permissions to the selected role immediately.
+    updateUI(); applyRolePerms();
+    document.getElementById('roleSelect').addEventListener('change', function() {
+        updateUI();
+        applyRolePerms();
+    });
+</script>
+{% endblock %}

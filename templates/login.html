@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ portal_name|default:"OnboardHub" }} - Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --navy-dark: {{ login_settings.primary_color|default:"#1d2b4f" }};
+      --navy-mid: {{ login_settings.primary_color|default:"#1d2b4f" }};
+      --navy-light: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal-light: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal-glow: rgba(50, 75, 138, 0.2);
+      --white: #ffffff;
+      --off-white: #f4f8fb;
+      --text-dark: #0d1f3c;
+      --text-muted: #8fa3b8;
+      --border: #d8e6f0;
+      --err-bg: #fef2f2;
+      --err-bd: #fca5a5;
+      --err-tx: #dc2626;
+    }
+
+    html,
+    body {
+      height: 100%;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════════
+       PAGE GRID
+    ══════════════════════════════ */
+    .page {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      height: 100vh;
+    }
+
+    .mobile-switch {
+      height: 100%;
+    }
+
+    .mobile-switch input[type='radio'] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mobile-tabs {
+      display: none;
+    }
+
+    /* ══════════════════════════════
+       LEFT PANEL
+    ══════════════════════════════ */
+    .left {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 64px;
+      overflow: hidden;
+      background: linear-gradient(148deg, var(--navy-dark) 0%, var(--navy-mid) 50%, var(--navy-light) 100%);
+    }
+    .left.bg-style-dark {
+      background: var(--navy-dark) !important;
+    }
+    .left.bg-style-sleek {
+      background: radial-gradient(ellipse at 20% 20%, var(--navy-light) 0%, var(--navy-dark) 75%) !important;
+    }
+    .left.bg-style-gradient {
+      background: linear-gradient(148deg, var(--navy-dark) 0%, var(--navy-mid) 50%, var(--navy-light) 100%) !important;
+    }
+    .bi-chat-dots.fs-5 {
+      color: #FFC107 !important;
+    }
+
+    /* animated pill shapes */
+    .pills {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .pill {
+      position: absolute;
+      border-radius: 999px;
+    }
+
+    .p1 {
+      width: 24px;
+      height: 96px;
+      background: linear-gradient(160deg, var(--teal), var(--teal-light));
+      opacity: 0.9;
+      bottom: 20%;
+      left: 10%;
+      transform: rotate(-38deg);
+      animation: drift1 6s ease-in-out infinite alternate;
+    }
+
+    .p2 {
+      width: 18px;
+      height: 72px;
+      background: linear-gradient(160deg, var(--teal-light), #a7f3e4);
+      opacity: 0.8;
+      bottom: 25%;
+      left: 19%;
+      transform: rotate(-38deg);
+      animation: drift1 7s 0.5s ease-in-out infinite alternate;
+    }
+
+    .p3 {
+      width: 13px;
+      height: 52px;
+      background: linear-gradient(160deg, #a7f3e4, rgba(255, 255, 255, 0.3));
+      opacity: 0.6;
+      bottom: 31%;
+      left: 27%;
+      transform: rotate(-38deg);
+      animation: drift2 8s 1s ease-in-out infinite alternate;
+    }
+
+    .p4 {
+      width: 62px;
+      height: 224px;
+      background: linear-gradient(160deg, var(--teal), var(--teal-light));
+      opacity: 0.85;
+      bottom: -5%;
+      left: 30%;
+      transform: rotate(-38deg);
+      animation: drift2 9s ease-in-out infinite alternate;
+    }
+
+    .p5 {
+      width: 46px;
+      height: 182px;
+      background: linear-gradient(160deg, var(--teal-light), var(--teal));
+      opacity: 0.75;
+      bottom: -9%;
+      left: 42%;
+      transform: rotate(-38deg);
+      animation: drift1 10s 0.8s ease-in-out infinite alternate;
+    }
+
+    .p6 {
+      width: 32px;
+      height: 132px;
+      background: linear-gradient(160deg, var(--teal), #0ff);
+      opacity: 0.6;
+      bottom: 5%;
+      left: 56%;
+      transform: rotate(-38deg);
+      animation: drift2 7.5s 0.3s ease-in-out infinite alternate;
+    }
+
+    .p7 {
+      width: 16px;
+      height: 66px;
+      background: linear-gradient(160deg, var(--teal-light), var(--teal));
+      opacity: 0.7;
+      bottom: 32%;
+      left: 60%;
+      transform: rotate(-38deg);
+      animation: drift1 8.5s 1.2s ease-in-out infinite alternate;
+    }
+
+    .p8 {
+      width: 10px;
+      height: 44px;
+      background: rgba(255, 255, 255, 0.1);
+      top: 13%;
+      right: 18%;
+      transform: rotate(-38deg);
+      animation: drift2 11s ease-in-out infinite alternate;
+    }
+
+    .p9 {
+      width: 8px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.06);
+      top: 22%;
+      right: 30%;
+      transform: rotate(-38deg);
+      animation: drift1 9s 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes drift1 {
+      from {
+        transform: rotate(-38deg) translateY(0);
+      }
+
+      to {
+        transform: rotate(-38deg) translateY(-18px);
+      }
+    }
+
+    @keyframes drift2 {
+      from {
+        transform: rotate(-38deg) translateY(0);
+      }
+
+      to {
+        transform: rotate(-38deg) translateY(14px);
+      }
+    }
+
+    /* logo */
+    .left-logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 54px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .logo-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(0, 201, 167, 0.18);
+      border: 1px solid rgba(0, 201, 167, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-badge svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--teal);
+    }
+
+    .logo-wordmark {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.4px;
+    }
+
+    .logo-wordmark span {
+      color: var(--teal);
+    }
+
+    /* headline */
+    .left-headline {
+      font-size: clamp(2rem, 2.8vw, 2.75rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      margin-bottom: 20px;
+      max-width: 380px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .left-headline em {
+      font-style: normal;
+      color: var(--teal);
+    }
+
+    .left-body {
+      font-size: 15px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.75;
+      max-width: 340px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    /* stats */
+    .stats {
+      display: flex;
+      gap: 36px;
+      margin-top: 52px;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .stat-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--teal);
+      line-height: 1;
+    }
+
+    .stat-key {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.35);
+      margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-sep {
+      width: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      align-self: stretch;
+    }
+
+    /* ══════════════════════════════
+       RIGHT PANEL
+    ══════════════════════════════ */
+    .right {
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 52px 56px;
+      position: relative;
+    }
+
+    /* teal top accent bar */
+    .right::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+    }
+
+    .form-box {
+      width: 100%;
+      max-width: 340px;
+    }
+
+    /* eyebrow + title */
+    .form-eyebrow {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--teal);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      animation: fadeUp 0.5s 0.15s ease both;
+    }
+
+    .form-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-dark);
+      letter-spacing: -0.6px;
+      margin-bottom: 6px;
+      animation: fadeUp 0.5s 0.2s ease both;
+    }
+
+    .form-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      line-height: 1.6;
+      animation: fadeUp 0.5s 0.25s ease both;
+    }
+
+    /* flash error */
+    .flash {
+      background: var(--err-bg);
+      border: 1px solid var(--err-bd);
+      color: var(--err-tx);
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    /* fields */
+    .field {
+      margin-bottom: 20px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .field:nth-of-type(1) {
+      animation-delay: 0.28s;
+    }
+
+    .field:nth-of-type(2) {
+      animation-delay: 0.33s;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap .icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #b0ccd8;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+
+    .input-wrap:focus-within .icon {
+      color: var(--teal);
+    }
+
+    /* catches Flask-WTF generated input regardless of id */
+    .input-wrap input {
+      display: block;
+      width: 100%;
+      padding: 13px 16px 13px 44px;
+      background: var(--off-white);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14.5px;
+      font-weight: 400;
+      color: var(--text-dark);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      caret-color: var(--teal);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .input-wrap input::placeholder {
+      color: #b8ceda;
+      font-weight: 400;
+    }
+
+    .input-wrap input:focus {
+      border-color: var(--teal);
+      background: #fff;
+      box-shadow: 0 0 0 4px var(--teal-glow);
+    }
+
+    /* submit button */
+    .submit-btn {
+      display: block;
+      width: 100%;
+      margin-top: 28px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--teal) 0%, #0099cc 100%);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 6px 28px rgba(0, 201, 167, 0.38);
+      animation: fadeUp 0.5s 0.38s ease both;
+    }
+
+    .submit-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 36px rgba(0, 201, 167, 0.5);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    /* footer note */
+    .form-note {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      animation: fadeUp 0.5s 0.43s ease both;
+    }
+
+    /* ══════════════════════════════
+       ANIMATIONS
+    ══════════════════════════════ */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ══════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════ */
+    @media (max-width: 860px) {
+
+      html,
+      body {
+        overflow: auto;
+        background: var(--white);
+      }
+
+      .mobile-switch {
+        min-height: 100dvh;
+      }
+
+      .mobile-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 16px;
+        padding: 6px;
+        background: #eaf2f7;
+        border-radius: 14px;
+        position: sticky;
+        top: 10px;
+        z-index: 4;
+      }
+
+      .mobile-tabs label {
+        text-align: center;
+        padding: 11px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6a8398;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+      }
+
+      #tab-overview:checked~.mobile-tabs label[for='tab-overview'],
+      #tab-signin:checked~.mobile-tabs label[for='tab-signin'] {
+        background: var(--white);
+        color: var(--text-dark);
+        box-shadow: 0 4px 12px rgba(7, 22, 40, 0.08);
+      }
+
+      .page {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .left,
+      .right {
+        display: none;
+        min-height: calc(100dvh - 92px);
+      }
+
+      .left {
+        padding: 34px 28px 44px;
+      }
+
+      .left-headline {
+        font-size: 1.72rem;
+      }
+
+      .right {
+        padding: 28px 22px 36px;
+      }
+
+      .form-box {
+        max-width: 100%;
+      }
+
+      #tab-overview:checked~.page .left {
+        display: flex;
+      }
+
+      #tab-signin:checked~.page .right {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="mobile-switch">
+    <input type="radio" name="mobile-panel" id="tab-overview" checked>
+    <input type="radio" name="mobile-panel" id="tab-signin">
+
+    <div class="mobile-tabs" role="tablist" aria-label="Mobile login sections">
+      <label for="tab-overview" role="tab" aria-controls="panel-overview">Overview</label>
+      <label for="tab-signin" role="tab" aria-controls="panel-signin">Sign In</label>
+    </div>
+
+    <div class="page">
+
+      <!-- ════ LEFT ════ -->
+      <div class="left bg-style-{{ login_settings.background_style|default:'gradient' }}" id="panel-overview">
+      <div class="pills">
+        <div class="pill p1"></div>
+        <div class="pill p2"></div>
+        <div class="pill p3"></div>
+        <div class="pill p4"></div>
+        <div class="pill p5"></div>
+        <div class="pill p6"></div>
+        <div class="pill p7"></div>
+        <div class="pill p8"></div>
+        <div class="pill p9"></div>
+      </div>
+
+      {% if login_settings.show_logo != False %}
+      <div class="left-logo">
+        {% if portal_logo %}
+        <img src="/{{ portal_logo }}" alt="{{ portal_name|default:'OnboardHub' }}" style="height:38px; border-radius:10px; object-fit:contain;">
+        {% else %}
+        <div class="logo-badge">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6l-8-4zm-1 13l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z" />
+          </svg>
+        </div>
+        {% endif %}
+        <div class="logo-wordmark">{{ portal_name|default:"OnboardHub" }}</div>
+      </div>
+      {% endif %}
+
+      <h1 class="left-headline">
+        {{ login_settings.welcome_title|default:"Welcome Back" }}
+      </h1>
+
+      <p class="left-body">
+        {{ login_settings.welcome_subtitle|default:"Your complete employee onboarding platform." }}
+      </p>
+
+
+    </div>
+
+      <div class="right" id="panel-signin">
+      <div class="form-box">
+
+        <div class="form-eyebrow">{{ portal_name|default:"Onboarding Portal" }}</div>
+        <h2 class="form-title">Welcome</h2>
+        <p class="form-sub">Sign in with your credentials.</p>
+
+        {% if messages %}{% for message in messages %}{% if message %}<div class="flash">&#9888; {{ message }}</div>{% endif %}{% endfor %}{% endif %}
+
+        <form method="POST" action="">
+          {% csrf_token %}
+
+          <div class="field">
+            <label for="id_email">Email</label>
+            <div class="input-wrap">
+              <input type="email" name="email" id="id_email" placeholder="you@company.com"
+                     autocomplete="username" autocapitalize="none" spellcheck="false" required
+                     value="{{ email|default:'' }}">
+              <span class="icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="id_password">Password</label>
+            <div class="input-wrap">
+              <input type="password" name="password" id="id_password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+                     autocomplete="current-password" required>
+              <span class="icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn">Sign In </button>
+        </form>
+
+        <div class="form-note">
+          <div style="margin-bottom: 8px;">
+            <a href="{% url 'forgot_password' %}" style="color: inherit; font-weight: 600;">Forgot password?</a> &bull; 
+            <a href="{% url 'staff_login' %}" style="color: inherit; font-weight: 600;">Staff &amp; Admin Sign In &rarr;</a>
+          </div>
+          Access issues? Contact your HR Service Delivery.
+        </div>
+
+      </div>
+    </div>
+
+    </div>
+  </div>
+
+</body>
+
+</html>

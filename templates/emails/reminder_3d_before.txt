@@ -1,0 +1,13 @@
+{{ employee.full_name }},
+
+Reminder: Your onboarding stage "{{ stage_name }}" is due in 3 days ({{ due_date|date:"d M Y" }}).
+
+Please complete all required submissions to avoid delays in your onboarding.
+
+Stage: {{ stage_name }}
+Due: {{ due_date|date:"d M Y" }}
+
+Submit now: {{ portal_link }}
+
+Best regards,
+OnboardHub

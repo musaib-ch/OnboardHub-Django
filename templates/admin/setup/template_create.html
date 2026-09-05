@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Create Workflow Template{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div class="d-flex align-items-center">
+        <a href="{% url 'admin_templates_list' %}" class="btn btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create Workflow Template</h1>
+            <p class="text-muted mb-0">Build a reusable stage journey with guided selection</p>
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2"><i class="bi bi-shield-check me-1"></i>Code-safe stages only</span>
+        <span class="badge bg-light text-dark border px-3 py-2"><i class="bi bi-diagram-3 me-1"></i>Multi-select builder</span>
+    </div>
+</div>
+
+<form method="POST" class="glass-card p-4 animate-fadeIn">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Template Name <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control form-control-lg" placeholder="e.g., Standard Onboarding" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Description</label>
+                    <input type="text" name="description" class="form-control form-control-lg" placeholder="When to use this template...">
+                </div>
+
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-end mb-2">
+                        <div>
+                            <label class="form-label fw-medium mb-0">Select Stages <span class="text-danger">*</span></label>
+                            <small class="text-muted d-block">Pick the exact portal stages to include in this template.</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted">Selected</div>
+                            <div class="fw-bold" id="templateStageCount">0</div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="stageSelectionHint" value="Use the cards below to build your stage sequence.">
+                    <div class="row g-3" id="templateStageGrid">
+                        {% for option in stage_options %}
+                        <div class="col-md-6">
+                            <input
+                                class="btn-check stage-choice"
+                                type="checkbox"
+                                name="stages"
+                                value="{{ option.key }}"
+                                id="stage_{{ option.key }}"
+                                {% if option.key in selected_stage_keys %}checked{% endif %}
+                            >
+                            <label class="stage-card card h-100" for="stage_{{ option.key }}">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start justify-content-between gap-3">
+                                        <div>
+                                            <div class="fw-semibold fs-6">{{ option.label }}</div>
+                                            <div class="text-muted small font-monospace">{{ option.key }}</div>
+                                        </div>
+                                        <span class="stage-pill"><i class="bi bi-check2"></i></span>
+                                    </div>
+                                    {% if option.description %}
+                                    <p class="text-muted small mt-3 mb-0">{{ option.description }}</p>
+                                    {% else %}
+                                    <p class="text-muted small mt-3 mb-0">Included in this workflow path.</p>
+                                    {% endif %}
+                                </div>
+                            </label>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-light border mb-0">No code-defined stages are available yet.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mt-4 p-3 rounded-4 border bg-light-subtle">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong class="mb-0">Selected stages</strong>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearStageSelection">Clear</button>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2" id="selectedStageChips">
+                            <span class="text-muted small">No stages selected yet.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="template-sidecard h-100">
+                <h5 class="mb-3">Builder Tips</h5>
+                <div class="d-grid gap-3">
+                    <div class="tip-item">
+                        <div class="tip-icon"><i class="bi bi-1-circle"></i></div>
+                        <div>
+                            <div class="fw-semibold">Start with the journey</div>
+                            <small class="text-muted">Choose the stages employees will actually see in the portal.</small>
+                        </div>
+                    </div>
+                    <div class="tip-item">
+                        <div class="tip-icon"><i class="bi bi-2-circle"></i></div>
+                        <div>
+                            <div class="fw-semibold">Keep the path short</div>
+                            <small class="text-muted">Use only the stages needed for this role or template.</small>
+                        </div>
+                    </div>
+                    <div class="tip-item">
+                        <div class="tip-icon"><i class="bi bi-3-circle"></i></div>
+                        <div>
+                            <div class="fw-semibold">Reuse with confidence</div>
+                            <small class="text-muted">The template will stay aligned with the portal-safe stage keys.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check-lg me-1"></i>Create Template
+        </button>
+        <a href="{% url 'admin_templates_list' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+    </div>
+</form>
+
+<style>
+.stage-card {
+    cursor: pointer;
+    border: 1px solid rgba(36, 52, 92, 0.12);
+    border-radius: 1rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,255,0.95));
+}
+.stage-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(36, 52, 92, 0.08);
+}
+.stage-choice:checked + .stage-card {
+    border-color: #24345c;
+    box-shadow: 0 0 0 3px rgba(36, 52, 92, 0.12);
+}
+.stage-choice:checked + .stage-card .stage-pill {
+    background: #24345c;
+    color: #fff;
+}
+.stage-pill {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(36, 52, 92, 0.08);
+    color: #24345c;
+    flex: 0 0 auto;
+}
+.template-sidecard {
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    background: linear-gradient(180deg, rgba(36, 52, 92, 0.08), rgba(255,255,255,0.95));
+    border: 1px solid rgba(36, 52, 92, 0.12);
+}
+.tip-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+}
+.tip-icon {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #24345c;
+    flex: 0 0 auto;
+}
+</style>
+
+<script>
+(function () {
+    const grid = document.getElementById("templateStageGrid");
+    const countEl = document.getElementById("templateStageCount");
+    const chipsEl = document.getElementById("selectedStageChips");
+    const clearBtn = document.getElementById("clearStageSelection");
+
+    function refresh() {
+        const checked = Array.from(grid.querySelectorAll(".stage-choice:checked"));
+        countEl.textContent = checked.length.toString();
+        chipsEl.innerHTML = "";
+        if (!checked.length) {
+            chipsEl.innerHTML = '<span class="text-muted small">No stages selected yet.</span>';
+            return;
+        }
+        checked.forEach((input) => {
+            const label = document.querySelector(`label[for="${input.id}"]`);
+            const title = label ? label.querySelector(".fw-semibold")?.textContent || input.value : input.value;
+            const chip = document.createElement("span");
+            chip.className = "badge rounded-pill text-bg-primary px-3 py-2";
+            chip.textContent = title;
+            chipsEl.appendChild(chip);
+        });
+    }
+
+    grid.addEventListener("change", refresh);
+    clearBtn.addEventListener("click", () => {
+        grid.querySelectorAll(".stage-choice").forEach((input) => input.checked = false);
+        refresh();
+    });
+    refresh();
+})();
+</script>
+{% endblock %}

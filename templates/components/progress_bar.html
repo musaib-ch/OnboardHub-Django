@@ -1,0 +1,60 @@
+{# Progress bar component for onboarding progress #}
+{# Usage: {% include "components/progress_bar.html" with percentage=emp.progress_percentage label="Onboarding Progress" %} #}
+
+<div class="progress-section mb-4">
+    <div class="d-flex justify-content-between align-items-baseline mb-2">
+        <h6 class="mb-0">{{ label|default:"Progress" }}</h6>
+        <span class="badge badge-progress">{{ percentage|default:0 }}%</span>
+    </div>
+    <div class="progress" style="height: 28px; background-color: #f3f4f6;">
+        <div class="progress-bar bg-success transition-all" style="width: {{ percentage|default:0 }}%;">
+            {% if percentage >= 10 %}
+            <span class="progress-text">{{ percentage|default:0 }}%</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .progress-section {
+        --progress-height: 28px;
+    }
+
+    .progress {
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+    }
+
+    .progress-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: white;
+        transition: width 0.6s ease;
+    }
+
+    .progress-text {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .badge-progress {
+        font-size: 11px;
+        font-weight: 600;
+        background-color: #f3f4f6;
+        color: #374151;
+        padding: 4px 8px;
+    }
+
+    @media (max-width: 576px) {
+        .progress {
+            height: 24px !important;
+        }
+
+        .progress-text {
+            font-size: 11px;
+        }
+    }
+</style>

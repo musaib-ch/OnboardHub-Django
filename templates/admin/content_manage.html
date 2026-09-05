@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+{% block title %}Studio Builder — {{ cfg.label }}{% endblock %}
+{% block content %}
+<style>
+    .studio-card {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: var(--radius-md, 12px);
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+        transition: all 0.2s ease-in-out;
+    }
+    .studio-tab-btn {
+        padding: 0.65rem 1.25rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #64748b;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        transition: all 0.2s ease-in-out;
+    }
+    .studio-tab-btn.active {
+        color: var(--primary, #4f46e5);
+        border-bottom-color: var(--primary, #4f46e5);
+        background: rgba(var(--primary-rgb, 79, 70, 229), 0.04);
+    }
+    .studio-tab-btn:hover:not(.active) {
+        color: #1e293b;
+        background: rgba(241, 245, 249, 0.6);
+    }
+    .dropzone-box {
+        border: 2px dashed rgba(203, 213, 225, 0.8);
+        border-radius: 10px;
+        padding: 1.25rem;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+    }
+    .dropzone-box:hover {
+        border-color: var(--primary, #4f46e5);
+        background: rgba(var(--primary-rgb, 79, 70, 229), 0.02);
+    }
+    .preview-phone-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+    .module-item-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        transition: all 0.15s ease-in-out;
+    }
+    .module-item-card:hover {
+        border-color: rgba(var(--primary-rgb, 79, 70, 229), 0.4);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .stage-pill {
+        cursor: pointer;
+        user-select: none;
+    }
+    .stage-pill input:checked + span {
+        background-color: var(--primary, #4f46e5) !important;
+        color: #ffffff !important;
+        border-color: var(--primary, #4f46e5) !important;
+    }
+</style>
+
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-primary text-white px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-sliders me-1"></i> Studio Builder</span>
+            <span class="text-muted small">• {{ published }} published / {{ items|length }} total</span>
+        </div>
+        <h1 class="h3 font-bold text-dark mb-0"><i class="bi {{ cfg.icon }} me-2 text-primary"></i>{{ cfg.label }} Studio</h1>
+    </div>
+    {% if user.role != 'hrbp' %}
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetStudioForm()">
+            <i class="bi bi-plus-lg me-1"></i>Create New {{ cfg.noun|title }}
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+{{ items_json|json_script:"items-data" }}
+
+{% if user.role != 'hrbp' %}
+<div class="row g-4 mb-5">
+    <!-- ── LEFT: Studio Form Editor (col-lg-7) ────────────────────────────── -->
+    <div class="col-lg-7">
+        <div class="studio-card p-0 overflow-hidden" id="editorCard">
+            <!-- Studio Tab Headers -->
+            <div class="d-flex align-items-center justify-content-between px-4 pt-3 border-bottom bg-light">
+                <div class="nav nav-tabs border-0 gap-1" id="studioTabs" role="tablist">
+                    <button class="studio-tab-btn active" id="tab-general" data-bs-toggle="tab" data-bs-target="#pane-general" type="button" role="tab">
+                        <i class="bi bi-pencil-square me-1.5"></i> 1. Content &amp; Media
+                    </button>
+                    {% if kind == 'orientation' %}
+                    <button class="studio-tab-btn" id="tab-session" data-bs-toggle="tab" data-bs-target="#pane-session" type="button" role="tab">
+                        <i class="bi bi-camera-video me-1.5"></i> 2. Live Session
+                    </button>
+                    {% endif %}
+                    {% if kind == 'training' or kind == 'learning_path' %}
+                    <button class="studio-tab-btn" id="tab-modules" data-bs-toggle="tab" data-bs-target="#pane-modules" type="button" role="tab">
+                        <i class="bi bi-list-nested me-1.5"></i> 2. Modules (<span id="modCountBadge">0</span>)
+                    </button>
+                    {% endif %}
+                    <button class="studio-tab-btn" id="tab-target" data-bs-toggle="tab" data-bs-target="#pane-target" type="button" role="tab">
+                        <i class="bi bi-shield-check me-1.5"></i> 3. Visibility &amp; Target
+                    </button>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline-secondary d-none mb-2" id="cancelEdit"><i class="bi bi-x-lg me-1"></i>Cancel</button>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="editorForm" class="p-4">
+                {% csrf_token %}
+                <input type="hidden" name="item_id" id="f_item_id" value="">
+                <input type="hidden" name="display_order" id="f_order" value="0">
+
+                <div class="tab-content" id="studioTabContent">
+                    <!-- TAB 1: General & Media -->
+                    <div class="tab-pane fade show active" id="pane-general" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold text-dark">Title <span class="text-danger">*</span></label>
+                            <input type="text" name="title" id="f_title" class="form-control form-control-lg" placeholder="e.g. Executive Welcome & Culture Orientation" required>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Category / Topic</label>
+                                <input type="text" name="category" id="f_category" class="form-control" placeholder="e.g. HR & Culture">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Asset Type</label>
+                                <select name="asset_type" id="f_asset_type" class="form-select">
+                                    <option value="document">📄 Document (PDF / Word)</option>
+                                    <option value="presentation">📊 Presentation (PPT / Deck)</option>
+                                    <option value="scorm">📦 SCORM Package (Interactive)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-dark">Body Description / Instructions</label>
+                            <textarea name="body" id="f_body" class="form-control" rows="5" placeholder="Write detailed instructions or session notes for employees..."></textarea>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Video Embed URL <span class="text-muted">(YouTube / Vimeo)</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-youtube text-danger"></i></span>
+                                    <input type="url" name="video_url" id="f_video" class="form-control" placeholder="https://www.youtube.com/embed/...">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Open Behavior</label>
+                                <select name="launch_mode" id="f_launch_mode" class="form-select">
+                                    <option value="download">📥 Download File</option>
+                                    <option value="preview">👁️ In-App Preview</option>
+                                    <option value="launch">🚀 Launch Full Package</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-dark">Attachment File</label>
+                            <div class="dropzone-box" onclick="document.getElementById('f_file').click()">
+                                <i class="bi bi-cloud-arrow-up fs-2 text-primary mb-1 d-block"></i>
+                                <span class="fw-semibold text-dark small d-block">Click to upload document or SCORM ZIP</span>
+                                <span class="text-muted" style="font-size:0.75rem;">Supports PDF, PPTX, DOCX, ZIP packages up to 50MB</span>
+                                <input type="file" name="file" id="f_file" class="d-none" accept=".pdf,.doc,.docx,.ppt,.pptx,.zip" onchange="handleFileSelected(this)">
+                            </div>
+                            <div id="currentFile" class="mt-2 small text-muted d-none bg-light p-2 rounded border d-flex align-items-center justify-content-between">
+                                <span><i class="bi bi-paperclip me-1 text-primary"></i> <strong id="currentFileName"></strong></span>
+                                <label class="form-check-label text-danger small mb-0"><input type="checkbox" name="remove_file" value="1" class="form-check-input me-1"> Remove</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Orientation Live Session Details -->
+                    {% if kind == 'orientation' %}
+                    <div class="tab-pane fade" id="pane-session" role="tabpanel">
+                        <div class="bg-light p-3 rounded border mb-3">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-camera-video me-1 text-primary"></i> Live Webinar & Presenter Configuration</h6>
+                            <p class="text-muted small mb-0">Employees will see host info and get 1-click `.ics` calendar download buttons.</p>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Presenter / Host Name</label>
+                                <input type="text" name="presenter_name" id="f_presenter" class="form-control" placeholder="e.g. Sarah Jenkins (VP of HR)">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-dark">Scheduled Date &amp; Time</label>
+                                <input type="datetime-local" name="event_datetime" id="f_event_datetime" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold small text-dark">Live Meeting URL (Zoom / Teams / Meet)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-camera-video-fill text-primary"></i></span>
+                                    <input type="url" name="meeting_url" id="f_meeting_url" class="form-control" placeholder="https://zoom.us/j/123456789">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small text-dark">Room / Location</label>
+                                <input type="text" name="location" id="f_location" class="form-control" placeholder="e.g. Boardroom A / Virtual">
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- TAB 2: Learning Path Modules -->
+                    {% if kind == 'training' or kind == 'learning_path' %}
+                    <div class="tab-pane fade" id="pane-modules" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-journal-text me-1 text-primary"></i> Structured Course Modules</h6>
+                                <small class="text-muted">Break down this learning path into sequential step modules.</small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addModuleRow()">
+                                <i class="bi bi-plus-lg me-1"></i>Add Module
+                            </button>
+                        </div>
+
+                        <div id="modulesBuilder" class="d-flex flex-column gap-2 mb-3">
+                            <!-- Module rows appended dynamically -->
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- TAB 3: Visibility & Target -->
+                    <div class="tab-pane fade" id="pane-target" role="tabpanel">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-dark small d-block mb-2">Attach to Onboarding Lifecycle Stages</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <label class="stage-pill">
+                                    <input type="checkbox" name="attach_to" value="onboarding" id="attach_onboarding" class="d-none">
+                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill"><i class="bi bi-folder-check me-1"></i> Onboarding</span>
+                                </label>
+                                <label class="stage-pill">
+                                    <input type="checkbox" name="attach_to" value="post_onboarding" id="attach_post_onboarding" class="d-none">
+                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill"><i class="bi bi-check2-square me-1"></i> Post-Onboarding</span>
+                                </label>
+                                <label class="stage-pill">
+                                    <input type="checkbox" name="attach_to" value="orientation" id="attach_orientation" class="d-none">
+                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill"><i class="bi bi-compass me-1"></i> Orientation</span>
+                                </label>
+                                <label class="stage-pill">
+                                    <input type="checkbox" name="attach_to" value="training" id="attach_training" class="d-none">
+                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill"><i class="bi bi-mortarboard me-1"></i> Training</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {% if kind == 'training' %}
+                        <div>
+                            <label class="form-label fw-semibold text-dark small d-block mb-2">Target Departments <span class="text-muted">(Leave empty to target all departments)</span></label>
+                            <div class="row g-2 border rounded p-3 bg-light" style="max-height:180px; overflow-y:auto;">
+                                {% for dept in departments %}
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input dept-check" type="checkbox" name="target_departments" value="{{ dept.id }}" id="dept_{{ dept.id }}">
+                                        <label class="form-check-label text-dark small" for="dept_{{ dept.id }}">{{ dept.name }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="pt-3 mt-4 border-top d-flex align-items-center justify-content-between">
+                    <button class="btn btn-outline-secondary" name="is_active" value="0" title="Save draft without displaying to employees">
+                        <i class="bi bi-file-earmark me-1"></i> Save as Draft
+                    </button>
+                    <button class="btn btn-primary px-4 fw-semibold" name="is_active" value="1">
+                        <i class="bi bi-check2-circle me-1"></i> <span id="publishLabel">Publish {{ cfg.noun|title }}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── RIGHT: Live Mobile/Desktop Interactive Preview (col-lg-5) ──────── -->
+    <div class="col-lg-5">
+        <div style="position:sticky; top:1rem;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-dark fw-bold small"><i class="bi bi-eye me-1 text-primary"></i> Live Employee View Preview</span>
+                <span class="badge bg-light text-muted border">Real-time</span>
+            </div>
+
+            <div class="preview-phone-card p-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="d-flex align-items-center justify-content-center rounded" style="width:40px;height:40px;background:rgba(var(--primary-rgb, 79, 70, 229),.12);color:var(--primary);flex:0 0 auto;">
+                        <i class="bi {{ cfg.icon }} fs-5"></i>
+                    </span>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <h6 id="pvTitle" class="fw-bold text-dark mb-0 text-truncate">Untitled {{ cfg.noun|title }}</h6>
+                        <span id="pvCategory" class="badge bg-secondary-subtle text-secondary" style="font-size:0.7rem;">General</span>
+                    </div>
+                </div>
+
+                <div id="pvSessionInfo" class="bg-primary-subtle p-3 rounded mb-3 border border-primary-subtle d-none">
+                    <div class="small fw-bold text-primary mb-1"><i class="bi bi-camera-video me-1"></i> Live Webinar Session</div>
+                    <div class="small text-dark fw-medium" id="pvHost">Host: —</div>
+                    <div class="small text-muted" id="pvTime"><i class="bi bi-calendar-event me-1"></i> Date &amp; Time: —</div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-xs btn-primary fw-semibold"><i class="bi bi-camera-video me-1"></i> Join Live Webinar</button>
+                    </div>
+                </div>
+
+                <div id="pvBody" class="small text-muted mb-3" style="min-height:40px; max-height:120px; overflow-y:auto;">
+                    Content description will appear here as you type...
+                </div>
+
+                <div id="pvModules" class="d-none mb-3">
+                    <div class="small fw-bold text-dark mb-2"><i class="bi bi-list-ol me-1 text-primary"></i> Course Modules (<span id="pvModCount">0</span>)</div>
+                    <div id="pvModulesList" class="d-flex flex-column gap-1.5" style="max-height:120px; overflow-y:auto;"></div>
+                </div>
+
+                <div class="pt-3 border-top d-flex align-items-center justify-content-between">
+                    <span class="small text-muted" id="pvAssetType"><i class="bi bi-file-earmark me-1"></i> Document</span>
+                    <span class="badge bg-success-subtle text-success">Published Preview</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ── PUBLISHED ITEMS TABLE STUDIO ───────────────────────────────────────── -->
+<div class="studio-card p-4">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-collection me-2 text-primary"></i>{{ cfg.label }} Library &amp; Ordering</h5>
+            <small class="text-muted">Drag table rows to reorder display sequence in employee portal.</small>
+        </div>
+        <span class="small" id="orderStatus"></span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:36px"></th>
+                    <th>Title &amp; Host</th>
+                    <th>Category</th>
+                    {% if kind == 'training' %}<th>Target Departments</th>{% endif %}
+                    <th>Status</th>
+                    <th class="text-end" style="width:180px">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="itemRows">
+                {% for it in items %}
+                <tr draggable="true" data-id="{{ it.id }}">
+                    <td class="drag-handle text-muted" style="cursor:grab"><i class="bi bi-grip-vertical"></i></td>
+                    <td>
+                        <div class="fw-semibold text-dark">{{ it.title }}</div>
+                        {% if it.kind == 'orientation' and it.meta.presenter_name %}
+                        <small class="text-primary"><i class="bi bi-person me-1"></i>Host: {{ it.meta.presenter_name }}</small>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ it.category|default:"General" }}</span></td>
+                    {% if kind == 'training' %}
+                    <td class="small text-muted">{{ it.target_dept_names }}</td>
+                    {% endif %}
+                    <td>
+                        {% if it.is_active %}<span class="badge bg-success-subtle text-success border border-success-subtle">Published</span>
+                        {% else %}<span class="badge bg-secondary-subtle text-secondary border">Draft</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if user.role != 'hrbp' %}
+                        <button type="button" class="btn btn-xs btn-outline-primary js-edit" data-id="{{ it.id }}"><i class="bi bi-pencil me-1"></i>Edit</button>
+                        <form method="POST" class="d-inline mb-0">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="item_id" value="{{ it.id }}">
+                            <button class="btn btn-xs btn-outline-secondary" title="{% if it.is_active %}Unpublish{% else %}Publish{% endif %}"><i class="bi {% if it.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i></button></form>
+                        {% endif %}
+                        <a href="{% url 'content_read' it.id %}" class="btn btn-xs btn-outline-secondary" title="View"><i class="bi bi-box-arrow-up-right"></i></a>
+                        {% if user.role != 'hrbp' %}
+                        <form method="POST" class="d-inline mb-0">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="item_id" value="{{ it.id }}">
+                            <button class="btn btn-xs btn-outline-danger" data-confirm="Delete '{{ it.title }}'?"><i class="bi bi-trash"></i></button></form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr id="emptyRow"><td colspan="6" class="text-center text-muted py-5">No {{ cfg.noun }}s found. Click "Create New" above to add your first item.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <form method="POST" id="reorderForm" class="d-none">{% csrf_token %}<input type="hidden" name="action" value="reorder"><input type="hidden" name="order" id="orderField"></form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const data = JSON.parse(document.getElementById("items-data").textContent || "[]");
+    const byId = {}; data.forEach(d => byId[d.id] = d);
+
+    const form = document.getElementById("editorForm");
+    const f = id => document.getElementById(id);
+    const cancelBtn = f("cancelEdit"), publishLabel = f("publishLabel");
+
+    if (form) {
+        function updatePreview() {
+            const titleVal = f("f_title").value.trim();
+            f("pvTitle").textContent = titleVal || "Untitled {{ cfg.noun|title }}";
+            f("pvCategory").textContent = f("f_category").value.trim() || "General";
+            f("pvBody").innerHTML = f("f_body").value.trim() || "Content description will appear here as you type...";
+            
+            const pres = f("f_presenter") ? f("f_presenter").value.trim() : "";
+            const timeVal = f("f_event_datetime") ? f("f_event_datetime").value : "";
+            const sessionBox = f("pvSessionInfo");
+            if (sessionBox) {
+                if (pres || timeVal) {
+                    sessionBox.classList.remove("d-none");
+                    if (f("pvHost")) f("pvHost").textContent = "Host: " + (pres || "TBD");
+                    if (f("pvTime")) f("pvTime").innerHTML = '<i class="bi bi-calendar-event me-1"></i> Time: ' + (timeVal ? timeVal.replace("T", " ") : "TBD");
+                } else {
+                    sessionBox.classList.add("d-none");
+                }
+            }
+
+            // Preview modules
+            const modTitles = document.querySelectorAll('input[name="module_titles"]');
+            const modBox = f("pvModules"), modList = f("pvModulesList"), modBadge = f("modCountBadge"), pvCount = f("pvModCount");
+            if (modBox && modList) {
+                let count = 0;
+                modList.innerHTML = "";
+                modTitles.forEach((inp, idx) => {
+                    const val = inp.value.trim();
+                    if (val) {
+                        count++;
+                        const div = document.createElement("div");
+                        div.className = "module-item-card small fw-medium text-dark d-flex align-items-center gap-2";
+                        div.innerHTML = `<span class="badge bg-primary rounded-circle" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;">${count}</span> ${val}`;
+                        modList.appendChild(div);
+                    }
+                });
+                if (count > 0) {
+                    modBox.classList.remove("d-none");
+                    if (modBadge) modBadge.textContent = count;
+                    if (pvCount) pvCount.textContent = count;
+                } else {
+                    modBox.classList.add("d-none");
+                    if (modBadge) modBadge.textContent = "0";
+                }
+            }
+        }
+
+        ["f_title", "f_category", "f_body", "f_video", "f_presenter", "f_event_datetime"].forEach(id => {
+            if (f(id)) f(id).addEventListener("input", updatePreview);
+        });
+
+        window.addModuleRow = function(title = "", desc = "") {
+            const builder = document.getElementById("modulesBuilder");
+            if (!builder) return;
+            const row = document.createElement("div");
+            row.className = "module-row bg-light p-2 rounded border mb-2 position-relative";
+            row.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold text-dark small"><i class="bi bi-grip-vertical text-muted me-1"></i>Module Step</span>
+                    <button type="button" class="btn btn-xs text-danger border-0 p-0" onclick="this.closest('.module-row').remove(); updatePreview();"><i class="bi bi-trash"></i></button>
+                </div>
+                <input type="text" name="module_titles" class="form-control form-control-sm mb-1" placeholder="Module Title (e.g. Chapter 1: Introduction)" value="${title}" oninput="updatePreview()">
+                <input type="text" name="module_descriptions" class="form-control form-control-sm" placeholder="Short description / key takeaways..." value="${desc}">
+            `;
+            builder.appendChild(row);
+            updatePreview();
+        };
+
+        window.handleFileSelected = function(input) {
+            if (input.files && input.files[0]) {
+                const box = f("currentFile");
+                box.classList.remove("d-none");
+                f("currentFileName").textContent = input.files[0].name;
+            }
+        };
+
+        window.resetStudioForm = function() {
+            form.reset();
+            f("f_item_id").value = ""; f("f_order").value = "0";
+            if (publishLabel) publishLabel.textContent = "Publish {{ cfg.noun|title }}";
+            if (cancelBtn) cancelBtn.classList.add("d-none");
+            if (f("currentFile")) f("currentFile").classList.add("d-none");
+            const builder = document.getElementById("modulesBuilder");
+            if (builder) builder.innerHTML = "";
+            document.querySelectorAll('input[name="attach_to"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.dept-check').forEach(cb => cb.checked = false);
+            updatePreview();
+            document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+        if (cancelBtn) cancelBtn.addEventListener("click", resetStudioForm);
+
+        function startEdit(id) {
+            const d = byId[id]; if (!d) return;
+            f("f_item_id").value = d.id;
+            f("f_title").value = d.title; f("f_category").value = d.category;
+            f("f_body").value = d.body; f("f_video").value = d.video_url;
+            if (f("f_presenter")) f("f_presenter").value = d.presenter_name || "";
+            if (f("f_meeting_url")) f("f_meeting_url").value = d.meeting_url || "";
+            if (f("f_event_datetime")) f("f_event_datetime").value = d.event_datetime || "";
+            if (f("f_location")) f("f_location").value = d.location || "";
+            
+            if (publishLabel) publishLabel.textContent = d.is_active ? "Update {{ cfg.noun|title }}" : "Publish {{ cfg.noun|title }}";
+            if (cancelBtn) cancelBtn.classList.remove("d-none");
+            
+            if (d.file_name) {
+                f("currentFile").classList.remove("d-none");
+                f("currentFileName").textContent = d.file_name;
+            } else { if (f("currentFile")) f("currentFile").classList.add("d-none"); }
+            
+            // Modules
+            const builder = document.getElementById("modulesBuilder");
+            if (builder) {
+                builder.innerHTML = "";
+                (d.modules || []).forEach(m => addModuleRow(m.title, m.desc));
+            }
+
+            // Populate attach_to
+            const attachTo = d.attach_to || [];
+            document.querySelectorAll('input[name="attach_to"]').forEach(cb => {
+                cb.checked = attachTo.includes(cb.value);
+            });
+
+            // Populate target_departments
+            if (d.target_departments) {
+                const targetDepts = d.target_departments.map(id => String(id));
+                document.querySelectorAll('.dept-check').forEach(cb => {
+                    cb.checked = targetDepts.includes(String(cb.value));
+                });
+            }
+            
+            updatePreview();
+            document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        document.querySelectorAll(".js-edit").forEach(b =>
+            b.addEventListener("click", () => startEdit(b.getAttribute("data-id"))));
+
+        updatePreview();
+    }
+
+    // Drag-to-reorder
+    const tbody = document.getElementById("itemRows");
+    let dragRow = null;
+    if (tbody) {
+        tbody.addEventListener("dragstart", e => { dragRow = e.target.closest("tr"); if (dragRow) dragRow.style.opacity = ".4"; });
+        tbody.addEventListener("dragend", () => { if (dragRow) dragRow.style.opacity = ""; dragRow = null; });
+        tbody.addEventListener("dragover", e => {
+            e.preventDefault();
+            const over = e.target.closest("tr");
+            if (!over || over === dragRow || !dragRow || over.id === "emptyRow") return;
+            const rect = over.getBoundingClientRect();
+            const after = (e.clientY - rect.top) > rect.height / 2;
+            tbody.insertBefore(dragRow, after ? over.nextSibling : over);
+        });
+        tbody.addEventListener("drop", e => { e.preventDefault(); saveOrder(); });
+    }
+
+    function saveOrder() {
+        const ids = [...tbody.querySelectorAll("tr[data-id]")].map(r => r.getAttribute("data-id"));
+        if (!ids.length) return;
+        const fd = new FormData(document.getElementById("reorderForm"));
+        fd.set("order", ids.join(","));
+        const status = document.getElementById("orderStatus");
+        status.innerHTML = '<span class="text-muted">Saving order…</span>';
+        fetch("", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(r => r.json())
+            .then(() => { status.innerHTML = '<span class="text-success"><i class="bi bi-check-lg"></i> Order saved</span>';
+                          setTimeout(() => status.textContent = "", 2000); })
+            .catch(() => { status.innerHTML = '<span class="text-danger">Save failed</span>'; });
+    }
+})();
+</script>
+{% endblock %}

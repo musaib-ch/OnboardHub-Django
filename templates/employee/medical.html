@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Medical Clearance{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'employee_home' %}" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0">Medical Clearance</h4>
+</div>
+
+{% if state == 'submitted' %}
+<div class="alert alert-info mb-3"><i class="bi bi-clock me-2"></i>Your medical documents have been <strong>submitted</strong> and are awaiting review. You can't edit them at this stage.</div>
+{% elif state == 'changes_requested' %}
+<div class="alert alert-warning mb-3"><i class="bi bi-arrow-repeat me-2"></i><strong>Resubmission requested.</strong> Please re-upload the documents the reviewer flagged and submit again.</div>
+{% elif state == 'info_requested' %}
+<div class="alert alert-info border border-info mb-3"><i class="bi bi-chat-dots me-2"></i><strong>Additional information requested.</strong> Please review the notes below and re-submit.</div>
+{% elif state == 'rejected' %}
+<div class="alert alert-danger mb-3"><i class="bi bi-x-octagon me-2"></i><strong>Medical clearance rejected.</strong> Please contact HR.</div>
+{% elif state == 'completed' %}
+<div class="alert alert-success mb-3"><i class="bi bi-check-circle me-2"></i>Medical clearance <strong>approved</strong>. You've advanced to the next step.</div>
+{% endif %}
+
+{% if editable and records %}
+<div class="glass-card mb-4" style="border:2px dashed rgba(var(--primary-rgb),.35);">
+    <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#med_bulk_upload" aria-expanded="false">
+        <h6 class="mb-0"><i class="bi bi-cloud-arrow-up me-2"></i>Upload All Documents at Once</h6>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+    </div>
+    <div class="collapse" id="med_bulk_upload" data-persist><div class="card-body">
+    <p class="text-muted small mb-3">Drop or select all your reports together — we'll automatically detect each test from the file name (e.g. <code>cbc.pdf</code>, <code>chest-xray.jpg</code>, <code>lfts.pdf</code>) and attach it to the right test below. Anything we can't match, we'll ask you to assign.</p>
+    <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk_upload">
+        <input type="file" name="files" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png" style="max-width:480px;" required>
+        <button class="btn btn-primary"><i class="bi bi-magic me-1"></i>Auto-Attach Files</button>
+    </form>
+    </div></div>
+</div>
+{% endif %}
+
+{% if missing_required %}
+<div class="alert alert-warning mb-4">
+    <i class="bi bi-exclamation-triangle me-2"></i><strong>Still needed ({{ missing_required|length }}):</strong>
+    {{ missing_required|join:", " }}
+</div>
+{% endif %}
+
+<div class="glass-card">
+    <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#med_requirements" aria-expanded="false">
+        <h6 class="mb-0"><i class="bi bi-clipboard2-pulse me-2"></i>Medical Documents</h6>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+    </div>
+    <div class="collapse" id="med_requirements" data-persist><div class="card-body">
+    {% if records %}
+    <div class="d-flex flex-column gap-3">
+        {% for r in records %}
+        <div class="border rounded p-3 {% if r.file %}bg-light bg-opacity-50{% endif %}">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="flex-grow-1" style="min-width:200px;">
+                    <div class="fw-medium">
+                        {{ r.requirement_name }}{% if r.is_required %} <span class="text-danger">*</span>{% else %}<span class="badge bg-secondary ms-1" style="font-size:.65rem;">Optional</span>{% endif %}
+                        {% if r.file %}<a href="{{ r.file.url }}" target="_blank" class="small ms-2 text-decoration-none"><i class="bi bi-paperclip"></i> View</a>{% endif %}
+                    </div>
+                    {% if r.description %}<small class="text-muted d-block">{{ r.description }}</small>{% endif %}
+                    {% if r.applicability_note %}<small class="text-info"><i class="bi bi-info-circle me-1"></i>{{ r.applicability_note }}</small>{% endif %}
+                </div>
+                <span class="badge badge-status-{{ r.status|status_class }}">{{ r.status|humanize_status }}</span>
+                {% if editable and r.status != 'approved' %}
+                <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center mb-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="upload">
+                    <input type="hidden" name="record_id" value="{{ r.id }}">
+                    <input type="file" name="file" class="form-control form-control-sm" style="width:220px;" required onchange="this.form.submit()">
+                    <button class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-upload me-1"></i>{% if r.file %}Replace{% else %}Upload{% endif %}</button>
+                </form>
+                {% endif %}
+            </div>
+            {% if r.thread %}
+            <div class="mt-2 border-top pt-2">
+                {% include "components/conversation_thread.html" with thread=r.thread %}
+            </div>
+            {% endif %}
+            {% if r.thread or r.status == 'rejected' or r.status == 'info_requested' %}
+            <form method="POST" class="mt-2">{% csrf_token %}
+                <input type="hidden" name="action" value="reply_medical">
+                <input type="hidden" name="record_id" value="{{ r.id }}">
+                <div class="input-group input-group-sm" style="max-width:480px;">
+                    <input type="text" name="message" class="form-control" placeholder="Reply about {{ r.requirement_name }}…" required>
+                    <button class="btn btn-outline-primary">Reply</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if editable %}
+    <div class="border-top mt-4 pt-3 d-flex align-items-center gap-3 flex-wrap">
+        {% if can_submit %}
+        <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>All required documents uploaded.</span>
+        <form method="POST" class="ms-auto">{% csrf_token %}
+            <input type="hidden" name="action" value="submit_stage">
+            <button class="btn btn-success btn-lg px-4" data-confirm="Submit your medical documents for review? You won't be able to edit them after this."><i class="bi bi-send me-2"></i>Submit for Review</button>
+        </form>
+        {% else %}
+        <span class="text-warning-emphasis fw-medium"><i class="bi bi-info-circle me-1"></i>Upload all required documents to enable submission.</span>
+        <button class="btn btn-success btn-lg px-4 ms-auto" disabled><i class="bi bi-send me-2"></i>Submit for Review</button>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-clipboard-check"></i>
+        <h3>No medical requirements</h3>
+        <p>There are no medical requirements configured. You can proceed to the next step.</p>
+    </div>
+    {% endif %}
+    </div></div>
+</div>
+{% endblock %}

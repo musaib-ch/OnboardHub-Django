@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-book me-2"></i>{{ course.title }}</h1>
+    <p class="text-muted mb-0">{{ course.body|truncatewords:20 }}</p>
+</div>
+
+<!-- Progress Bar -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-1">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0">Your Progress</h6>
+        <span class="badge bg-primary">{{ completion_percentage }}%</span>
+    </div>
+    <div class="progress" style="height: 25px;">
+        <div class="progress-bar bg-success" style="width: {{ completion_percentage }}%">
+            <small class="fw-600 text-white">{{ progress.lessons_completed }}/{{ progress.total_lessons }}</small>
+        </div>
+    </div>
+</div>
+
+<!-- Lessons List -->
+<div class="glass-card p-4 animate-fadeIn delay-2">
+    <h5 class="mb-4">Lessons</h5>
+
+    <div class="list-group list-group-flush">
+        {% for item in lessons %}
+            <div class="list-group-item px-0 py-4 border-bottom">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="flex-grow-1">
+                        <a href="{% url 'lesson_detail' course.id item.lesson.id %}" class="fw-500 text-decoration-none">
+                            {{ item.lesson.title }}
+                        </a>
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-clock me-1"></i>{{ item.lesson.duration_minutes }} min
+                            {% if item.lesson.has_assessment %}
+                                • <i class="bi bi-pencil-square me-1"></i>Quiz
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="ms-3">
+                        {% if item.completed %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle me-1"></i>Complete
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-circle me-1"></i>Pending
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="mt-4 d-flex gap-2">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back
+    </a>
+    <a href="{% url 'course_progress' course.id %}" class="btn btn-outline-primary">
+        <i class="bi bi-graph-up me-2"></i>View Detailed Progress
+    </a>
+</div>
+{% endblock %}

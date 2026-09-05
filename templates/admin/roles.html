@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Roles &amp; Permissions{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex flex-wrap gap-3 align-items-start justify-content-between">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</h1>
+            <p class="text-muted mb-0">Set the default permissions for each role. Individual users can still be given per-user overrides on their profile.</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#customRoleModal" data-role-key="" data-role-label="" data-role-base="staff" data-role-scope="">
+            <i class="bi bi-plus-lg me-1"></i>Create Role
+        </button>
+    </div>
+</div>
+
+<div class="glass-card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0">Roles</h5>
+        <span class="small text-muted">Select a role to view or edit its default permissions.</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>Base</th>
+                    <th>Scope</th>
+                    <th>Type</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in role_choices %}
+                <tr class="{% if r.key == role %}table-primary-subtle{% endif %}">
+                    <td>
+                        <div class="fw-semibold">{{ r.label }}</div>
+                        <div class="text-muted small">{{ r.key }}</div>
+                    </td>
+                    <td><span class="badge {% if r.base == 'staff' %}bg-info-subtle text-info border{% else %}bg-secondary-subtle text-secondary border{% endif %}">{{ r.base|title }}</span></td>
+                    <td>
+                        {% if r.scope_type %}
+                        <span class="badge bg-warning-subtle text-warning border text-capitalize">{{ r.scope_type }}</span>
+                        {% else %}
+                        <span class="text-muted small">None</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if r.custom %}<span class="badge bg-success-subtle text-success border">Custom</span>{% else %}<span class="badge bg-light text-dark border">Built-in</span>{% endif %}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm js-open-role {% if r.key == role %}btn-primary{% else %}btn-outline-secondary{% endif %}" data-bs-toggle="modal" data-bs-target="#customRoleModal" data-role-key="{{ r.key }}" data-role-label="{{ r.label|escape }}" data-role-base="{{ r.base }}" data-role-scope="{{ r.scope_type|default:'' }}" data-role-custom="{% if r.custom %}1{% else %}0{% endif %}">Open</button>
+                        {% if r.custom %}
+                        <button type="button" class="btn btn-sm btn-outline-primary js-edit-role" data-role-key="{{ r.key }}" data-role-label="{{ r.label|escape }}" data-role-base="{{ r.base }}" data-role-scope="{{ r.scope_type|default:'' }}" data-role-custom="1" data-bs-toggle="modal" data-bs-target="#customRoleModal">Edit</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ role_perms_map|json_script:"rolePerms" }}
+
+<div class="modal fade" id="customRoleModal" tabindex="-1" aria-hidden="true"
+     data-current-role-key="{{ role }}"
+     data-current-role-label="{{ selected_role_label|escape }}"
+     data-current-role-base="{{ selected_role_meta.base }}"
+     data-current-role-scope="{{ selected_role_meta.scope_type|default:'' }}"
+     data-current-role-custom="{% if selected_custom_role %}1{% else %}0{% endif %}">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="customRoleForm">
+                {% csrf_token %}
+                <input type="hidden" name="role" id="modalRoleInput" value="{{ role }}">
+                <input type="hidden" name="action" value="save_permissions" id="customRoleAction">
+                <div class="modal-header">
+                    <div class="flex-grow-1">
+                        <h5 class="modal-title mb-1">Role Editor</h5>
+                        <p class="text-muted small mb-0">Use Open to edit permissions. Custom roles can also be deleted here.</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-select form-select-sm d-none" id="customRoleMode" style="width:auto">
+                            <option value="open">Open</option>
+                            {% if selected_custom_role %}<option value="delete">Delete</option>{% endif %}
+                        </select>
+                        <button type="submit" form="customRoleForm" class="btn btn-primary btn-sm" id="customRoleHeaderSave"><i class="bi bi-save me-1"></i>Save</button>
+                        {% if selected_custom_role %}
+                        <button type="button" class="btn btn-outline-danger btn-sm" id="customRoleHeaderDelete"><i class="bi bi-trash me-1"></i>Delete</button>
+                        {% endif %}
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3" id="customRoleMetaRow">
+                        <div class="col-md-4">
+                            <label class="form-label">Role key</label>
+                            <input type="text" name="custom_role_key" id="customRoleKey" class="form-control" value="{{ selected_custom_role.key|default:'' }}" placeholder="e.g. hrbp_ops">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Label</label>
+                            <input type="text" name="custom_role_label" id="customRoleLabel" class="form-control" value="{{ selected_custom_role.label|default:'' }}" placeholder="e.g. HRBP Ops">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Base</label>
+                            <select name="custom_role_base" id="customRoleBase" class="form-select">
+                                <option value="staff" {% if selected_role_meta.base == 'staff' %}selected{% endif %}>Staff</option>
+                                <option value="employee" {% if selected_role_meta.base == 'employee' %}selected{% endif %}>Employee</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Scope</label>
+                            <select name="custom_role_scope_type" id="customRoleScope" class="form-select">
+                                <option value="" {% if not selected_role_meta.scope_type %}selected{% endif %}>None</option>
+                                <option value="department" {% if selected_role_meta.scope_type == 'department' %}selected{% endif %}>Department</option>
+                                <option value="location" {% if selected_role_meta.scope_type == 'location' %}selected{% endif %}>Location</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% if selected_custom_role %}
+                    <div class="alert alert-info mt-3 mb-0 small">Editing <strong>{{ selected_custom_role.label }}</strong>. Save will update the existing custom role.</div>
+                    {% endif %}
+                    <div id="customRoleMatrixWrap" class="mt-4">
+                        {% include "components/permission_matrix.html" %}
+                    </div>
+                    <div id="customRoleDeleteWrap" class="alert alert-danger mt-4 d-none mb-0">
+                        Deleting a custom role removes it from the role list, but does not delete any users assigned to it.
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-end">
+                    {% if selected_custom_role %}
+                    <button type="submit" class="btn btn-outline-danger d-none" id="customRoleDeleteBtn"><i class="bi bi-trash me-1"></i>Delete Custom Role</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const modal = document.getElementById('customRoleModal');
+    if (!modal) return;
+    const key = document.getElementById('customRoleKey');
+    const label = document.getElementById('customRoleLabel');
+    const base = document.getElementById('customRoleBase');
+    const scope = document.getElementById('customRoleScope');
+    const customForm = document.getElementById('customRoleForm');
+    const mode = document.getElementById('customRoleMode');
+    const action = document.getElementById('customRoleAction');
+    const matrixWrap = document.getElementById('customRoleMatrixWrap');
+    const deleteWrap = document.getElementById('customRoleDeleteWrap');
+    const submitBtn = document.getElementById('customRoleHeaderSave');
+    const deleteBtn = document.getElementById('customRoleDeleteBtn');
+    const metaRow = document.getElementById('customRoleMetaRow');
+
+    const defaults = {
+        key: modal.dataset.currentRoleKey || '',
+        label: modal.dataset.currentRoleLabel || '',
+        base: modal.dataset.currentRoleBase || 'staff',
+        scope: modal.dataset.currentRoleScope || '',
+        custom: modal.dataset.currentRoleCustom === '1',
+    };
+
+    const syncMode = () => {
+        const isDelete = mode && mode.value === 'delete';
+        // Only change action if in delete mode; otherwise preserve the current action
+        // (which should be either save_permissions for built-in or save_custom_role for custom)
+        if (isDelete) {
+            action.value = 'delete_custom_role';
+        }
+        if (matrixWrap) matrixWrap.classList.toggle('d-none', isDelete);
+        if (deleteWrap) deleteWrap.classList.toggle('d-none', !isDelete);
+        if (submitBtn) submitBtn.classList.toggle('d-none', isDelete);
+        if (deleteBtn) deleteBtn.classList.toggle('d-none', !isDelete);
+    };
+
+    if (mode) {
+        mode.addEventListener('change', syncMode);
+    }
+    const headerDelete = document.getElementById('customRoleHeaderDelete');
+    if (headerDelete) {
+        headerDelete.addEventListener('click', e => {
+            if (!mode) return;
+            mode.value = 'delete';
+            syncMode();
+        });
+    }
+
+    modal.addEventListener('show.bs.modal', event => {
+        const trigger = event.relatedTarget;
+        const roleKey = trigger ? (trigger.getAttribute('data-role-key') || '').trim() : defaults.key;
+        const roleLabel = trigger ? (trigger.getAttribute('data-role-label') || '').trim() : defaults.label;
+        const roleBase = trigger ? (trigger.getAttribute('data-role-base') || 'staff').trim() : defaults.base;
+        const roleScope = trigger ? (trigger.getAttribute('data-role-scope') || '').trim() : defaults.scope;
+        const roleCustom = trigger ? (trigger.getAttribute('data-role-custom') === '1') : defaults.custom;
+
+        key.value = roleKey;
+        label.value = roleLabel;
+        base.value = roleBase;
+        scope.value = roleScope;
+
+        // ensure the hidden role form field matches the modal target
+        const modalRoleInput = document.getElementById('modalRoleInput');
+        if (modalRoleInput) modalRoleInput.value = roleKey;
+
+        if (mode) mode.value = 'open';
+        // Set action: if we have a roleKey, use save_permissions for built-in or save_custom_role for custom
+        // If no roleKey, default to save_custom_role (new role)
+        if (action) {
+            action.value = roleKey ? (roleCustom ? 'save_custom_role' : 'save_permissions') : 'save_custom_role';
+        }
+        if (metaRow) metaRow.classList.toggle('d-none', !!roleKey && !roleCustom);
+        if (submitBtn) submitBtn.innerHTML = `<i class="bi bi-save me-1"></i>${roleKey && !roleCustom ? 'Save Permissions' : 'Save Custom Role'}`;
+        // show/hide header delete based on whether this is a custom role
+        const headerDelete = document.getElementById('customRoleHeaderDelete');
+        if (headerDelete) headerDelete.classList.toggle('d-none', !roleCustom);
+        syncMode();
+        // populate modal permission checkboxes from role_perms_map
+        try {
+            const rolePerms = JSON.parse(document.getElementById('rolePerms').textContent || '{}');
+            const perms = roleKey && rolePerms[roleKey] ? rolePerms[roleKey] : (roleKey ? [] : []);
+            // uncheck all
+            document.querySelectorAll('#customRoleMatrixWrap .perm-check').forEach(cb => cb.checked = false);
+            // check perms for this role
+            perms.forEach(p => {
+                const el = document.querySelector(`#customRoleMatrixWrap #perm-${p}`);
+                if (el) el.checked = true;
+            });
+            // Update the badges to reflect the programmatic changes
+            if (typeof window.updatePermissionBadges === 'function') {
+                window.updatePermissionBadges();
+            }
+        } catch (e) {}
+    });
+
+    if (window.location.search.includes('role=')) {
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+        modalInstance.show();
+    }
+})();
+</script>
+{% endblock %}

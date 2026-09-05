@@ -1,0 +1,161 @@
+{# Permission checkbox matrix - Improved collapsible accordion design #}
+
+<div class="mb-4 pb-3 border-bottom">
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <input type="text" id="permSearchBox" class="form-control" placeholder="Search permissions..." style="flex: 1; min-width: 0;">
+        <div class="btn-group" role="group" style="flex-shrink: 0;">
+            <button type="button" id="permSelectAll" class="btn btn-primary btn-sm"><i class="bi bi-check-all me-1"></i>Select All</button>
+            <button type="button" id="permClearAll" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle me-1"></i>Clear All</button>
+        </div>
+    </div>
+</div>
+
+<div id="permissionAccordion" class="accordion">
+    {% for cat, perms in permission_categories %}
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+            <button class="accordion-button collapsed perm-accordion-button" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapse{{ forloop.counter }}"
+                    aria-expanded="false" aria-controls="collapse{{ forloop.counter }}">
+                <span class="fw-semibold perm-cat-name">{{ cat }}</span>
+                <span class="badge bg-secondary perm-badge" data-cat-num="{{ forloop.counter }}">{{ perms|length }}</span>
+            </button>
+        </h2>
+        <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse"
+             aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#permissionAccordion">
+            <div class="accordion-body p-3">
+                <div class="row g-2">
+                    {% for key, label in perms %}
+                    <div class="col-md-6 perm-row" data-perm-key="{{ key }}" data-perm-label="{{ label|lower }}" data-cat="{{ forloop.parentloop.counter }}">
+                        <div class="form-check">
+                            <input class="form-check-input perm-check cat-{{ forloop.parentloop.counter }}" type="checkbox"
+                                   name="{{ field_name|default:'permissions' }}" value="{{ key }}"
+                                   id="{{ id_prefix|default:'perm-' }}{{ key }}"
+                                   data-perm-key="{{ key }}"
+                                   {% if key in selected_perms %}checked{% endif %}>
+                            <label class="form-check-label" for="{{ id_prefix|default:'perm-' }}{{ key }}" style="font-size:0.9rem; cursor:pointer;">
+                                {{ label }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    /* Accordion Button - proper flexbox layout */
+    .perm-accordion-button {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 0.875rem 1.25rem !important;
+    }
+
+    .perm-cat-name {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .perm-badge {
+        flex-shrink: 0;
+        margin-left: 1rem;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: rgba(13, 110, 253, 0.08);
+        color: #0d6efd;
+    }
+
+    .accordion-button:focus {
+        box-shadow: none;
+    }
+
+    .perm-row.hidden {
+        display: none !important;
+    }
+
+    .form-check-label {
+        user-select: none;
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    // Search functionality
+    const searchBox = document.getElementById('permSearchBox');
+    const permRows = document.querySelectorAll('.perm-row');
+    const accordion = document.getElementById('permissionAccordion');
+
+    searchBox?.addEventListener('keyup', function() {
+        const query = this.value.toLowerCase();
+        let visibleCategories = new Set();
+        let totalVisible = 0;
+
+        permRows.forEach(row => {
+            const matches = row.dataset.permLabel.includes(query) ||
+                          row.dataset.permKey.includes(query);
+
+            if (matches && query.length > 0) {
+                row.classList.remove('hidden');
+                visibleCategories.add(row.dataset.cat);
+                totalVisible++;
+                // Auto-expand matching category
+                const catNum = row.dataset.cat;
+                const button = accordion.querySelector(`[aria-controls="collapse${catNum}"]`);
+                if (button) button.classList.remove('collapsed');
+                const collapse = accordion.querySelector(`#collapse${catNum}`);
+                if (collapse) collapse.classList.add('show');
+            } else if (query.length > 0) {
+                row.classList.add('hidden');
+            } else {
+                row.classList.remove('hidden');
+            }
+        });
+
+        // Hide empty categories
+        document.querySelectorAll('.accordion-item').forEach((item, idx) => {
+            if (query.length > 0 && !visibleCategories.has(String(idx + 1))) {
+                item.style.display = 'none';
+            } else {
+                item.style.display = 'block';
+            }
+        });
+    });
+
+    // Toggle all buttons
+    document.getElementById('permSelectAll')?.addEventListener('click', function() {
+        document.querySelectorAll('.perm-check:not(.hidden)').forEach(cb => cb.checked = true);
+        updateBadges();
+    });
+
+    document.getElementById('permClearAll')?.addEventListener('click', function() {
+        document.querySelectorAll('.perm-check:not(.hidden)').forEach(cb => cb.checked = false);
+        updateBadges();
+    });
+
+    // Update badge counts
+    function updateBadges() {
+        document.querySelectorAll('[data-cat-num]').forEach(badge => {
+            const catNum = badge.dataset.catNum;
+            const checked = document.querySelectorAll(`.cat-${catNum}:checked`).length;
+            const total = document.querySelectorAll(`.cat-${catNum}`).length;
+            badge.textContent = checked > 0 ? `${checked}/${total}` : total;
+            badge.classList.toggle('bg-success', checked > 0);
+            badge.classList.toggle('bg-secondary', checked === 0);
+        });
+    }
+
+    // Expose updateBadges globally so other templates can trigger it after programmatic checks
+    window.updatePermissionBadges = updateBadges;
+
+    // Listen for checkbox changes
+    document.querySelectorAll('.perm-check').forEach(cb => {
+        cb.addEventListener('change', updateBadges);
+    });
+
+    updateBadges();
+</script>

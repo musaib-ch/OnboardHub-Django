@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}My Learning{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-mortarboard me-2"></i>My Learning</h1>
+    <p class="text-muted mb-0">Your assigned learning paths and what's available to explore.</p>
+</div>
+
+{% if assigned %}
+<h6 class="text-muted text-uppercase small mb-2">Assigned to you</h6>
+<div class="row g-3 mb-4">
+    {% for c in assigned %}
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'learning_path_detail' c.path.id %}" class="text-decoration-none">
+            <div class="glass-card p-3 h-100 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="mb-1">{{ c.path.title }}</h6>
+                    {% if c.overdue %}<span class="badge bg-danger">Overdue</span>{% endif %}
+                </div>
+                {% if c.path.category %}<div class="text-muted small mb-2">{{ c.path.category }}</div>{% endif %}
+                <div class="mt-auto">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>{{ c.done }}/{{ c.total }} modules</span><span>{{ c.pct }}%</span>
+                    </div>
+                    <div class="progress" style="height:6px;"><div class="progress-bar" style="width: {{ c.pct }}%"></div></div>
+                    {% if c.enrollment.due_date %}<div class="small text-muted mt-2"><i class="bi bi-calendar-event me-1"></i>Due {{ c.enrollment.due_date|date:"d M Y" }}</div>{% endif %}
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if completed %}
+<h6 class="text-muted text-uppercase small mb-2">Completed</h6>
+<div class="row g-3 mb-4">
+    {% for c in completed %}
+    <div class="col-md-6 col-lg-4">
+        <div class="glass-card p-3 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">{{ c.path.title }}</h6>
+                <span class="badge bg-success"><i class="bi bi-check-lg"></i></span>
+            </div>
+            <div class="mt-auto d-flex gap-2">
+                <a href="{% url 'learning_path_detail' c.path.id %}" class="btn btn-sm btn-outline-secondary">Review</a>
+                <a href="{% url 'learning_certificate' c.path.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-award me-1"></i>Certificate</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if catalog %}
+<h6 class="text-muted text-uppercase small mb-2">Explore</h6>
+<div class="row g-3">
+    {% for c in catalog %}
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'learning_path_detail' c.path.id %}" class="text-decoration-none">
+            <div class="glass-card p-3 h-100">
+                <h6 class="mb-1">{{ c.path.title }}</h6>
+                {% if c.path.category %}<div class="text-muted small mb-1">{{ c.path.category }}</div>{% endif %}
+                <div class="text-muted small">{{ c.total }} module{{ c.total|pluralize }}</div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if not assigned and not completed and not catalog %}
+<div class="empty-state glass-card"><i class="bi bi-mortarboard"></i><h3>Nothing here yet</h3><p class="text-muted">No learning paths have been assigned to you.</p></div>
+{% endif %}
+{% endblock %}

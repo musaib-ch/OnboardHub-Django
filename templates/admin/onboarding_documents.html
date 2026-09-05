@@ -1,0 +1,1020 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+
+{% block title %}Onboarding Documents{% endblock %}
+
+
+{% block extra_head %}
+
+<style>
+
+/* =========================================================
+   ONBOARDING DOCUMENTS
+   FULL PAGE CANVAS
+   ========================================================= */
+
+.documents-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 28px 32px 40px;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.documents-page-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.documents-page-header h1 {
+    margin: 0;
+    line-height: 1.25;
+}
+
+.documents-page-header p {
+    margin: 6px 0 0;
+    color: #64748b;
+}
+
+
+/* =========================================================
+   MAIN GRID
+   ========================================================= */
+
+.documents-layout {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+    gap: 24px;
+    align-items: start;
+}
+
+
+/* =========================================================
+   ADD DOCUMENT CARD
+   ========================================================= */
+
+.document-form-card {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.document-form-card h6 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.document-form-group {
+    margin-bottom: 16px;
+}
+
+.document-form-group:last-of-type {
+    margin-bottom: 20px;
+}
+
+.document-form-card .form-label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+
+.document-form-card .form-control,
+.document-form-card .form-select {
+    width: 100%;
+    min-height: 42px;
+}
+
+.document-form-card textarea.form-control {
+    min-height: 90px;
+    resize: vertical;
+}
+
+
+/* =========================================================
+   REQUIRED SWITCH
+   ========================================================= */
+
+.document-required-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    margin-bottom: 20px;
+}
+
+.document-required-row .form-check-input {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.document-required-row .form-check-label {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   ADD BUTTON
+   ========================================================= */
+
+.document-submit-btn {
+    width: 100%;
+    min-height: 44px;
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   DOCUMENT TABLE CARD
+   ========================================================= */
+
+.documents-table-card {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.documents-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 15px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.documents-table-header h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.documents-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+}
+
+.documents-table {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    margin: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+
+/* =========================================================
+   COLUMN WIDTHS
+   ========================================================= */
+
+/*
+    Title      34%
+    Stage      18%
+    Required   14%
+    Signed     12%
+    Actions    22%
+*/
+
+.documents-table th:nth-child(1),
+.documents-table td:nth-child(1) {
+    width: 34%;
+}
+
+.documents-table th:nth-child(2),
+.documents-table td:nth-child(2) {
+    width: 18%;
+}
+
+.documents-table th:nth-child(3),
+.documents-table td:nth-child(3) {
+    width: 14%;
+    text-align: center;
+}
+
+.documents-table th:nth-child(4),
+.documents-table td:nth-child(4) {
+    width: 12%;
+    text-align: center;
+}
+
+.documents-table th:nth-child(5),
+.documents-table td:nth-child(5) {
+    width: 22%;
+}
+
+
+/* =========================================================
+   TABLE HEADER
+   ========================================================= */
+
+.documents-table thead th {
+    padding: 12px 14px;
+    vertical-align: middle;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.70rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   TABLE BODY
+   ========================================================= */
+
+.documents-table tbody td {
+    padding: 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #edf2f7;
+    overflow: hidden;
+}
+
+.documents-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.documents-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.documents-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.015);
+}
+
+
+/* =========================================================
+   DOCUMENT TITLE
+   ========================================================= */
+
+.document-title-cell {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.document-title {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    color: #1e293b;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   STAGE BADGE
+   ========================================================= */
+
+.document-stage-cell {
+    white-space: nowrap;
+}
+
+.document-stage-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   REQUIRED / SIGNED
+   ========================================================= */
+
+.document-value-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.document-required-yes {
+    color: #198754;
+    font-weight: 600;
+}
+
+.document-required-no {
+    color: #6c757d;
+}
+
+
+/* =========================================================
+   SIGNATURE COUNT
+   ========================================================= */
+
+.document-signature-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.document-actions {
+    text-align: right;
+    white-space: normal !important;
+}
+
+.document-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+    justify-content: end;
+}
+
+.document-action-grid form {
+    width: 100%;
+    margin: 0;
+}
+
+.document-action-grid .btn {
+    width: 100%;
+    min-height: 34px;
+    padding: 5px 8px;
+    font-size: 0.76rem;
+    line-height: 1.1;
+    white-space: nowrap;
+    border-radius: 6px;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.document-empty-state {
+    padding: 55px 20px !important;
+    color: #64748b;
+}
+
+.document-empty-state-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    opacity: 0.55;
+}
+
+
+/* =========================================================
+   LARGE DESKTOP
+   ========================================================= */
+
+@media (min-width: 1400px) {
+
+    .documents-page {
+        padding-left: 36px;
+        padding-right: 36px;
+    }
+
+    .documents-layout {
+        gap: 28px;
+        grid-template-columns: minmax(360px, 0.78fr) minmax(0, 1.22fr);
+    }
+
+    .documents-table thead th,
+    .documents-table tbody td {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+}
+
+
+/* =========================================================
+   LAPTOP
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+    .documents-page {
+        padding-left: 22px;
+        padding-right: 22px;
+    }
+
+    .documents-layout {
+        grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.25fr);
+        gap: 18px;
+    }
+
+    .documents-table thead th {
+        font-size: 0.64rem;
+        padding-left: 9px;
+        padding-right: 9px;
+    }
+
+    .documents-table tbody td {
+        padding-left: 9px;
+        padding-right: 9px;
+        font-size: 0.82rem;
+    }
+
+    .document-action-grid {
+        gap: 4px;
+    }
+
+    .document-action-grid .btn {
+        font-size: 0.70rem;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .documents-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .document-form-card {
+        max-width: none;
+    }
+
+    .documents-table-card {
+        width: 100%;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL SCREEN
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+    .documents-page {
+        padding: 18px 12px 28px;
+    }
+
+    .documents-page-header {
+        margin-bottom: 20px;
+    }
+
+    .documents-page-header h1 {
+        font-size: 1.35rem;
+    }
+
+    .documents-layout {
+        gap: 16px;
+    }
+
+    .documents-table-header {
+        padding: 13px 14px;
+    }
+
+    .documents-table thead th {
+        font-size: 0.55rem;
+        padding: 8px 5px;
+    }
+
+    .documents-table tbody td {
+        padding: 9px 5px;
+        font-size: 0.72rem;
+    }
+
+    .document-stage-badge {
+        font-size: 0.68rem;
+    }
+
+    .document-action-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .document-action-grid .btn {
+        font-size: 0.68rem;
+        min-height: 32px;
+    }
+
+}
+
+
+/* =========================================================
+   VERY SMALL SCREEN
+   ========================================================= */
+
+@media (max-width: 420px) {
+
+    .documents-page {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .documents-table thead th {
+        font-size: 0.50rem;
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+
+    .documents-table tbody td {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+
+    .document-action-grid {
+        gap: 3px;
+    }
+
+    .document-action-grid .btn {
+        padding-left: 3px;
+        padding-right: 3px;
+        font-size: 0.62rem;
+    }
+
+}
+
+</style>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="documents-page">
+
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="documents-page-header">
+
+        <div>
+
+            <h1 class="h3 fw-bold">
+
+                <i class="bi bi-folder me-2"></i>
+
+                Onboarding Documents
+
+            </h1>
+
+            <p>
+                Manage documents required during the employee onboarding process.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+         ===================================================== -->
+
+    <div class="documents-layout">
+
+
+        <!-- =================================================
+             ADD DOCUMENT
+             ================================================= -->
+
+        <div class="glass-card p-4 document-form-card">
+
+            <h6>
+
+                <i class="bi bi-file-earmark-plus me-2 text-primary"></i>
+
+                Add Document
+
+            </h6>
+
+
+            <form
+                method="POST"
+                enctype="multipart/form-data">
+
+                {% csrf_token %}
+
+
+                <!-- TITLE -->
+
+                <div class="document-form-group">
+
+                    <label
+                        class="form-label"
+                        for="documentTitle">
+
+                        Title
+
+                    </label>
+
+                    <input
+                        type="text"
+                        name="title"
+                        id="documentTitle"
+                        class="form-control"
+                        required
+                        placeholder="Enter document title">
+
+                </div>
+
+
+                <!-- STAGE -->
+
+                <div class="document-form-group">
+
+                    <label
+                        class="form-label"
+                        for="documentStage">
+
+                        Stage
+
+                    </label>
+
+                    <select
+                        name="stage"
+                        id="documentStage"
+                        class="form-select">
+
+                        {% for s in stages %}
+
+                        <option value="{{ s }}">
+
+                            {{ s|humanize_status }}
+
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <!-- DESCRIPTION -->
+
+                <div class="document-form-group">
+
+                    <label
+                        class="form-label"
+                        for="documentDescription">
+
+                        Description
+
+                    </label>
+
+                    <textarea
+                        name="description"
+                        id="documentDescription"
+                        class="form-control"
+                        rows="3"
+                        placeholder="Optional description or instructions"></textarea>
+
+                </div>
+
+
+                <!-- FILE -->
+
+                <div class="document-form-group">
+
+                    <label
+                        class="form-label"
+                        for="documentFile">
+
+                        File
+
+                        <span class="text-muted fw-normal">
+                            (optional)
+                        </span>
+
+                    </label>
+
+                    <input
+                        type="file"
+                        name="file"
+                        id="documentFile"
+                        class="form-control">
+
+                </div>
+
+
+                <!-- REQUIRED -->
+
+                <div class="document-required-row">
+
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        name="is_required"
+                        id="req"
+                        checked>
+
+                    <label
+                        class="form-check-label"
+                        for="req">
+
+                        Required (must be signed)
+
+                    </label>
+
+                </div>
+
+
+                <!-- SUBMIT -->
+
+                <button
+                    type="submit"
+                    class="btn btn-primary document-submit-btn">
+
+                    <i class="bi bi-plus-circle me-1"></i>
+
+                    Add Document
+
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- =================================================
+             DOCUMENT LIST
+             ================================================= -->
+
+        <div class="table-container documents-table-card">
+
+            <div class="documents-table-header">
+
+                <h5>
+
+                    <i class="bi bi-files me-2 text-primary"></i>
+
+                    Documents
+
+                </h5>
+
+            </div>
+
+
+            <div class="documents-table-wrapper">
+
+                <table
+                    class="table documents-table mb-0">
+
+
+                    <!-- =================================================
+                         TABLE HEADER
+                         ================================================= -->
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Title
+                            </th>
+
+                            <th>
+                                Stage
+                            </th>
+
+                            <th class="text-center">
+                                Required
+                            </th>
+
+                            <th class="text-center">
+                                Signed
+                            </th>
+
+                            <th class="text-end">
+                                Actions
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <!-- =================================================
+                         TABLE BODY
+                         ================================================= -->
+
+                    <tbody>
+
+                        {% for d in docs %}
+
+                        <tr>
+
+
+                            <!-- TITLE -->
+
+                            <td>
+
+                                <div class="document-title-cell">
+
+                                    <span
+                                        class="document-title"
+                                        title="{{ d.title }}">
+
+                                        {{ d.title }}
+
+                                    </span>
+
+                                </div>
+
+                            </td>
+
+
+                            <!-- STAGE -->
+
+                            <td class="document-stage-cell">
+
+                                <span
+                                    class="badge badge-status-{{ d.stage }} document-stage-badge">
+
+                                    {{ d.stage|humanize_status }}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- REQUIRED -->
+
+                            <td class="document-value-cell">
+
+                                {% if d.is_required %}
+
+                                <span class="document-required-yes">
+
+                                    <i class="bi bi-check-circle me-1"></i>
+
+                                    Yes
+
+                                </span>
+
+                                {% else %}
+
+                                <span class="document-required-no">
+
+                                    <i class="bi bi-dash-circle me-1"></i>
+
+                                    No
+
+                                </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- SIGNED -->
+
+                            <td class="document-value-cell">
+
+                                <span
+                                    class="document-signature-count"
+                                    title="Number of signatures">
+
+                                    {{ d.signatures|length }}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- ACTIONS -->
+
+                            <td class="document-actions">
+
+                                <div class="document-action-grid">
+
+
+                                    <!-- DELETE -->
+
+                                    <form
+                                        method="POST"
+                                        onsubmit="return confirm('Delete \'{{ d.title|escapejs }}\'?');">
+
+                                        {% csrf_token %}
+
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="delete">
+
+                                        <input
+                                            type="hidden"
+                                            name="doc_id"
+                                            value="{{ d.id }}">
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-danger">
+
+                                            <i class="bi bi-trash me-1"></i>
+
+                                            Delete
+
+                                        </button>
+
+                                    </form>
+
+
+                                    <!-- VIEW -->
+
+                                    <a
+                                        href="{% url 'document_view' d.id %}"
+                                        class="btn btn-outline-primary">
+
+                                        <i class="bi bi-eye me-1"></i>
+
+                                        View
+
+                                    </a>
+
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td
+                                colspan="5"
+                                class="text-center document-empty-state">
+
+                                <i
+                                    class="bi bi-folder2-open document-empty-state-icon d-block">
+                                </i>
+
+                                <div class="fw-semibold mb-1">
+
+                                    No documents yet.
+
+                                </div>
+
+                                <small>
+
+                                    Add your first onboarding document using
+                                    the form.
+
+                                </small>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

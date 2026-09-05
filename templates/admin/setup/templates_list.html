@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Workflow Templates{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-layers me-2"></i>Workflow Templates</h1>
+        <p class="text-muted mb-0">Pre-built stage combinations for different employee types</p>
+    </div>
+    <a href="{% url 'admin_template_create' %}" class="btn btn-primary btn-lg">
+        <i class="bi bi-plus-lg me-2"></i>Create Template
+    </a>
+</div>
+
+<div class="row g-4 animate-fadeIn">
+    {% for template in templates %}
+    <div class="col-lg-6 col-xl-4">
+        <div class="glass-card h-100 d-flex flex-column {% if template.is_global %}border border-success border-2{% endif %}">
+            <div class="card-body flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">{{ template.name }}</h5>
+                        <div class="d-flex gap-1 mb-2 align-items-center">
+                            {% if template.is_active %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Inactive</span>
+                            {% endif %}
+                            {% if template.is_global %}
+                            <span class="badge bg-info"><i class="bi bi-star-fill me-1"></i>Default</span>
+                            {% endif %}
+                        </div>
+                        {% if template.description %}
+                        <p class="text-muted small mb-0">{{ template.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-link btn-sm text-muted" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'admin_template_edit' template.id %}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                            {% if not template.is_global %}
+                            <li>
+                                <form method="POST" action="{% url 'admin_template_set_default' template.id %}" style="display: contents;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item"><i class="bi bi-star me-2"></i>Set as Default</button>
+                                </form>
+                            </li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="{% url 'admin_template_delete' template.id %}" style="display: contents;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Delete this template?');"><i class="bi bi-trash me-2"></i>Delete</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    {% with enabled_stages=template.stages|get_enabled_stages %}
+                    <small class="text-muted d-block mb-2"><strong>Stages ({{ enabled_stages|length }})</strong></small>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for stage_key in enabled_stages %}
+                        <span class="badge bg-primary">
+                            <i class="bi bi-check-circle me-1"></i>{{ stage_key|title }}
+                        </span>
+                        {% empty %}
+                        <span class="text-muted small">No active stages in this template</span>
+                        {% endfor %}
+                    </div>
+                    {% endwith %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="glass-card p-5 text-center">
+            <i class="bi bi-layers" style="font-size: 3rem; opacity: 0.2;"></i>
+            <p class="text-muted mt-3 mb-0">No templates yet. <a href="{% url 'admin_template_create' %}">Create one to get started.</a></p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+.glass-card.border-success {
+    box-shadow: 0 0 15px rgba(25, 135, 84, 0.15);
+}
+</style>
+{% endblock %}

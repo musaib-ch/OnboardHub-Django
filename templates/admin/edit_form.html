@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block title %}{% if form %}Studio Builder | {{ form.name }}{% else %}New Universal Workflow Studio{% endif %}{% endblock %}
+
+{% block extra_head %}
+<style>
+.builder-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+.canvas-col {
+    flex: 1;
+    min-width: 0;
+}
+.palette-col {
+    width: 340px;
+    position: sticky;
+    top: 1.5rem;
+}
+.canvas-header {
+    background: #ffffff;
+    padding: 1.5rem;
+    border-radius: var(--radius-md, 12px);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+}
+.canvas-title-input {
+    font-size: 1.75rem;
+    font-weight: 800;
+    border: none;
+    width: 100%;
+    color: #0f172a;
+    background: transparent;
+    padding: 0;
+    line-height: 1.2;
+}
+.canvas-title-input:focus { outline: none; }
+.canvas-desc-input {
+    font-size: 0.95rem;
+    border: none;
+    width: 100%;
+    color: #64748b;
+    background: transparent;
+    resize: none;
+    margin-top: 0.5rem;
+    padding: 0;
+}
+.canvas-desc-input:focus { outline: none; }
+
+/* Palette Item Card */
+.palette-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md, 10px);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    text-align: left;
+    margin-bottom: 0.5rem;
+}
+.palette-btn:hover {
+    border-color: var(--primary, #4f46e5);
+    background: rgba(79, 70, 229, 0.04);
+    color: var(--primary, #4f46e5);
+    transform: translateY(-1px);
+}
+
+/* Question Card on Canvas */
+.question-card {
+    background: #ffffff;
+    border-radius: var(--radius-md, 12px);
+    padding: 1.25rem 1.25rem 1.25rem 3rem;
+    margin-bottom: 1rem;
+    position: relative;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+}
+.question-card:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.question-card.doc-type-card {
+    border-left: 4px solid var(--primary, #4f46e5);
+    background: #f8fafc;
+}
+.drag-handle {
+    position: absolute;
+    left: 0.85rem;
+    top: 1.25rem;
+    cursor: grab;
+    color: #94a3b8;
+    font-size: 1.2rem;
+}
+.type-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    background: #e2e8f0;
+    color: #475569;
+}
+.doc-badge {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary, #4f46e5);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="POST" id="formStudioForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="schema_json" id="schema_json_input">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary px-2.5 py-1 rounded-pill" style="font-size:0.75rem;">
+                    <i class="bi bi-layers-half me-1"></i> Universal Workflow Studio
+                </span>
+                {% if form %}<span class="text-muted small">Editing ID #{{ form.id }}</span>{% endif %}
+            </div>
+            <h1 class="h3 font-bold text-dark mb-0">
+                {% if form %}{{ form.name }}{% else %}Create Universal Workflow Form{% endif %}
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_forms' %}" class="btn btn-outline-secondary fw-semibold">Cancel</a>
+            <button type="button" class="btn btn-primary fw-semibold shadow-sm" onclick="saveWorkflowSchema()">
+                <i class="bi bi-cloud-arrow-up me-1"></i> Save Workflow
+            </button>
+        </div>
+    </div>
+
+    <div class="builder-layout">
+        <!-- Main Canvas Column -->
+        <div class="canvas-col">
+            <div class="canvas-header">
+                <input type="text" name="name" class="canvas-title-input" value="{{ form.name|default:'Untitled Onboarding Workflow' }}" placeholder="Workflow Form Name..." required>
+                <textarea name="description" class="canvas-desc-input" rows="2" placeholder="Description or guidance instructions for candidate...">{{ form.description|default:'' }}</textarea>
+                
+                <div class="row g-3 mt-3 pt-3 border-top">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold text-dark">Stage Target</label>
+                        <select name="stage" class="form-select form-select-sm">
+                            {% for st_val, st_lbl in stages %}
+                            <option value="{{ st_val }}" {% if form.stage == st_val or not form and st_val == 'pre_onboarding' %}selected{% endif %}>{{ st_lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold text-dark">Form Mode</label>
+                        <select name="form_kind" class="form-select form-select-sm">
+                            <option value="form" {% if form.form_kind == 'form' or not form %}selected{% endif %}>Universal Form & Document Workflow</option>
+                            <option value="quiz" {% if form.form_kind == 'quiz' %}selected{% endif %}>Quiz / Assessment</option>
+                            <option value="survey" {% if form.form_kind == 'survey' %}selected{% endif %}>Survey</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active_check" {% if form.is_active or not form %}checked{% endif %}>
+                            <label class="form-check-label small fw-semibold" for="is_active_check">Active & Published</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz/Assessment Settings (Visible only when Form Mode is Quiz) -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white" id="quizSettingsCard" style="display: none;">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-patch-question me-1 text-primary"></i> Quiz & Assessment Settings</h5>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-dark">Passing Score (%)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="passing_score" class="form-control" min="1" max="100" value="{{ form.schema.settings.passing_score|default:80 }}">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-dark">Max Attempts</label>
+                        <input type="number" name="max_attempts" class="form-control form-control-sm" min="0" value="{{ form.schema.settings.max_attempts|default:0 }}" placeholder="0 = unlimited">
+                        <div class="form-text mt-1" style="font-size: 0.75rem;">0 = unlimited retries</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-dark">Time Limit (minutes)</label>
+                        <input type="number" name="time_limit_minutes" class="form-control form-control-sm" min="0" value="{{ form.schema.settings.time_limit_minutes|default:0 }}" placeholder="0 = no limit">
+                        <div class="form-text mt-1" style="font-size: 0.75rem;">0 = no time limit</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-dark">Assign to Roles</label>
+                        <div class="d-flex flex-column gap-1 pt-1">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" name="assigned_roles" value="employee" id="role_employee" {% if 'employee' in form.schema.settings.assigned_roles or not form %}checked{% endif %}>
+                                <label class="form-check-label small text-dark" for="role_employee">Employee</label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" name="assigned_roles" value="manager" id="role_manager" {% if 'manager' in form.schema.settings.assigned_roles %}checked{% endif %}>
+                                <label class="form-check-label small text-dark" for="role_manager">Manager</label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" name="assigned_roles" value="hrbp" id="role_hrbp" {% if 'hrbp' in form.schema.settings.assigned_roles %}checked{% endif %}>
+                                <label class="form-check-label small text-dark" for="role_hrbp">HRBP</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="sectionsCanvas"></div>
+
+            <button type="button" class="btn btn-outline-primary w-100 py-2.5 fw-semibold border-dashed" onclick="addNewSection()">
+                <i class="bi bi-plus-circle me-1"></i> Add New Workflow Section
+            </button>
+        </div>
+
+        <!-- Right Side Palette Column -->
+        <div class="palette-col">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-puzzle me-1 text-primary"></i>Workflow Palette</h6>
+                
+                <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded-3" id="paletteTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active py-1.5 small fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-fields" type="button">Fields</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link py-1.5 small fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button">Docs & E-Sign</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link py-1.5 small fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-bundles" type="button">Bundles</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Standard Form Fields -->
+                    <div class="tab-pane fade show active" id="tab-fields">
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('text')"><i class="bi bi-input-cursor-text text-primary"></i> Single Line Text</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('textarea')"><i class="bi bi-card-text text-primary"></i> Paragraph / Textarea</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('number')"><i class="bi bi-123 text-primary"></i> Number Input</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('date')"><i class="bi bi-calendar-event text-primary"></i> Date Picker</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('select')"><i class="bi bi-caret-down-square text-primary"></i> Dropdown Select</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('radio')"><i class="bi bi-ui-radios text-primary"></i> Radio Options</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('checkbox')"><i class="bi bi-ui-checks text-primary"></i> Checkboxes</button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('file')"><i class="bi bi-paperclip text-primary"></i> File Attachment Upload</button>
+                    </div>
+
+                    <!-- Signable Documents & Agreements -->
+                    <div class="tab-pane fade" id="tab-docs">
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('pdf_sign')">
+                            <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
+                            <div>
+                                <div>PDF Signable Document</div>
+                                <small class="text-muted fw-normal">Upload/Link PDF & E-Sign</small>
+                            </div>
+                        </button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('doc_sign')">
+                            <i class="bi bi-file-earmark-word text-primary fs-5"></i>
+                            <div>
+                                <div>Word / Doc Signable</div>
+                                <small class="text-muted fw-normal">Signable document file</small>
+                            </div>
+                        </button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('policy_sign')">
+                            <i class="bi bi-journal-check text-success fs-5"></i>
+                            <div>
+                                <div>Inline Policy & NDA</div>
+                                <small class="text-muted fw-normal">Rich text policy + E-Sign</small>
+                            </div>
+                        </button>
+                        <button type="button" class="palette-btn" onclick="addFieldToActiveSection('ppt_view')">
+                            <i class="bi bi-easel2 text-warning fs-5"></i>
+                            <div>
+                                <div>Presentation Deck</div>
+                                <small class="text-muted fw-normal">PPT / Video review & sign</small>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Smart Field Bundles -->
+                    <div class="tab-pane fade" id="tab-bundles">
+                        <button type="button" class="palette-btn" onclick="addBundleToActiveSection('personal_info')">
+                            <i class="bi bi-person-lines-fill text-info fs-5"></i>
+                            <div>
+                                <div>Personal Info Group</div>
+                                <small class="text-muted fw-normal">Name, Phone, Address, DOB</small>
+                            </div>
+                        </button>
+                        <button type="button" class="palette-btn" onclick="addBundleToActiveSection('bank_info')">
+                            <i class="bi bi-bank text-success fs-5"></i>
+                            <div>
+                                <div>Direct Deposit & Bank Group</div>
+                                <small class="text-muted fw-normal">Bank Details + E-Sign</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script id="schema_data" type="application/json">{{ schema_json|safe }}</script>
+<script>
+let rawSchema = {};
+try {
+    rawSchema = JSON.parse(document.getElementById("schema_data").textContent || '{"sections": []}');
+} catch (e) {
+    rawSchema = { sections: [] };
+}
+if (!rawSchema || !rawSchema.sections || rawSchema.sections.length === 0) {
+    rawSchema = {
+        sections: [
+            { id: "sec_1", title: "General Information", description: "Please complete the required details below.", fields: [] }
+        ]
+    };
+}
+
+let activeSectionId = rawSchema.sections[0].id;
+
+function renderCanvas() {
+    const container = document.getElementById("sectionsCanvas");
+    container.innerHTML = "";
+
+    rawSchema.sections.forEach((sec, sIdx) => {
+        const secCard = document.createElement("div");
+        secCard.className = "card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white";
+        secCard.onclick = () => { activeSectionId = sec.id; updateActiveSectionHighlight(); };
+
+        secCard.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <input type="text" class="form-control fw-bold border-0 fs-5 p-0 text-dark" value="${escapeHtml(sec.title)}" onchange="sec.title = this.value">
+                <button type="button" class="btn btn-xs btn-outline-danger" onclick="deleteSection('${sec.id}')"><i class="bi bi-trash"></i> Delete Section</button>
+            </div>
+            <input type="text" class="form-control form-control-sm text-muted mb-3" value="${escapeHtml(sec.description || '')}" placeholder="Section description..." onchange="sec.description = this.value">
+            
+            <div id="fields_sec_${sec.id}" class="fields-drop-zone"></div>
+        `;
+        container.appendChild(secCard);
+
+        const fieldsZone = secCard.querySelector(`#fields_sec_${sec.id}`);
+        if (!sec.fields || sec.fields.length === 0) {
+            fieldsZone.innerHTML = `
+                <div class="p-4 text-center text-muted border border-dashed rounded-3 bg-light mb-3">
+                    <i class="bi bi-plus-square fs-3 d-block mb-1 text-primary"></i>
+                    <span class="small">Click elements from the Palette on the right to add fields or signable documents to this section.</span>
+                </div>
+            `;
+        } else {
+            sec.fields.forEach((f, fIdx) => {
+                const fCard = document.createElement("div");
+                const isDoc = ['pdf_sign', 'doc_sign', 'policy_sign', 'ppt_view'].includes(f.field_type);
+                fCard.className = `question-card ${isDoc ? 'doc-type-card' : ''}`;
+                
+                fCard.innerHTML = `
+                    <i class="bi bi-grip-vertical drag-handle"></i>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <input type="text" class="form-control fw-semibold border-0 text-dark p-0 fs-6" value="${escapeHtml(f.label)}" placeholder="Field / Document Title..." onchange="f.label = this.value">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="type-badge ${isDoc ? 'doc-badge' : ''}">${f.field_type.toUpperCase()}</span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" ${f.is_required ? 'checked' : ''} onchange="f.is_required = this.checked">
+                                <label class="form-check-label small fw-semibold">Required</label>
+                            </div>
+                            <button type="button" class="btn btn-xs btn-link text-danger" onclick="deleteField('${sec.id}', '${f.id}')"><i class="bi bi-x-circle fs-6"></i></button>
+                        </div>
+                    </div>
+                    ${renderFieldConfigInputs(f)}
+                `;
+                fieldsZone.appendChild(fCard);
+            });
+        }
+    });
+}
+
+function renderFieldConfigInputs(f) {
+    if (['pdf_sign', 'doc_sign', 'ppt_view'].includes(f.field_type)) {
+        return `
+            <div class="row g-2 mt-2 pt-2 border-top">
+                <div class="col-md-7">
+                    <label class="form-label small fw-semibold text-muted mb-1">Document Attachment / Upload</label>
+                    <input type="file" name="doc_file_${f.id}" class="form-control form-control-sm">
+                    ${f.file_url ? `<small class="text-success"><i class="bi bi-check-circle me-1"></i>Attached: ${escapeHtml(f.file_url)}</small>` : ''}
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold text-muted mb-1">External File URL (Optional)</label>
+                    <input type="url" class="form-control form-control-sm" value="${escapeHtml(f.file_url || '')}" placeholder="https://..." onchange="f.file_url = this.value">
+                </div>
+            </div>
+        `;
+    } else if (f.field_type === 'policy_sign') {
+        return `
+            <div class="mt-2 pt-2 border-top">
+                <label class="form-label small fw-semibold text-muted mb-1">Policy / Agreement HTML Text</label>
+                <textarea class="form-control form-control-sm" rows="3" placeholder="Enter policy text or HTML content to be signed..." onchange="f.policy_html = this.value">${escapeHtml(f.policy_html || '')}</textarea>
+            </div>
+        `;
+    } else if (['select', 'radio', 'checkbox'].includes(f.field_type)) {
+        return `
+            <div class="mt-2 pt-2 border-top">
+                <label class="form-label small fw-semibold text-muted mb-1">Options (Comma-separated)</label>
+                <input type="text" class="form-control form-control-sm" value="${escapeHtml((f.options || []).join(', '))}" placeholder="Option 1, Option 2, Option 3" onchange="f.options = this.value.split(',').map(s=>s.trim()).filter(Boolean)">
+            </div>
+        `;
+    }
+    return '';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function updateActiveSectionHighlight() {}
+
+function addNewSection() {
+    const secId = 'sec_' + Date.now();
+    rawSchema.sections.push({ id: secId, title: "New Section", description: "", fields: [] });
+    activeSectionId = secId;
+    renderCanvas();
+}
+
+function deleteSection(secId) {
+    if (rawSchema.sections.length <= 1) return alert("At least one section is required.");
+    rawSchema.sections = rawSchema.sections.filter(s => s.id !== secId);
+    activeSectionId = rawSchema.sections[0].id;
+    renderCanvas();
+}
+
+function addFieldToActiveSection(type) {
+    let sec = rawSchema.sections.find(s => s.id === activeSectionId) || rawSchema.sections[0];
+    const fId = 'f_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+    
+    let defaultLabel = "New Question";
+    if (type === 'pdf_sign') defaultLabel = "Signable PDF Document";
+    if (type === 'doc_sign') defaultLabel = "Signable Agreement Document";
+    if (type === 'policy_sign') defaultLabel = "Company Policy & Code of Conduct";
+    if (type === 'ppt_view') defaultLabel = "Orientation Presentation Deck";
+    if (type === 'file') defaultLabel = "Upload Document Attachment";
+
+    sec.fields.push({
+        id: fId,
+        field_name: fId,
+        label: defaultLabel,
+        field_type: type,
+        is_required: true,
+        options: [],
+        file_url: "",
+        policy_html: type === 'policy_sign' ? "Please review and acknowledge the terms of this policy." : ""
+    });
+    renderCanvas();
+}
+
+function addBundleToActiveSection(bundleType) {
+    let sec = rawSchema.sections.find(s => s.id === activeSectionId) || rawSchema.sections[0];
+    const timestamp = Date.now();
+
+    if (bundleType === 'personal_info') {
+        sec.fields.push(
+            { id: 'f_' + timestamp + '_1', field_name: 'full_name', label: 'Full Legal Name', field_type: 'text', is_required: true },
+            { id: 'f_' + timestamp + '_2', field_name: 'phone_number', label: 'Phone Number', field_type: 'text', is_required: true },
+            { id: 'f_' + timestamp + '_3', field_name: 'date_of_birth', label: 'Date of Birth', field_type: 'date', is_required: true },
+            { id: 'f_' + timestamp + '_4', field_name: 'home_address', label: 'Home Address', field_type: 'textarea', is_required: true },
+            { id: 'f_' + timestamp + '_5', field_name: 'emergency_contact', label: 'Emergency Contact Name & Phone', field_type: 'text', is_required: true }
+        );
+    } else if (bundleType === 'bank_info') {
+        sec.fields.push(
+            { id: 'f_' + timestamp + '_10', field_name: 'bank_name', label: 'Bank Name', field_type: 'text', is_required: true },
+            { id: 'f_' + timestamp + '_11', field_name: 'routing_number', label: 'Routing / IBAN Code', field_type: 'text', is_required: true },
+            { id: 'f_' + timestamp + '_12', field_name: 'account_number', label: 'Account Number', field_type: 'text', is_required: true },
+            { id: 'f_' + timestamp + '_13', field_name: 'bank_proof', label: 'Upload Voided Check / Bank Letter', field_type: 'file', is_required: false },
+            { id: 'f_' + timestamp + '_14', field_name: 'direct_deposit_sign', label: 'Direct Deposit Authorization E-Signature', field_type: 'policy_sign', is_required: true, policy_html: 'I authorize direct deposit payments to the designated bank account.' }
+        );
+    }
+    renderCanvas();
+}
+
+function deleteField(secId, fId) {
+    let sec = rawSchema.sections.find(s => s.id === secId);
+    if (sec) {
+        sec.fields = sec.fields.filter(f => f.id !== fId);
+        renderCanvas();
+    }
+}
+
+function saveWorkflowSchema() {
+    document.getElementById("schema_json_input").value = JSON.stringify(rawSchema);
+    document.getElementById("formStudioForm").submit();
+}
+
+function toggleQuizSettings() {
+    const kindSelect = document.querySelector('select[name="form_kind"]');
+    const quizCard = document.getElementById("quizSettingsCard");
+    if (kindSelect && quizCard) {
+        if (kindSelect.value === "quiz") {
+            quizCard.style.display = "block";
+        } else {
+            quizCard.style.display = "none";
+        }
+    }
+}
+document.addEventListener("DOMContentLoaded", () => {
+    renderCanvas();
+    toggleQuizSettings();
+    const kindSelect = document.querySelector('select[name="form_kind"]');
+    if (kindSelect) {
+        kindSelect.addEventListener("change", toggleQuizSettings);
+    }
+});
+</script>
+{% endblock %}

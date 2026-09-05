@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Landing Page{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-easel me-2"></i>Landing Page Content</h1>
+    <p class="text-muted mb-0">Manage what new hires see on their welcome screen: sliders, messages from management, gallery images and videos.</p>
+</div>
+
+<div class="row g-4">
+    {% for kind, label in kinds %}
+    <div class="col-lg-6">
+        <div class="glass-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">{{ label }}</span>
+                <span class="badge bg-secondary">{{ grouped|dict_get:kind|length }}</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" class="mb-3 border-bottom pb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="kind" value="{{ kind }}">
+                    <input type="text" name="title" class="form-control form-control-sm mb-2" placeholder="Title / heading">
+                    {% if kind == 'management_message' %}
+                    <input type="text" name="author" class="form-control form-control-sm mb-2" placeholder="Name (e.g. Jane Doe)">
+                    <input type="text" name="role_title" class="form-control form-control-sm mb-2" placeholder="Title (e.g. Chief Executive Officer)">
+                    <textarea name="body" class="form-control form-control-sm mb-2" rows="2" placeholder="Message / quote"></textarea>
+                    <label class="form-label small mb-1">Photo (optional)</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*">
+                    {% elif kind == 'event' %}
+                    <textarea name="body" class="form-control form-control-sm mb-2" rows="2" placeholder="Event description"></textarea>
+                    <label class="form-label small mb-1">Date</label>
+                    <input type="date" name="event_date" class="form-control form-control-sm mb-2">
+                    {% elif kind == 'news' %}
+                    <textarea name="body" class="form-control form-control-sm mb-2" rows="2" placeholder="News summary"></textarea>
+                    <label class="form-label small mb-1">Image (optional)</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*">
+                    {% elif kind == 'portal_video' %}
+                    <input type="url" name="video_url" class="form-control form-control-sm mb-2" placeholder="Embed URL (e.g. https://www.youtube.com/embed/XXXX)">
+                    <label class="form-label small mb-1">…or upload a video file</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept="video/*">
+                    {% else %}
+                    {% if kind == 'portal_slider' %}<textarea name="body" class="form-control form-control-sm mb-2" rows="1" placeholder="Caption (optional)"></textarea>
+                    <input type="url" name="link" class="form-control form-control-sm mb-2" placeholder="Link when clicked (optional)">{% endif %}
+                    <label class="form-label small mb-1">Image</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*">
+                    {% endif %}
+                    <div class="d-flex gap-2 align-items-center">
+                        <input type="number" name="display_order" class="form-control form-control-sm" style="width:90px;" placeholder="Order" value="0">
+                        <button class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Add</button>
+                    </div>
+                </form>
+
+                <div class="d-flex flex-column gap-2">
+                    {% for item in grouped|dict_get:kind %}
+                    <div class="d-flex align-items-center gap-2 border rounded p-2 {% if not item.is_active %}opacity-50{% endif %}">
+                        {% if item.file and kind != 'portal_video' %}<img src="{{ item.file.url }}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex:0 0 auto;">{% endif %}
+                        {% if kind == 'portal_video' %}<i class="bi bi-play-btn fs-4 text-muted"></i>{% endif %}
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-medium small text-truncate">{{ item.title|default:"(untitled)" }}</div>
+                            {% if item.meta.author %}<div class="text-muted" style="font-size:.72rem;">— {{ item.meta.author }}</div>{% endif %}
+                            {% if item.body %}<div class="text-muted text-truncate" style="font-size:.72rem;">{{ item.body }}</div>{% endif %}
+                        </div>
+                        <form method="POST" class="mb-0"><input type="hidden" name="action" value="toggle"><input type="hidden" name="item_id" value="{{ item.id }}">{% csrf_token %}
+                            <button class="btn btn-xs btn-outline-secondary" title="Show/Hide"><i class="bi {% if item.is_active %}bi-eye{% else %}bi-eye-slash{% endif %}"></i></button></form>
+                        <form method="POST" class="mb-0"><input type="hidden" name="action" value="delete"><input type="hidden" name="item_id" value="{{ item.id }}">{% csrf_token %}
+                            <button class="btn btn-xs btn-outline-danger" data-confirm="Delete this item?"><i class="bi bi-trash"></i></button></form>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted small">Nothing added yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

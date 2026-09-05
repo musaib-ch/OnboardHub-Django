@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Email Statistics{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-graph-up me-2"></i>Email Statistics</h1>
+    <p class="text-muted mb-0">Email sending performance and analytics.</p>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-envelope"></i></div>
+            <div class="stat-info"><h3>{{ total_emails }}</h3><p>Total Sent</p></div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-info"><h3>{{ sent_count }}</h3><p>Successful</p></div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-circle"></i></div>
+            <div class="stat-info"><h3>{{ failed_count }}</h3><p>Failed</p></div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#2563eb"><i class="bi bi-percent"></i></div>
+            <div class="stat-info"><h3>{{ success_rate }}%</h3><p>Success Rate</p></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <h6 class="mb-4"><i class="bi bi-bar-chart me-2"></i>Emails by Template</h6>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% for stat in template_stats %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="fw-600">{{ stat.template }}</small>
+                        <small class="text-muted">{{ stat.count }} ({{ stat.percentage|floatformat:1 }}%)</small>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar" style="width: {{ stat.percentage }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small">No email data</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4">
+            <h6 class="mb-4"><i class="bi bi-person-check me-2"></i>Top Recipients</h6>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% for item in top_recipients %}
+                <div class="mb-3 pb-3 border-bottom">
+                    <small class="text-muted">{{ item.email }}</small>
+                    <p class="small mb-0"><strong>{{ item.count }}</strong> emails</p>
+                </div>
+                {% empty %}
+                <p class="text-muted small">No recipient data</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'admin_email_logs' %}" class="btn btn-outline-primary">View Detailed Logs</a>
+    <a href="{% url 'admin_email_templates' %}" class="btn btn-outline-secondary">Edit Templates</a>
+</div>
+
+{% endblock %}

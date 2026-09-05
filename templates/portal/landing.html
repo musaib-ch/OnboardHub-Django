@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Welcome{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    // preflight OFF so Tailwind utilities coexist with the app's Bootstrap shell.
+    tailwind.config = {
+        corePlugins: { preflight: false },
+        theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } }
+    };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<style>
+    .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; vertical-align: middle; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .lp-video iframe, .lp-video video { position:absolute; inset:0; width:100%; height:100%; border:0; }
+    
+    /* ── Dynamic Branding Theme Overrides ── */
+    .theme-text-primary { color: var(--primary, #4f46e5) !important; }
+    .theme-bg-primary { background-color: var(--primary, #4f46e5) !important; }
+    .theme-bg-light { background-color: rgba(var(--primary-rgb, 79, 70, 229), 0.08) !important; }
+    .theme-border-primary { border-color: var(--primary, #4f46e5) !important; }
+    .theme-btn-primary {
+        background-color: var(--primary, #4f46e5) !important;
+        color: #ffffff !important;
+        transition: all 0.2s ease-in-out;
+    }
+    .theme-btn-primary:hover {
+        background-color: var(--accent, #4338ca) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(var(--primary-rgb, 79, 70, 229), 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    {# ── Hero row ── #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {# Welcome card #}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden {% if show_journey or show_launchpad %}lg:col-span-1{% else %}lg:col-span-3{% endif %} flex flex-col relative group">
+            <div class="absolute top-0 right-0 w-32 h-32 theme-bg-light rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110 duration-500"></div>
+            <div class="p-6 border-b border-slate-100 flex items-center gap-2 relative z-10">
+                <span class="material-symbols-outlined theme-text-primary">waving_hand</span>
+                <span class="font-semibold text-slate-800">Welcome Aboard</span>
+            </div>
+            <div class="p-8 flex-1 flex flex-col items-start justify-center relative z-10">
+                <h2 class="text-3xl font-bold text-slate-900 mb-2 tracking-tight">{{ greeting }}, {{ user.full_name }}</h2>
+                {% if position %}<div class="text-sm theme-text-primary font-medium mb-3">{{ position }}</div>{% endif %}
+                <p class="text-sm text-slate-500 leading-relaxed">Welcome to {{ site_settings.site_title|default:"OnboardHub" }}. We're glad to have you here — explore your company space and continue your onboarding journey below.</p>
+            </div>
+        </div>
+
+        {# Onboarding journey #}
+        {% if show_journey %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2 flex flex-col">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined theme-text-primary">route</span>
+                    <h3 class="font-semibold text-slate-800">Onboarding Journey</h3>
+                </div>
+                <div class="text-sm theme-text-primary font-medium">{% if completed %}Completed{% else %}Stage {{ step_num }} of {{ total_steps }}{% endif %}</div>
+            </div>
+            <div class="p-8 flex-1 flex flex-col justify-center">
+                <div class="relative flex items-center justify-between w-full">
+                    <div class="absolute top-6 left-0 right-0 h-1 bg-slate-100 z-0 rounded-full"></div>
+                    <div class="absolute top-6 left-0 h-1 theme-bg-primary z-0 rounded-full" style="width: {{ journey_fill }}%;"></div>
+                    {% for s in steps %}
+                    <div class="relative z-10 flex flex-col items-center {% if s.state == 'locked' %}opacity-50{% endif %}" style="flex:1;">
+                        {% if s.state == 'completed' %}
+                        <div class="w-12 h-12 rounded-full theme-bg-primary text-white flex items-center justify-center mb-3 shadow-md ring-4 ring-white"><span class="material-symbols-outlined text-xl">check</span></div>
+                        {% elif s.state == 'submitted' %}
+                        <div class="w-12 h-12 rounded-full bg-white border-2 theme-border-primary theme-text-primary flex items-center justify-center mb-3 shadow-sm ring-4 ring-white"><span class="material-symbols-outlined text-xl">hourglass_top</span></div>
+                        {% elif s.state == 'rejected' or s.state == 'changes_requested' or s.state == 'info_requested' %}
+                        <div class="w-12 h-12 rounded-full bg-amber-400 text-white flex items-center justify-center mb-3 shadow-sm ring-4 ring-white"><span class="material-symbols-outlined text-xl">priority_high</span></div>
+                        {% elif s.state == 'locked' %}
+                        <div class="w-12 h-12 rounded-full bg-slate-100 border-2 border-slate-200 text-slate-400 flex items-center justify-center mb-3 shadow-sm ring-4 ring-white"><span class="material-symbols-outlined text-xl">lock</span></div>
+                        {% else %}
+                        <div class="w-12 h-12 rounded-full bg-white border-2 theme-border-primary theme-text-primary flex items-center justify-center mb-3 shadow-sm ring-4 ring-white"><span class="material-symbols-outlined text-xl">directions_run</span></div>
+                        {% endif %}
+                        <div class="text-xs font-bold {% if s.state == 'completed' %}theme-text-primary{% elif s.state == 'locked' %}text-slate-500{% else %}text-slate-900{% endif %} uppercase tracking-wider mb-1 text-center">
+                            {% if s.state != 'locked' %}<a href="{% url s.url_name %}" class="hover:underline">{{ s.label }}</a>{% else %}{{ s.label }}{% endif %}
+                        </div>
+                        <div class="text-[10px] text-slate-500 text-center max-w-[120px]">
+                            {% if s.state == 'completed' %}Done{% elif s.state == 'submitted' %}In review{% elif s.state == 'changes_requested' %}Changes requested{% elif s.state == 'info_requested' %}Info needed{% elif s.state == 'rejected' %}Action required{% elif s.state == 'locked' %}Locked{% else %}In progress{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if not completed and current_url %}
+                <div class="mt-8 text-center">
+                    <a href="{% url current_url %}" class="inline-flex items-center gap-1 theme-btn-primary text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-base">play_arrow</span> Continue: {{ current_label }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Launchpad (Staff dashboards) #}
+        {% if show_launchpad %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden lg:col-span-2 flex flex-col">
+            <div class="p-6 border-b border-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined theme-text-primary">rocket_launch</span>
+                <h3 class="font-semibold text-slate-800">Staff Launchpad</h3>
+            </div>
+            <div class="p-8 flex-1 flex flex-col justify-center">
+                <p class="text-sm text-slate-500 mb-6">Access your role-specific dashboard and actions to manage employee onboarding.</p>
+                <div class="flex flex-wrap gap-3">
+                    {% if user.role == 'super_admin' or user.role == 'admin' %}
+                    <a href="{% url 'admin_dashboard' %}" class="inline-flex items-center gap-2 theme-btn-primary text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-sm no-underline">
+                        <span class="material-symbols-outlined text-lg">dashboard</span> Admin Dashboard
+                    </a>
+                    <a href="{% url 'admin_employees' %}" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl shadow-sm transition-all no-underline">
+                        <span class="material-symbols-outlined text-lg">people</span> Manage Employees
+                    </a>
+                    {% elif user.role == 'hrbp' %}
+                    <a href="{% url 'admin_dashboard' %}" class="inline-flex items-center gap-2 theme-btn-primary text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-sm no-underline">
+                        <span class="material-symbols-outlined text-lg">dashboard</span> HRBP Dashboard
+                    </a>
+                    <a href="{% url 'admin_employees' %}" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl shadow-sm transition-all no-underline">
+                        <span class="material-symbols-outlined text-lg">people</span> View Employees
+                    </a>
+                    <a href="{% url 'content_manage' 'training' %}" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl shadow-sm transition-all no-underline">
+                        <span class="material-symbols-outlined text-lg">local_library</span> Training Library
+                    </a>
+                    {% elif user.role == 'medical_approver' %}
+                    <a href="{% url 'admin_medical_review' %}" class="inline-flex items-center gap-2 theme-btn-primary text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-sm no-underline">
+                        <span class="material-symbols-outlined text-lg">vaccines</span> Medical Review
+                    </a>
+                    <a href="{% url 'admin_medical_requirements' %}" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl shadow-sm transition-all no-underline">
+                        <span class="material-symbols-outlined text-lg">assignment</span> Medical Requirements
+                    </a>
+                    {% elif user.role == 'offer_sender' %}
+                    <a href="{% url 'admin_offers' %}" class="inline-flex items-center gap-2 theme-btn-primary text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-sm no-underline">
+                        <span class="material-symbols-outlined text-lg">description</span> Offers Dashboard
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Messages from Management ── #}
+    {% if cms.messages %}
+    <div>
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6">
+            <span class="material-symbols-outlined theme-text-primary">chat_bubble</span> Messages from Management
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for m in cms.messages %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-full hover:shadow-md transition-shadow">
+                <div class="flex items-center gap-4 mb-6">
+                    {% if m.file %}<img alt="{{ m.meta.author }}" class="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100" src="{{ m.file.url }}"/>
+                    {% else %}<div class="w-16 h-16 rounded-full theme-bg-light theme-text-primary flex items-center justify-center ring-2 ring-slate-100 font-bold text-lg">{{ m.meta.author|default:"?"|slice:":1"|upper }}</div>{% endif %}
+                    <div>
+                        <div class="font-bold text-slate-900">{{ m.meta.author|default:m.title }}</div>
+                        {% if m.meta.role_title %}<div class="text-sm theme-text-primary font-medium">{{ m.meta.role_title }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="text-sm text-slate-600 leading-relaxed flex-1 italic relative pl-4">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 theme-bg-primary rounded-full" style="opacity: 0.3;"></div>
+                    <span class="text-xl leading-none font-serif theme-text-primary opacity-40 absolute -left-2 -top-2">&ldquo;</span>
+                    {{ m.body }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── News & Events ── #}
+    {% if cms.events or cms.news or show_journey %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><span class="material-symbols-outlined theme-text-primary">event</span> Upcoming Events</h3>
+            <div class="space-y-4">
+                {% for e in cms.events %}
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex gap-4 hover:border-slate-300 transition-colors group">
+                    <div class="w-20 h-20 rounded-lg theme-bg-light theme-text-primary flex flex-col items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold uppercase">{{ e.meta.month|default:"—" }}</span>
+                        <span class="text-2xl font-bold leading-none">{{ e.meta.day|default:"" }}</span>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <h4 class="font-bold text-slate-900 mb-1 transition-colors">{{ e.title }}</h4>
+                        <p class="text-sm text-slate-500 line-clamp-2">{{ e.body }}</p>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center h-[180px]">
+                    <span class="material-symbols-outlined text-3xl text-slate-300 mb-2">event_busy</span>
+                    <p class="text-slate-500 font-medium">No upcoming events.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><span class="material-symbols-outlined theme-text-primary">newspaper</span> Latest News</h3>
+            <div class="space-y-4">
+                {% for n in cms.news %}
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex gap-4 hover:border-slate-300 transition-colors group">
+                    {% if n.file %}<img src="{{ n.file.url }}" class="w-20 h-20 rounded-lg object-cover flex-shrink-0" alt="">{% endif %}
+                    <div class="flex-1 flex flex-col justify-center">
+                        <h4 class="font-bold text-slate-900 mb-1 transition-colors">{{ n.title }}</h4>
+                        <p class="text-sm text-slate-500 line-clamp-2">{{ n.body }}</p>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center h-[180px]">
+                    <span class="material-symbols-outlined text-3xl text-slate-300 mb-2">inbox</span>
+                    <p class="text-slate-500 font-medium">No new updates right now.</p>
+                    <p class="text-sm text-slate-400 mt-1">Check back later for company news.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Featured Videos ── #}
+    {% if cms.videos %}
+    <div>
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><span class="material-symbols-outlined theme-text-primary">play_circle</span> Featured Videos</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for v in cms.videos %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="lp-video relative bg-slate-100" style="padding-bottom:56.25%;height:0;">
+                    {% if v.meta.video_url %}<iframe src="{{ v.meta.video_url }}" allowfullscreen></iframe>
+                    {% elif v.file %}<video controls src="{{ v.file.url }}"></video>
+                    {% else %}<span class="material-symbols-outlined text-slate-300 text-4xl" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">movie</span>{% endif %}
+                </div>
+                {% if v.title %}<div class="p-4"><p class="text-sm font-semibold text-slate-800 line-clamp-2">{{ v.title }}</p></div>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Gallery ── #}
+    {% if cms.gallery %}
+    <div>
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><span class="material-symbols-outlined theme-text-primary">photo_library</span> Gallery</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for g in cms.gallery %}{% if g.file %}<img src="{{ g.file.url }}" alt="{{ g.title }}" title="{{ g.title }}" class="w-full h-40 object-cover rounded-xl border border-slate-200 hover:scale-[1.02] transition-transform"/>{% endif %}{% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

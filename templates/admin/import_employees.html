@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Import Employees{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'admin_employees' %}" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0"><i class="bi bi-upload me-2"></i>Import Employees (CSV)</h4>
+</div>
+
+{% if done %}
+<div class="glass-card p-4 mb-4">
+    <h6 class="mb-3 text-success"><i class="bi bi-check-circle me-2"></i>Imported {{ created|length }} employee(s)</h6>
+    {% if created %}
+    <div class="alert alert-info small">These are the temporary passwords — share them securely, or have users use “Forgot password”. Each user must change it at first login.</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Name</th><th>Email</th><th>Temporary Password</th></tr></thead>
+            <tbody>
+                {% for c in created %}<tr><td>{{ c.name }}</td><td>{{ c.email }}</td><td><code>{{ c.password }}</code></td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if skipped %}
+    <h6 class="mt-4 mb-2 text-danger">Skipped {{ skipped|length }} row(s)</h6>
+    <ul class="small text-muted mb-0">
+        {% for line, email, reason in skipped %}<li>Row {{ line }} ({{ email }}): {{ reason }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <a href="{% url 'admin_employees' %}" class="btn btn-primary mt-3">Go to Employees</a>
+    <a href="{% url 'admin_import_employees' %}" class="btn btn-outline-secondary mt-3">Import another file</a>
+</div>
+{% else %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="glass-card p-4">
+            <h6 class="mb-3">Upload a CSV</h6>
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" name="file" class="form-control mb-3" accept=".csv" required>
+                <button class="btn btn-primary"><i class="bi bi-upload me-1"></i>Import</button>
+                <a href="{% url 'admin_import_employees' %}?template=1" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Download template</a>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="glass-card p-4">
+            <h6 class="mb-2">Columns</h6>
+            <p class="text-muted small mb-2">First row must be the header. Required: <strong>full_name</strong>, <strong>email</strong>. Dates as <code>YYYY-MM-DD</code>.</p>
+            <div class="d-flex flex-wrap gap-1">
+                {% for c in columns %}<span class="badge bg-light text-dark border">{{ c }}</span>{% endfor %}
+            </div>
+            <p class="text-muted small mt-3 mb-0">Duplicate emails are skipped. New departments/grades/locations are added to your option lists automatically. Each new employee gets a temporary password and starts at the beginning of onboarding.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

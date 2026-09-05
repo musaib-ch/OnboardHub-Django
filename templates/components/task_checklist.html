@@ -1,0 +1,138 @@
+{# Task checklist component - shows all stages and completion status #}
+{# Usage: {% include "components/task_checklist.html" with stages=stage_list employee=emp %} #}
+
+<div class="task-checklist mb-4">
+    <h6 class="mb-3">Onboarding Checklist</h6>
+    <div class="checklist-items">
+        {% for stage in stages %}
+        <div class="checklist-item" data-stage="{{ stage.stage_key }}">
+            <div class="checklist-status">
+                {% if emp.status == stage.stage_key or "completed" in emp.status %}
+                    {% if emp.status == "completed" or emp.status|slugify == stage.stage_key|slugify or "completed" in emp.status %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                        <i class="bi bi-hourglass-split text-primary"></i>
+                    {% endif %}
+                {% else %}
+                    <i class="bi bi-circle text-muted"></i>
+                {% endif %}
+            </div>
+            <div class="checklist-content">
+                <div class="checklist-title">{{ stage.label }}</div>
+                {% if emp.status == stage.stage_key and emp.stage_entered_at %}
+                <div class="checklist-meta">
+                    <small class="text-muted">
+                        {% if emp.is_stage_overdue %}
+                            <span class="badge bg-danger text-white">Overdue</span>
+                        {% elif emp.days_remaining_in_stage >= 0 %}
+                            Due in {{ emp.days_remaining_in_stage }} day{{ emp.days_remaining_in_stage|pluralize }}
+                        {% else %}
+                            Overdue
+                        {% endif %}
+                    </small>
+                </div>
+                {% elif emp.status|slugify == stage.stage_key|slugify %}
+                <div class="checklist-meta">
+                    <small class="text-muted">Completed</small>
+                </div>
+                {% elif emp.status == "completed" %}
+                <div class="checklist-meta">
+                    <small class="text-muted">Completed</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .task-checklist {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .task-checklist h6 {
+        color: #111827;
+        margin-bottom: 16px;
+    }
+
+    .checklist-items {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .checklist-item {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px;
+        background: white;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+    }
+
+    .checklist-item:hover {
+        border-color: #d1d5db;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .checklist-status {
+        flex-shrink: 0;
+        padding-top: 2px;
+    }
+
+    .checklist-status i {
+        font-size: 18px;
+    }
+
+    .checklist-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .checklist-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+
+    .checklist-meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .checklist-meta small {
+        font-size: 12px;
+    }
+
+    .checklist-meta .badge {
+        font-size: 10px;
+        padding: 3px 6px;
+    }
+
+    @media (max-width: 576px) {
+        .task-checklist {
+            padding: 12px;
+        }
+
+        .checklist-item {
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .checklist-title {
+            font-size: 13px;
+        }
+
+        .checklist-status i {
+            font-size: 16px;
+        }
+    }
+</style>

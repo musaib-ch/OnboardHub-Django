@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Training Assignments Studio{% endblock %}
+{% block content %}
+<style>
+    .studio-card {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: var(--radius-md, 12px);
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    }
+</style>
+
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-primary text-white px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-link-45deg me-1"></i> Assignment Rules Studio</span>
+            <span class="text-muted small">• {{ rules|length }} active rules</span>
+        </div>
+        <h1 class="h3 font-bold text-dark mb-0"><i class="bi bi-link-45deg me-2 text-primary"></i>Training Assignments Studio</h1>
+    </div>
+    <form method="POST" class="mb-0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="run_now">
+        <button class="btn btn-success btn-sm fw-semibold shadow-sm"><i class="bi bi-play-fill me-1"></i>Run Auto-Assign Engine Now</button>
+    </form>
+</div>
+
+<div class="row g-4 mb-5">
+    <!-- Left Column: Active Rules & Rule Creator (col-lg-7) -->
+    <div class="col-lg-7">
+        <div class="studio-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-diagram-3 me-1 text-primary"></i>Active Assignment Rules</h6>
+                <span class="badge bg-light text-dark border">{{ rules|length }} rules</span>
+            </div>
+
+            {% if rules %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Rule Name</th>
+                            <th>Learning Path</th>
+                            <th>Matches</th>
+                            <th>Due</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rules %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark">{{ r.name }}</div>
+                                {% if not r.active %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+                            </td>
+                            <td class="fw-semibold text-primary">{{ path_titles|dict_get:r.path_content_id|default:"—" }}</td>
+                            <td class="small text-muted">
+                                {% for k, v in r.match.items %}<span class="badge bg-light text-dark border">{{ k }}: {{ v }}</span>{% endfor %}
+                            </td>
+                            <td><span class="badge bg-info-subtle text-info fw-semibold">{% if r.due_days %}{{ r.due_days }}d{% else %}—{% endif %}</span></td>
+                            <td class="text-end">
+                                <form method="POST" class="mb-0">{% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_rule">
+                                    <input type="hidden" name="rule_id" value="{{ r.id }}">
+                                    <button class="btn btn-xs btn-outline-danger" title="Delete Rule"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-muted">
+                <i class="bi bi-robot fs-2 d-block mb-1 text-primary"></i>
+                <p class="mb-0 small">No rules created yet. Add an auto-assignment rule below.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="studio-card p-4">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i>Create Auto-Assign Rule</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_rule">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">Rule Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required placeholder="e.g. All New Engineers">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">Learning Path <span class="text-danger">*</span></label>
+                        <select name="path_content_id" class="form-select" required>
+                            <option value="">Select learning path...</option>
+                            {% for p in paths %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-dark">Target Department</label>
+                        <select name="department_id" class="form-select">
+                            <option value="">Any Department</option>
+                            {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Grade</label>
+                        <input type="text" name="grade" class="form-control" placeholder="Any">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-dark">Due (days)</label>
+                        <input type="number" name="due_days" min="0" class="form-control" value="30">
+                    </div>
+                </div>
+                <button class="btn btn-primary fw-semibold"><i class="bi bi-plus-lg me-1"></i>Add Auto-Assign Rule</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Manual Assignment Wizard (col-lg-5) -->
+    <div class="col-lg-5">
+        <div class="studio-card p-4">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-plus me-1 text-primary"></i>Direct Employee Assignment</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="manual_assign">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Select Employee <span class="text-danger">*</span></label>
+                    <select name="employee_id" class="form-select" required>
+                        <option value="">Choose employee...</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.full_name }}{% if emp.department %} — {{ emp.department.name }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Select Learning Path <span class="text-danger">*</span></label>
+                    <select name="path_content_id" class="form-select" required>
+                        <option value="">Choose learning path...</option>
+                        {% for p in paths %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-dark">Due In (Days)</label>
+                    <input type="number" name="due_days" min="0" class="form-control" value="30">
+                </div>
+
+                <button class="btn btn-primary w-100 fw-semibold">
+                    <i class="bi bi-send me-1"></i>Assign Learning Path
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

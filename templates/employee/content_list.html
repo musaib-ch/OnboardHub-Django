@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ cfg.label }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1><i class="bi {{ cfg.icon }} me-2"></i>{{ cfg.label }}</h1>
+        {% if cfg.completable %}<p class="text-muted mb-0">{{ done_count }} of {{ total }} {{ cfg.noun }}s completed.</p>
+        {% else %}<p class="text-muted mb-0">Browse {{ total }} {{ cfg.noun }}{{ total|pluralize }}.</p>{% endif %}
+    </div>
+    {% if cfg.completable and total %}
+    <div style="min-width:160px;"><div class="progress"><div class="progress-bar" style="width: {% widthratio done_count total 100 %}%"></div></div></div>
+    {% endif %}
+</div>
+
+{% if items %}
+{% for category, group in categories.items %}
+<div class="mb-4">
+    <h6 class="text-muted text-uppercase small mb-2" style="letter-spacing:.06em;">{{ category }}</h6>
+    <div class="row g-3">
+        {% for it in group %}
+        <div class="col-md-6 col-lg-4">
+            <div class="glass-card p-3 h-100 d-flex flex-column position-relative">
+                <a href="{% url 'content_read' it.id %}" class="text-decoration-none flex-grow-1">
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <span class="d-flex align-items-center justify-content-center rounded" style="width:38px;height:38px;background:rgba(var(--primary-rgb),.12);color:var(--primary);flex:0 0 auto;"><i class="bi {{ cfg.icon }}"></i></span>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold text-dark">{{ it.title }}</div>
+                            {% if it.kind == 'orientation' and it.meta.presenter_name %}
+                            <small class="text-primary d-block fw-medium"><i class="bi bi-person-fill me-1"></i>Host: {{ it.meta.presenter_name }}</small>
+                            {% endif %}
+                        </div>
+                        {% if it.id in done %}<span class="badge bg-success" title="Completed"><i class="bi bi-check-lg"></i></span>{% endif %}
+                    </div>
+                    {% if it.kind == 'orientation' %}
+                    <div class="bg-light p-2 rounded mb-2 border small">
+                        {% if it.meta.event_datetime %}<div class="text-dark fw-medium mb-1"><i class="bi bi-calendar-event text-primary me-1"></i>{{ it.meta.event_datetime }}</div>{% endif %}
+                        {% if it.meta.location %}<div class="text-muted"><i class="bi bi-geo-alt text-primary me-1"></i>{{ it.meta.location }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if it.body %}<p class="text-muted small mb-2" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ it.body|striptags|truncatechars:120 }}</p>{% endif %}
+                    {% if it.meta.modules %}
+                    <div class="small text-primary mb-2 fw-medium"><i class="bi bi-journal-text me-1"></i>{{ it.meta.modules|length }} Modules</div>
+                    {% endif %}
+                </a>
+                <div class="pt-2 border-top mt-auto d-flex align-items-center justify-content-between gap-2">
+                    {% if it.kind == 'orientation' %}
+                    <a href="{% url 'orientation_ics_export' it.id %}" class="btn btn-xs btn-outline-secondary" title="Add to Calendar"><i class="bi bi-calendar-plus me-1"></i>.ics</a>
+                    {% if it.meta.meeting_url %}
+                    <a href="{{ it.meta.meeting_url }}" target="_blank" class="btn btn-xs btn-primary fw-semibold"><i class="bi bi-camera-video me-1"></i>Join Live</a>
+                    {% endif %}
+                    {% else %}
+                    <a href="{% url 'content_read' it.id %}" class="btn btn-xs btn-outline-primary w-100 fw-medium">View {{ cfg.noun|title }} <i class="bi bi-arrow-right ms-1"></i></a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state glass-card"><i class="bi {{ cfg.icon }}"></i><h3>Nothing here yet</h3><p>No {{ cfg.noun }}s have been published.</p></div>
+{% endif %}
+{% endblock %}

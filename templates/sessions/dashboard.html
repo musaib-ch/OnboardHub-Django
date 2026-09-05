@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Live Sessions{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <h1><i class="bi bi-camera-video me-2"></i>Live Sessions</h1>
+            <p class="text-muted mb-0">Orientation, reviews, and training</p>
+        </div>
+        {% if user.role != 'employee' %}
+            <a href="{% url 'create_session' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Create Session
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-1">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label small fw-500">Session Type</label>
+            <select class="form-control form-control-sm" onchange="filterSessions('type', this.value)">
+                <option value="">All Types</option>
+                <option value="orientation" {% if current_type == 'orientation' %}selected{% endif %}>Orientation</option>
+                <option value="30_day_review" {% if current_type == '30_day_review' %}selected{% endif %}>30-Day Review</option>
+                <option value="60_day_review" {% if current_type == '60_day_review' %}selected{% endif %}>60-Day Review</option>
+                <option value="90_day_review" {% if current_type == '90_day_review' %}selected{% endif %}>90-Day Review</option>
+                <option value="training" {% if current_type == 'training' %}selected{% endif %}>Training</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small fw-500">Status</label>
+            <select class="form-control form-control-sm" onchange="filterSessions('status', this.value)">
+                <option value="">All Statuses</option>
+                <option value="approved" {% if current_status == 'approved' %}selected{% endif %}>Approved</option>
+                <option value="scheduled" {% if current_status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Approvals -->
+{% if pending_approvals %}
+    <div class="alert alert-warning mb-4 animate-fadeIn delay-2">
+        <i class="bi bi-exclamation-circle me-2"></i>
+        <strong>{{ pending_approvals|length }} attendee registration(s)</strong> waiting for approval
+    </div>
+{% endif %}
+
+<!-- Sessions Grid -->
+<div class="row g-4">
+    {% for session in sessions %}
+        <div class="col-lg-6 animate-fadeIn">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="mb-2">{{ session.title }}</h5>
+                        <div class="mb-2">
+                            <span class="badge bg-info">{{ session.meta.session_type|upper }}</span>
+                            {% if session.meta.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif session.meta.status == 'pending_approval' %}
+                                <span class="badge bg-warning">Pending</span>
+                            {% elif session.meta.status == 'scheduled' %}
+                                <span class="badge bg-primary">Scheduled</span>
+                            {% elif session.meta.status == 'completed' %}
+                                <span class="badge bg-secondary">Completed</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if session.meta.zoom.join_url %}
+                        <a href="{{ session.meta.zoom.join_url }}" target="_blank" class="btn btn-sm btn-success">
+                            <i class="bi bi-camera-video me-1"></i>Join
+                        </a>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3 small text-muted">
+                    <i class="bi bi-calendar me-1"></i>{{ session.meta.scheduled_date|date:"M d, Y H:i" }}<br>
+                    <i class="bi bi-clock me-1"></i>{{ session.meta.duration_minutes }} min
+                </div>
+
+                {% if session.body %}
+                    <p class="small mb-3">{{ session.body|truncatewords:15 }}</p>
+                {% endif %}
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-primary flex-fill">
+                        <i class="bi bi-eye me-1"></i>Details
+                    </a>
+                    {% if session.id not in my_sessions and user.role == 'employee' and session.meta.status in 'approved,scheduled' %}
+                        <form method="post" action="{% url 'register_session' session.id %}" class="flex-fill">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success w-100">
+                                <i class="bi bi-check-circle me-1"></i>Register
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12 text-center text-muted py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.5;"></i>
+            <p class="mt-3">No sessions found</p>
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+function filterSessions(type, value) {
+    const params = new URLSearchParams();
+    const typeSelect = document.querySelector('select[onchange*="type"]');
+    const statusSelect = document.querySelector('select[onchange*="status"]');
+
+    if (typeSelect.value) params.append('type', typeSelect.value);
+    if (statusSelect.value) params.append('status', statusSelect.value);
+
+    window.location = `{% url 'sessions_dashboard' %}` + (params.toString() ? '?' + params : '');
+}
+</script>
+{% endblock %}

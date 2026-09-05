@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ stage.label }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex align-items-center">
+        <a href="{% url 'admin_stages_list' %}" class="btn btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Stage</h1>
+            <p class="text-muted mb-0">{{ stage.stage_key }}</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" class="glass-card p-4 animate-fadeIn">
+    {% csrf_token %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Stage Label</label>
+            <input type="text" name="label" class="form-control" value="{{ stage.label }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Default Due Days</label>
+            <input type="number" name="default_due_date_days" class="form-control" value="{{ stage.default_due_date_days }}" min="1" required>
+        </div>
+        <div class="col-12">
+            <label class="form-label fw-medium">Description</label>
+            <textarea name="description" class="form-control" rows="3">{{ stage.description }}</textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Stage Type</label>
+            <select name="stage_type" class="form-select">
+                <option value="mandatory" {% if stage.stage_type == 'mandatory' %}selected{% endif %}>Mandatory</option>
+                <option value="optional" {% if stage.stage_type == 'optional' %}selected{% endif %}>Optional</option>
+                <option value="conditional" {% if stage.stage_type == 'conditional' %}selected{% endif %}>Conditional</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-medium">&nbsp;</label>
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="is_mandatory" id="isMandatory" {% if stage.is_mandatory %}checked{% endif %}>
+                <label class="form-check-label" for="isMandatory">Mandatory Stage</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Save Changes
+        </button>
+        <a href="{% url 'admin_stages_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

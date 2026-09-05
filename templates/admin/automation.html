@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Automation &amp; Reminders{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-gear-wide-connected me-2"></i>Automation &amp; Reminders</h1>
+    <p class="text-muted mb-0">Send notifications automatically when an employee reaches a stage, or remind those who stall. Use <code>{% templatetag openbrace %}full_name{% templatetag closebrace %}</code> and <code>{% templatetag openbrace %}stage{% templatetag closebrace %}</code> in messages.</p>
+</div>
+
+<div class="row g-4">
+    {# ── Automation rules ── #}
+    <div class="col-lg-6">
+        <div class="glass-card h-100">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#au_auto" aria-expanded="false">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Automation Rules</h5>
+                <i class="bi bi-chevron-down collapse-chevron"></i>
+            </div>
+            <div class="collapse" id="au_auto" data-persist><div class="card-body">
+                <form method="POST" class="border-bottom pb-3 mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add"><input type="hidden" name="kind" value="automation">
+                    <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="Rule name (e.g. Welcome to onboarding)" required>
+                    <label class="form-label small mb-1">When status becomes</label>
+                    <select name="trigger" class="form-select form-select-sm mb-2">{% for s in statuses %}<option value="{{ s }}">{{ s|humanize_status }}</option>{% endfor %}</select>
+                    <label class="form-label small mb-1">Then</label>
+                    <select name="rule_action" class="form-select form-select-sm mb-2">{% for v, l in actions %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+                    <textarea name="message" class="form-control form-control-sm mb-2" rows="2" placeholder="Message, e.g. Hi {% templatetag openbrace %}full_name{% templatetag closebrace %}, you've reached {% templatetag openbrace %}stage{% templatetag closebrace %}."></textarea>
+                    <button class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Add Rule</button>
+                </form>
+                <div class="d-flex flex-column gap-2">
+                    {% for r in automation_rules %}
+                    <div class="border rounded p-2 d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-medium small">{{ r.name }}</div>
+                            <div class="text-muted" style="font-size:.75rem;">When <strong>{{ r.trigger|humanize_status }}</strong> → {{ r.action|humanize_status }}</div>
+                            {% if r.message %}<div class="text-muted fst-italic" style="font-size:.72rem;">{{ r.message }}</div>{% endif %}
+                        </div>
+                        <form method="POST" class="mb-0">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="automation"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                    </div>
+                    {% empty %}<div class="text-muted small">No automation rules yet.</div>{% endfor %}
+                </div>
+            </div></div>
+        </div>
+    </div>
+
+    {# ── Reminder rules ── #}
+    <div class="col-lg-6">
+        <div class="glass-card h-100">
+            <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#au_rem" aria-expanded="false">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0"><i class="bi bi-alarm me-2"></i>Reminder Rules</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <form method="POST" class="mb-0" onclick="event.stopPropagation()">{% csrf_token %}<input type="hidden" name="action" value="run_reminders"><button class="btn btn-xs btn-outline-secondary" data-confirm="Run all reminder rules now?">Run now</button></form>
+            </div>
+            <div class="collapse" id="au_rem" data-persist><div class="card-body">
+                <form method="POST" class="border-bottom pb-3 mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add"><input type="hidden" name="kind" value="reminder">
+                    <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="Reminder name" required>
+                    <div class="row g-2 mb-2">
+                        <div class="col-8"><label class="form-label small mb-1">If stuck in status</label>
+                            <select name="status" class="form-select form-select-sm">{% for s in statuses %}<option value="{{ s }}">{{ s|humanize_status }}</option>{% endfor %}</select></div>
+                        <div class="col-4"><label class="form-label small mb-1">for ≥ days</label><input type="number" name="days" class="form-control form-control-sm" value="3" min="0"></div>
+                    </div>
+                    <textarea name="message" class="form-control form-control-sm mb-2" rows="2" placeholder="Reminder message"></textarea>
+                    <button class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Add Reminder</button>
+                </form>
+                <div class="d-flex flex-column gap-2">
+                    {% for r in reminder_rules %}
+                    <div class="border rounded p-2 d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-medium small">{{ r.name }}</div>
+                            <div class="text-muted" style="font-size:.75rem;">Stuck in <strong>{{ r.status|humanize_status }}</strong> ≥ {{ r.days }} day(s)</div>
+                            {% if r.message %}<div class="text-muted fst-italic" style="font-size:.72rem;">{{ r.message }}</div>{% endif %}
+                        </div>
+                        <form method="POST" class="mb-0">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="reminder"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                    </div>
+                    {% empty %}<div class="text-muted small">No reminder rules yet.</div>{% endfor %}
+                </div>
+                <p class="text-muted small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Reminders run on a daily schedule (<code>manage.py run_reminders</code>) — or click “Run now”.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

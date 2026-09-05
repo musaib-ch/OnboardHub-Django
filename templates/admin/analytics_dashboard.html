@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <h1><i class="bi bi-graph-up me-2"></i>Onboarding Analytics</h1>
+        <p class="text-muted mb-0">Funnel analysis, stage completion, and performance trends.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'admin_analytics_training' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-mortarboard me-1"></i>Training
+        </a>
+        <a href="{% url 'admin_analytics_sessions' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-people me-1"></i>Sessions
+        </a>
+        <a href="{% url 'admin_analytics_export' 'onboarding' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Export CSV
+        </a>
+    </div>
+</div>
+
+<!-- SUMMARY STATS -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3 col-6 animate-fadeIn delay-1">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-people"></i></div>
+            <div class="stat-info">
+                <h3>{{ summary.total }}</h3>
+                <p>Total Employees</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 animate-fadeIn delay-2">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-info">
+                <h3>{{ summary.completed }}</h3>
+                <p>Completed ({{ summary.completion_rate }}%)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 animate-fadeIn delay-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#d97706"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-info">
+                <h3>{{ summary.in_progress }}</h3>
+                <p>In Progress</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 animate-fadeIn delay-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-circle"></i></div>
+            <div class="stat-info">
+                <h3>{{ summary.overdue }}</h3>
+                <p>Overdue</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CHARTS ROW 1: FUNNEL & COMPLETION RATES -->
+<div class="row g-4 mb-4">
+    <!-- Onboarding Funnel -->
+    <div class="col-lg-6 animate-fadeIn delay-1">
+        <div class="glass-card p-4">
+            <h5 class="mb-4"><i class="bi bi-funnel me-2"></i>Onboarding Funnel</h5>
+            <canvas id="funnelChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- Stage Completion Rates -->
+    <div class="col-lg-6 animate-fadeIn delay-2">
+        <div class="glass-card p-4">
+            <h5 class="mb-4"><i class="bi bi-percent me-2"></i>Stage Completion Rates</h5>
+            <canvas id="completionChart" height="80"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- CHARTS ROW 2: OVERDUE & DEPARTMENT -->
+<div class="row g-4 mb-4">
+    <!-- Overdue by Stage -->
+    <div class="col-lg-6 animate-fadeIn delay-3">
+        <div class="glass-card p-4">
+            <h5 class="mb-4"><i class="bi bi-exclamation-triangle me-2"></i>Overdue & At Risk</h5>
+            <canvas id="overdueChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- Completion by Department -->
+    <div class="col-lg-6 animate-fadeIn delay-4">
+        <div class="glass-card p-4">
+            <h5 class="mb-4"><i class="bi bi-diagram-3 me-2"></i>Completion by Department</h5>
+            <canvas id="departmentChart" height="80"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- DETAILED TABLES -->
+<div class="row g-4 mb-4">
+    <!-- Time to Completion -->
+    <div class="col-lg-6 animate-fadeIn delay-5">
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-clock-history me-2"></i>Avg Time per Stage</h6>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Stage</th><th>Avg Days</th><th>Completed</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for stage_key, metrics in time_metrics.items %}
+                        <tr>
+                            <td class="fw-medium">{{ metrics.label }}</td>
+                            <td><span class="badge bg-info">{{ metrics.avg_days }}d</span></td>
+                            <td class="text-muted small">{{ metrics.count }} employees</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">No completion data yet</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Details -->
+    <div class="col-lg-6 animate-fadeIn delay-6">
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-calendar-x me-2"></i>Overdue by Stage</h6>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Stage</th><th class="text-center">Overdue</th><th class="text-center">At Risk</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for stage_key, metrics in overdue.items %}
+                        <tr>
+                            <td class="fw-medium">{{ metrics.label }}</td>
+                            <td class="text-center">
+                                {% if metrics.overdue > 0 %}
+                                    <span class="badge bg-danger">{{ metrics.overdue }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if metrics.at_risk > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ metrics.at_risk }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">No data</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DEPARTMENT BREAKDOWN TABLE -->
+<div class="glass-card p-4 mb-4 animate-fadeIn delay-7">
+    <h6 class="mb-3"><i class="bi bi-building me-2"></i>Department Breakdown</h6>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>Department</th><th>Total</th><th>Completed</th><th>Completion %</th></tr>
+            </thead>
+            <tbody>
+                {% for dept in departments %}
+                <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_employees' %}?q={{ dept.department|urlencode }}'">
+                    <td class="fw-medium">{{ dept.department }}</td>
+                    <td>{{ dept.total }}</td>
+                    <td>{{ dept.completed }}</td>
+                    <td>
+                        <div class="progress" style="height:20px;width:150px;">
+                            <div class="progress-bar" style="width:{{ dept.completion_rate }}%">
+                                <small>{{ dept.completion_rate }}%</small>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">No department data</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- PLAN ANALYTICS -->
+{% if plan_analytics %}
+<div id="plan-analytics" class="glass-card p-4 mb-4 animate-fadeIn delay-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-signpost-2 me-2"></i>Onboarding Success Plans</h5>
+        <div class="small text-muted">Scope: {{ plan_analytics.scope|default:"team"|title }}</div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-md-4">
+            <h6 class="mb-3">Overview</h6>
+            <div class="d-flex justify-content-between mb-2 small"><span>Completed plans</span><strong>{{ plan_analytics.completed_plans }}</strong></div>
+            <div class="d-flex justify-content-between mb-2 small"><span>Completed activities</span><strong>{{ plan_analytics.completed_activities }}</strong></div>
+            <div class="d-flex justify-content-between mb-2 small"><span>Total activities</span><strong>{{ plan_analytics.total_activities }}</strong></div>
+            <div class="d-flex justify-content-between mb-2 small text-danger"><span>Overdue</span><strong>{{ plan_analytics.overdue_activities }}</strong></div>
+            <div class="d-flex justify-content-between mb-2 small"><span>Upcoming</span><strong>{{ plan_analytics.upcoming_activities }}</strong></div>
+        </div>
+        <div class="col-md-4">
+            <h6 class="mb-3">Template Usage</h6>
+            {% for item in plan_analytics.template_usage %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small">{{ item.label }}</span>
+                <span class="badge bg-light text-dark">{{ item.count }}{% if item.share %} · {{ item.share }}%{% endif %}</span>
+            </div>
+            {% empty %}
+            <div class="text-muted small">No template usage yet.</div>
+            {% endfor %}
+        </div>
+        <div class="col-md-4">
+            <h6 class="mb-3">Current Phase Mix</h6>
+            {% for item in plan_analytics.phase_distribution %}
+            <div class="mb-3">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span>{{ item.label }}</span>
+                    <span>{{ item.count }}</span>
+                </div>
+                <div class="progress" style="height: 6px; background: rgba(15, 23, 42, 0.08);">
+                    <div class="progress-bar" style="width: {{ item.share|default:10 }}%; min-width: 12px;"></div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-muted small">No active phase data yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Chart.js Library & Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+const chartDefaults = {
+    font: { family: "system-ui, -apple-system, sans-serif", size: 12 },
+    color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+};
+
+// Onboarding Funnel (Bar chart)
+new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ funnel_labels|safe }},
+        datasets: [{
+            label: 'Employee Count',
+            data: {{ funnel_counts|safe }},
+            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } }
+    }
+});
+
+// Stage Completion Rates (Line chart)
+new Chart(document.getElementById('completionChart'), {
+    type: 'line',
+    data: {
+        labels: {{ completion_labels|safe }},
+        datasets: [{
+            label: 'Completion %',
+            data: {{ completion_rates|safe }},
+            borderColor: 'rgba(16, 185, 129, 1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+            pointRadius: 5,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100 } }
+    }
+});
+
+// Overdue by Stage (Stacked bar)
+new Chart(document.getElementById('overdueChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ overdue_labels|safe }},
+        datasets: [
+            {
+                label: 'Overdue',
+                data: {{ overdue_counts|safe }},
+                backgroundColor: 'rgba(220, 38, 38, 0.7)',
+            },
+            {
+                label: 'At Risk (3d)',
+                data: {{ at_risk_counts|safe }},
+                backgroundColor: 'rgba(245, 158, 11, 0.7)',
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { x: { stacked: false }, y: { stacked: false, beginAtZero: true } }
+    }
+});
+
+// Department Completion (Horizontal bar)
+new Chart(document.getElementById('departmentChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ dept_labels|safe }},
+        datasets: [{
+            label: 'Completion %',
+            data: {{ dept_rates|safe }},
+            backgroundColor: 'rgba(139, 92, 246, 0.7)',
+            borderColor: 'rgba(139, 92, 246, 1)',
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: 0, max: 100 } }
+    }
+});
+</script>
+
+<style>
+    .stat-card { border-radius: 8px; }
+    .progress { border-radius: 4px; }
+    .progress-bar small { color: white; font-weight: 600; }
+    canvas { max-height: 300px; }
+</style>
+{% endblock %}

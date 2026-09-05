@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Edit {{ edit_user.full_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .edit-user-page { max-width:1440px; margin:0 auto; }
+    .edit-user-page .page-header { border:1px solid rgba(var(--primary-rgb),.12); background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(var(--primary-rgb),.05)); }
+    .user-edit-form .glass-card { overflow:hidden; border:1px solid rgba(var(--primary-rgb),.12); background:rgba(255,255,255,.86); box-shadow:0 14px 34px rgba(var(--primary-rgb),.08); }
+    .user-edit-form .card-header { display:flex; align-items:center; padding:18px 24px; border-bottom:1px solid rgba(var(--primary-rgb),.10); background:rgba(var(--primary-rgb),.045); }
+    .user-edit-form .card-body { padding:26px 24px; }
+    .user-edit-form .form-label { margin-bottom:7px; font-size:.78rem; font-weight:700!important; color:var(--text-secondary); letter-spacing:.025em; text-transform:uppercase; }
+    .user-edit-form .form-control,.user-edit-form .form-select { min-height:46px; border-color:rgba(var(--primary-rgb),.16); background:rgba(255,255,255,.78); border-radius:10px; }
+    .user-edit-form .form-control:focus,.user-edit-form .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 .2rem rgba(var(--primary-rgb),.13); }
+    .edit-preferences { margin-top:24px!important; padding-top:20px; border-top:1px solid rgba(var(--primary-rgb),.10); }
+    .edit-preferences .form-switch { padding:14px 14px 14px 42px; border:1px solid rgba(var(--primary-rgb),.10); border-radius:12px; background:rgba(var(--primary-rgb),.035); }
+    .user-edit-form .card-footer { padding:18px 24px; border-top:1px solid rgba(var(--primary-rgb),.10); background:rgba(255,255,255,.62); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="edit-user-page">
+<div class="page-header animate-fadeIn">
+    <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary me-3 js-back-link"><i class="bi bi-arrow-left"></i></a>
+            <div>
+                <h1 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit User</h1>
+                <p class="text-muted mb-0">{{ edit_user.email }}</p>
+            </div>
+        </div>
+        <div>
+            <form method="post" action="{% url 'admin_reset_user_password' edit_user.id %}" onsubmit="return confirm('Generate a new temporary password for this user and send them an email?');" class="mb-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning fw-semibold shadow-sm">
+                    <i class="bi bi-shield-lock me-1"></i> Reset Password
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<form method="POST" class="user-edit-form">
+    {% csrf_token %}
+    <div class="glass-card mb-4">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-person me-2"></i>Basic Information</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Full Name</label>
+                    <input type="text" name="full_name" class="form-control" value="{{ edit_user.full_name }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ edit_user.email }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Role</label>
+                    <select name="role" id="roleSelect" class="form-select" onchange="updateUI()">
+                        {% for value, label, base, scope_type in roles %}<option value="{{ value }}" data-base="{{ base }}" data-scope-type="{{ scope_type|default:'' }}" {% if value == edit_user.role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4" id="statusDiv">
+                    <label class="form-label fw-medium">Status</label>
+                    <select name="status" class="form-select">
+                        {% for s in statuses %}<option value="{{ s }}" {% if s == edit_user.status %}selected{% endif %}>{{ s|humanize_status }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Department</label>
+                    <select name="department" class="form-select">
+                        <option value="">-- None --</option>
+                        {% for d in org.department %}<option value="{{ d.id }}" {% if edit_user.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4" id="empTypeDiv">
+                    <label class="form-label fw-medium">Employee Type</label>
+                    <select name="employee_type" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.employee_type %}<option value="{{ o.name }}" {% if o.name == edit_user.employee_type %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Phone</label>
+                    <input type="text" name="phone_number" class="form-control" value="{{ edit_user.phone_number|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Date of Birth</label>
+                    <input type="date" name="date_of_birth" class="form-control" value="{{ edit_user.date_of_birth|date:'Y-m-d' }}">
+                    <small class="text-muted">Drives age-based medical tests (40+).</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Gender</label>
+                    <select name="gender" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for value, label in genders %}<option value="{{ value }}" {% if value == edit_user.gender %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Grade</label>
+                    <select name="grade" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.grade %}<option value="{{ o.name }}" {% if o.name == edit_user.grade %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Location</label>
+                    <select name="location_code" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.location %}<option value="{{ o.name }}" {% if o.name == edit_user.location_code %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-medium">Payroll</label>
+                    <select name="payroll" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for o in org.payroll %}<option value="{{ o.name }}" {% if o.name == edit_user.payroll %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-3 edit-preferences">
+                <div class="col-12" id="quizAccessDiv" style="display:none">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="quiz_access_only" id="quizAccessOnly" {% if edit_user.quiz_access_only %}checked{% endif %}>
+                        <label class="form-check-label fw-medium" for="quizAccessOnly"><i class="bi bi-question-circle me-2"></i>Quiz Access Only</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enable_email_notifications" id="een" {% if edit_user.enable_email_notifications %}checked{% endif %}>
+                        <label class="form-check-label fw-medium" for="een">Enable Email Notifications</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enable_in_app_notifications" id="ein" {% if edit_user.enable_in_app_notifications %}checked{% endif %}>
+                        <label class="form-check-label fw-medium" for="ein">Enable In-App Notifications</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4" id="hrbpScopeDiv" style="display:none">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Department Assignments (HRBP)</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">This role will only see and manage employees in the selected departments.</p>
+            <div class="row g-2">
+                {% for d in org.department %}
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="scope_departments" value="{{ d.id }}" id="sd{{ d.id }}" {% if d.id in edit_user.scope.departments %}checked{% endif %}><label class="form-check-label" for="sd{{ d.id }}">{{ d.name }}</label></div></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4" id="medScopeDiv" style="display:none">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location Assignments (Medical Approver)</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">This role will only see/review employees at the selected locations.</p>
+            <div class="row g-2">
+                {% for o in org.location %}
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="scope_locations" value="{{ o.name }}" id="sl{{ forloop.counter }}" {% if o.name in edit_user.scope.locations %}checked{% endif %}><label class="form-check-label" for="sl{{ forloop.counter }}">{{ o.name }}</label></div></div>
+                {% empty %}<div class="col-12 text-muted small">No locations configured — add them in Organization Setup.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Permissions</h5>
+            <span class="small text-muted">Showing this user's effective permissions. Changing the role re-applies that role's defaults.</span>
+        </div>
+        <div class="card-body">
+            {% include "components/permission_matrix.html" %}
+        </div>
+        <div class="card-footer bg-transparent">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save Changes</button>
+            <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary js-back-link">Cancel</a>
+        </div>
+    </div>
+</form>
+</div>
+{{ role_perms_map|json_script:"rolePerms" }}
+
+
+<script>
+    (function() {
+        function getQueryParam(name) { const params = new URLSearchParams(window.location.search); return params.get(name); }
+        const next = getQueryParam('next');
+        if (next) {
+            document.querySelectorAll('.js-back-link').forEach(a => a.setAttribute('href', next));
+        }
+    })();
+
+    var ROLE_PERMS = JSON.parse(document.getElementById('rolePerms').textContent);
+    function applyRolePerms() {
+        var role = document.getElementById('roleSelect').value;
+        var perms = ROLE_PERMS[role] || [];
+        document.querySelectorAll('.perm-check').forEach(function (cb) {
+            cb.checked = perms.indexOf(cb.value) >= 0;
+        });
+    }
+    function updateUI() {
+        var opt = document.getElementById('roleSelect').selectedOptions[0];
+        var base = opt ? opt.dataset.base : '';
+        var scope = opt ? opt.dataset.scopeType : '';
+        document.getElementById('empTypeDiv').style.display = (base === 'employee') ? 'block' : 'none';
+        document.getElementById('statusDiv').style.display = (base === 'employee') ? 'block' : 'none';
+        document.getElementById('quizAccessDiv').style.display = (base === 'employee') ? 'block' : 'none';
+        document.getElementById('hrbpScopeDiv').style.display = (scope === 'department') ? 'block' : 'none';
+        document.getElementById('medScopeDiv').style.display = (scope === 'location') ? 'block' : 'none';
+    }
+    updateUI();
+    // Keep the user's existing (effective) permissions on load; only reset to
+    // role defaults when the admin actually changes the role.
+    document.getElementById('roleSelect').addEventListener('change', function () {
+        updateUI(); applyRolePerms();
+    });
+</script>
+{% endblock %}

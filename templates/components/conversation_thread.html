@@ -1,0 +1,33 @@
+{# Renders a ReviewMessage thread. Expects: thread (queryset), user (request.user). #}
+{% if thread %}
+<div class="d-flex flex-column gap-2 mb-3" id="convoScrollContainer" style="max-height: 300px; overflow-y: auto; padding-right: 5px;">
+    {% for m in thread %}
+    <div class="d-flex {% if m.author_id == user.id %}justify-content-end{% endif %}">
+        <div class="p-2 px-3 rounded {% if m.author_id == user.id %}text-white{% else %}bg-light border{% endif %}"
+             style="max-width:80%;{% if m.author_id == user.id %}background:var(--primary);{% endif %}">
+            <div class="small fw-medium mb-1">
+                {% if m.author_id == user.id %}You{% else %}{{ m.author.full_name|default:"Reviewer" }}{% endif %}
+                {% if m.stage %}
+                <span class="{% if m.author_id == user.id %}text-white-50{% else %}text-muted{% endif %} small">({{ m.stage|title }})</span>
+                {% endif %}
+                {% if m.kind == 'info_request' %}<span class="badge bg-info text-dark ms-1">Info Request</span>
+                {% elif m.kind == 'changes' %}<span class="badge bg-warning text-dark ms-1">Changes Requested</span>
+                {% elif m.kind == 'rejection' %}<span class="badge bg-danger ms-1">Rejection</span>{% endif %}
+            </div>
+            <div>{{ m.message|linebreaksbr }}</div>
+            <div class="small {% if m.author_id == user.id %}text-white-50{% else %}text-muted{% endif %} mt-1">{{ m.created_at|date:"d M Y H:i" }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<script>
+    (function() {
+        var container = document.getElementById('convoScrollContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    })();
+</script>
+{% else %}
+<p class="text-muted small mb-0">No messages yet.</p>
+{% endif %}

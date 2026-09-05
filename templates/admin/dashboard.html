@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+    <p class="text-muted mb-0">Overview of onboarding activity.</p>
+</div>
+
+<!-- MEDICAL APPROVER: Medical tiles and review queue only -->
+{% if is_medical_approver %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4 col-12 animate-fadeIn delay-1">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-heart-pulse"></i></div>
+            <div class="stat-info">
+                <h3>{{ medical_review_count }}</h3>
+                <p>Medical Pending Review</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8 col-12 d-flex align-items-center justify-content-end">
+        <a href="{% url 'admin_medical_review' %}" class="btn btn-outline-primary">Open Medical Review</a>
+    </div>
+</div>
+
+{% if dashboard_review_queue %}
+<div class="glass-card p-3 mb-4" style="border-left:4px solid var(--warning);">
+    <h6 class="mb-3"><i class="bi bi-clipboard-check me-2"></i>{{ dashboard_review_title }} ({{ dashboard_review_queue|length }})</h6>
+    <div class="list-group list-group-flush">
+        {% for e in dashboard_review_queue %}
+        <a href="{% url 'admin_medical_review' %}?user_id={{ e.id }}&amp;has_submissions=1" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0 bg-transparent">
+            <span class="fw-medium">{{ e.full_name }} <span class="text-muted small">({{ e.email }})</span></span>
+            <span class="badge badge-status-{{ e.status }}">{{ e.status|humanize_status }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- SUPER ADMIN / ADMIN: People tiles -->
+{% elif show_people_tiles %}
+<div class="dashboard-tile-grid mb-3">
+    <div class="dashboard-tile animate-fadeIn delay-1">
+        <div class="stat-card cursor-pointer" onclick="filterTable('status', 'all')" style="opacity: 0.8;" title="Click to filter table">
+            <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-people"></i></div>
+            <div class="stat-info"><h3>{{ stats.total }}</h3><p>Total Employees</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile animate-fadeIn delay-2">
+        <div class="stat-card cursor-pointer" onclick="filterTable('status', 'in_progress')" style="opacity: 0.8;" title="Click to filter table">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#d97706"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-info"><h3>{{ stats.in_progress }}</h3><p>In Progress</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile animate-fadeIn delay-3">
+        <div class="stat-card cursor-pointer" onclick="filterTable('status', 'completed')" style="opacity: 0.8;" title="Click to filter table">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-info"><h3>{{ stats.completed }}</h3><p>Completed</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile animate-fadeIn delay-4">
+        <div class="stat-card cursor-pointer" onclick="filterTable('status', 'on_hold')" style="opacity: 0.8;" title="Click to filter table">
+            <div class="stat-icon" style="background:rgba(108,117,125,0.15);color:#6c757d"><i class="bi bi-pause-circle"></i></div>
+            <div class="stat-info"><h3>{{ stats.on_hold }}</h3><p>On Hold</p></div>
+        </div>
+    </div>
+    {% if stats.overdue %}
+    <div class="dashboard-tile animate-fadeIn delay-5">
+        <div class="stat-card cursor-pointer" style="opacity: 0.8; border-left:4px solid #dc2626;" title="Employees with overdue stage deadlines">
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-circle"></i></div>
+            <div class="stat-info"><h3>{{ stats.overdue }}</h3><p>Overdue Stages</p></div>
+        </div>
+    </div>
+    {% endif %}
+    {% if stats.joining_soon %}
+    <div class="dashboard-tile animate-fadeIn {% if stats.overdue %}delay-6{% else %}delay-5{% endif %}">
+        <div class="stat-card cursor-pointer" onclick="filterTable('joining_soon', 'true')" style="opacity: 0.8;" title="Click to filter table">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#2563eb"><i class="bi bi-calendar-event"></i></div>
+            <div class="stat-info"><h3>{{ stats.joining_soon }}</h3><p>Joining in 10 Days</p></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+
+<!-- SUPER ADMIN / ADMIN: Learning tiles -->
+{% if show_learning_tiles %}
+<div class="dashboard-tile-grid mb-3">
+    <div class="dashboard-tile">
+        <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_learning_paths' %}'" style="opacity: 0.8;" title="Click to view learning paths">
+            <div class="stat-icon" style="background:rgba(var(--primary-rgb),0.12);color:var(--primary)"><i class="bi bi-signpost-split"></i></div>
+            <div class="stat-info"><h3>{{ learning_stats.paths }}</h3><p>Learning Paths</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile">
+        <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_training_assignments' %}'" style="opacity: 0.8;" title="Click to view enrollments">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#2563eb"><i class="bi bi-mortarboard"></i></div>
+            <div class="stat-info"><h3>{{ learning_stats.active }}</h3><p>Active Enrollments</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile">
+        <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_learning_paths' %}'" style="opacity: 0.8;" title="Click to view completed">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#059669"><i class="bi bi-award"></i></div>
+            <div class="stat-info"><h3>{{ learning_stats.completed }}</h3><p>Completed</p></div>
+        </div>
+    </div>
+    <div class="dashboard-tile">
+        <div class="stat-card cursor-pointer" onclick="window.location='{% url 'admin_training_assignments' %}'" style="opacity: 0.8;" title="Click to view overdue">
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#dc2626"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-info"><h3>{{ learning_stats.overdue }}</h3><p>Overdue</p></div>
+        </div>
+    </div>
+</div>
+<div class="alert alert-info mb-3">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Tip:</strong> Click the tiles above to view detailed training assignments and learning paths, or scroll down to see employees in this dashboard.
+</div>
+{% endif %}
+
+<!-- REGULAR REVIEW QUEUE for SUPER ADMIN/ADMIN (non-medical) -->
+{% if not is_medical_approver and dashboard_review_queue and not can_medical_review %}
+<div class="glass-card p-3 mb-4" style="border-left:4px solid var(--warning);">
+    <h6 class="mb-3"><i class="bi bi-clipboard-check me-2"></i>{{ dashboard_review_title }} ({{ dashboard_review_queue|length }})</h6>
+    <div class="list-group list-group-flush">
+        {% for e in dashboard_review_queue %}
+        <a href="{% url 'admin_employee_detail' e.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0 bg-transparent">
+            <span class="fw-medium">{{ e.full_name }} <span class="text-muted small">({{ e.email }})</span></span>
+            <span class="badge badge-status-{{ e.status }}">{{ e.status|humanize_status }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="table-container">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>{% if is_medical_approver %}Employees Pending Medical Review{% elif is_hrbp %}Your Team Members{% else %}Recent Employees{% endif %}</span>
+        <a href="{% url 'admin_employees' %}" class="btn btn-sm btn-outline-primary">View all</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0" id="dashboardTable">
+            <thead><tr><th>Name</th><th>Email</th><th>Stage</th><th>Date of Joining</th><th></th></tr></thead>
+            <tbody>
+                {% for e in recent %}
+                <tr data-status="{{ e.status }}" data-joining-soon="{% if e.date_of_joining %}{{ e.date_of_joining }}{% endif %}" onclick="window.location='{% if is_medical_approver %}{% url 'admin_medical_review' %}?user_id={{ e.id }}{% else %}{% url 'admin_employee_detail' e.id %}{% endif %}'">
+                    <td class="fw-medium">{{ e.full_name }}</td>
+                    <td>{{ e.email }}</td>
+                    <td>
+                        {{ e|render_stage_badge }}
+                    </td>
+                    <td>{{ e.date_of_joining|date:"d M Y"|default:"—" }}</td>
+                    <td onclick="event.stopPropagation()">
+                        {% if is_medical_approver %}
+                        <a href="{% url 'admin_medical_review' %}?user_id={{ e.id }}" class="btn btn-xs btn-outline-secondary">Review</a>
+                        {% else %}
+                        <a href="{% url 'admin_employee_detail' e.id %}" class="btn btn-xs btn-outline-secondary">Open</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No employees yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .dashboard-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .bi-chat-dots {
+        color: #FFC107 !important; /* Change to any color */
+    }
+    .dashboard-tile {
+        min-width: 0;
+        height: 100%;
+    }
+    .stat-card {
+        height: 100%;
+        min-height: 108px;
+        transition: all 0.2s ease;
+    }
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 56px;
+    }
+    .stat-info h3,
+    .stat-info p {
+        white-space: nowrap;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        opacity: 1 !important;
+    }
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    @media (max-width: 576px) {
+        .dashboard-tile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+function getToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function getDate10DaysOut() {
+    const d = new Date();
+    d.setDate(d.getDate() + 10);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + 'T00:00:00Z');
+    return d;
+}
+
+function filterTable(filterType, filterValue) {
+    const table = document.getElementById('dashboardTable');
+    const rows = table.querySelectorAll('tbody tr[data-status]');
+    let visibleCount = 0;
+
+    // Remove any existing empty state row
+    const existingEmpty = table.querySelector('tbody tr:not([data-status])');
+    if (existingEmpty) existingEmpty.remove();
+
+    const today = getToday();
+    const in10days = getDate10DaysOut();
+
+    rows.forEach(row => {
+        let show = true;
+        const status = row.dataset.status;
+
+        if (filterType === 'status') {
+            if (filterValue === 'all') {
+                show = true;
+            } else if (filterValue === 'in_progress') {
+                show = !['completed', 'pending', 'deleted'].includes(status);
+            } else {
+                show = status === filterValue;
+            }
+        } else if (filterType === 'joining_soon') {
+            const joiningDateStr = row.dataset.joiningSoon;
+            if (joiningDateStr && joiningDateStr.trim()) {
+                const joiningDate = parseDate(joiningDateStr.trim());
+                show = joiningDate >= today && joiningDate <= in10days;
+            } else {
+                show = false;
+            }
+        }
+
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+
+    // Show "no results" message if no rows visible
+    if (visibleCount === 0) {
+        const tbody = table.querySelector('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="5" class="text-center text-muted py-4">No employees match this filter.</td>';
+        tbody.appendChild(tr);
+    }
+}
+</script>
+{% endblock %}

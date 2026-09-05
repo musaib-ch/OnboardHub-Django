@@ -1,0 +1,13 @@
+{{ employee.full_name }},
+
+Today is the deadline for your onboarding stage "{{ stage_name }}" ({{ due_date|date:"d M Y" }}).
+
+Please submit all remaining documents and forms today to complete this stage on time.
+
+Stage: {{ stage_name }}
+Due Date: Today ({{ due_date|date:"d M Y" }})
+
+Submit now: {{ portal_link }}
+
+Best regards,
+OnboardHub

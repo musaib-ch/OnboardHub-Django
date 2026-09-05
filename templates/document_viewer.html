@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ doc.title }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
+    <h4 class="mb-0">{{ doc.title }}</h4>
+    <span class="badge badge-status-{{ doc.stage }}">{{ doc.stage|humanize_status }}</span>
+    {% if signed %}<span class="badge bg-success ms-1"><i class="bi bi-check-lg me-1"></i>Signed</span>{% endif %}
+    <div class="ms-auto d-flex gap-2">
+        {% if doc.file %}<a href="{{ doc.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Download</a>{% endif %}
+        {% if can_sign %}
+        <form method="POST" action="{% url 'document_sign' doc.id %}" class="mb-0">{% csrf_token %}
+            <button class="btn btn-sm btn-success" data-confirm="Sign “{{ doc.title }}”? This records your acceptance with today's date."><i class="bi bi-pen me-1"></i>Sign Document</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if doc.description %}<p class="text-muted">{{ doc.description }}</p>{% endif %}
+
+<div class="glass-card p-0 overflow-hidden">
+    {% if doc.file and is_pdf %}
+    <iframe src="{{ doc.file.url }}" style="width:100%; height:78vh; border:0;" title="{{ doc.title }}"></iframe>
+    {% elif doc.file and is_image %}
+    <div class="p-3 text-center"><img src="{{ doc.file.url }}" alt="{{ doc.title }}" style="max-width:100%; border-radius:8px;"></div>
+    {% elif doc.body %}
+    <div class="p-4 document-body">{{ doc.body|safe }}</div>
+    {% elif doc.file %}
+    <div class="empty-state"><i class="bi bi-file-earmark"></i><h3>Preview not available</h3><p>This file type can't be shown inline.</p><a href="{{ doc.file.url }}" target="_blank" class="btn btn-primary">Download to view</a></div>
+    {% else %}
+    <div class="empty-state"><i class="bi bi-file-earmark-x"></i><h3>No content</h3><p>This document has no file or body yet.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

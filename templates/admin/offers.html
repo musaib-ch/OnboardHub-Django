@@ -1,0 +1,1843 @@
+{% extends "base.html" %}
+{% block title %}Offers Management | OnboardHub{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* =========================================================
+     OFFERS MANAGEMENT PAGE
+     ========================================================= */
+
+  .offers-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px 32px 40px;
+  }
+
+
+  /* =========================================================
+     PAGE HEADER
+     ========================================================= */
+
+  .offers-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .offers-page-header-content {
+    min-width: 0;
+  }
+
+  .offers-page-header h2 {
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+
+  .offers-page-header p {
+    max-width: 900px;
+    line-height: 1.5;
+  }
+
+  .offers-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+
+  /* =========================================================
+     PRIMARY GRADIENT BUTTON
+     ========================================================= */
+
+  .btn-gradient-primary {
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #4338ca, #0891b2);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  }
+
+
+  /* =========================================================
+     QUICK ACTION CARDS
+     ========================================================= */
+
+  .offers-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  .quick-action-card {
+    min-height: 90px;
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 16px 20px;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .quick-action-card:hover {
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+    color: #4f46e5;
+  }
+
+  .action-icon-box {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-right: 14px;
+    flex-shrink: 0;
+  }
+
+  .quick-action-content {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .quick-action-content h6 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .quick-action-content small {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  /* =========================================================
+     OFFERS TABLE
+     ========================================================= */
+
+  .offers-table-card {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .offers-table-header {
+    min-height: 62px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    background: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .offers-table-header h5 {
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .offers-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .offers-table {
+    width: 100%;
+    min-width: 1150px;
+    margin: 0;
+    table-layout: fixed;
+  }
+
+
+  /* =========================================================
+     TABLE COLUMN WIDTHS
+     ========================================================= */
+
+  .offers-table th:nth-child(1),
+  .offers-table td:nth-child(1) {
+    width: 11%;
+  }
+
+  .offers-table th:nth-child(2),
+  .offers-table td:nth-child(2) {
+    width: 22%;
+  }
+
+  .offers-table th:nth-child(3),
+  .offers-table td:nth-child(3) {
+    width: 16%;
+  }
+
+  .offers-table th:nth-child(4),
+  .offers-table td:nth-child(4) {
+    width: 12%;
+  }
+
+  .offers-table th:nth-child(5),
+  .offers-table td:nth-child(5) {
+    width: 13%;
+  }
+
+  .offers-table th:nth-child(6),
+  .offers-table td:nth-child(6) {
+    width: 11%;
+  }
+
+  .offers-table th:nth-child(7),
+  .offers-table td:nth-child(7) {
+    width: 15%;
+  }
+
+
+  /* =========================================================
+     TABLE HEADER
+     ========================================================= */
+
+  .offers-table thead th {
+    padding: 13px 15px;
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.71rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+
+  /* =========================================================
+     TABLE BODY
+     ========================================================= */
+
+  .offers-table tbody td {
+    padding: 15px;
+    vertical-align: middle;
+  }
+
+  .offers-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  .offers-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.015);
+  }
+
+
+  /* =========================================================
+     CANDIDATE
+     ========================================================= */
+
+  .offer-candidate {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .offer-candidate-name {
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .offer-candidate-email {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  /* =========================================================
+     POSITION
+     ========================================================= */
+
+  .offer-position {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+  }
+
+
+  /* =========================================================
+     SALARY
+     ========================================================= */
+
+  .offer-salary {
+    white-space: nowrap;
+  }
+
+
+  /* =========================================================
+     EXPIRY
+     ========================================================= */
+
+  .offer-expiry {
+    white-space: nowrap;
+  }
+
+
+  /* =========================================================
+     STATUS
+     ========================================================= */
+
+  .offer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 0.78rem;
+  }
+
+
+  /* =========================================================
+     ACTIONS
+     ========================================================= */
+
+  .offer-actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .offer-actions .btn-group {
+    display: inline-flex;
+    vertical-align: middle;
+  }
+
+  .offer-actions .btn {
+    white-space: nowrap;
+  }
+
+
+  /* =========================================================
+     EMPTY STATE
+     ========================================================= */
+
+  .offers-empty-state {
+    padding: 60px 20px !important;
+  }
+
+
+  /* =========================================================
+     MODALS
+     ========================================================= */
+
+  .offer-modal .modal-dialog {
+    max-width: 820px;
+  }
+
+  .offer-modal .modal-content {
+    border: 0;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .offer-modal .modal-header {
+    padding: 18px 24px;
+  }
+
+  .offer-modal .modal-body {
+    padding: 20px 24px;
+    background: #f8fafc;
+  }
+
+  .offer-modal .modal-footer {
+    padding: 14px 24px 18px;
+  }
+
+  .offer-modal-section {
+    border: 0;
+    border-radius: 10px;
+    padding: 18px;
+    background: #ffffff;
+    margin-bottom: 16px;
+  }
+
+  .offer-modal-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .offer-modal .form-label {
+    margin-bottom: 6px;
+  }
+
+  .offer-modal .form-control,
+  .offer-modal .form-select {
+    min-height: 40px;
+    border-radius: 7px;
+  }
+
+  .offer-modal textarea {
+    resize: vertical;
+  }
+
+
+  /* =========================================================
+     RESPONSIVE
+     ========================================================= */
+
+  @media (max-width: 1200px) {
+
+    .offers-page {
+      padding-left: 22px;
+      padding-right: 22px;
+    }
+
+    .offers-page-header {
+      align-items: flex-start;
+    }
+
+  }
+
+
+  @media (max-width: 900px) {
+
+    .offers-page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .offers-header-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .offers-quick-actions {
+      grid-template-columns: 1fr;
+    }
+
+  }
+
+
+  @media (max-width: 576px) {
+
+    .offers-page {
+      padding: 20px 14px 30px;
+    }
+
+    .offers-header-actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .offers-header-actions .btn {
+      width: 100%;
+    }
+
+    .offer-modal .modal-dialog {
+      margin: 10px;
+    }
+
+    .offer-modal .modal-body {
+      padding: 15px;
+    }
+
+    .offer-modal-section {
+      padding: 14px;
+    }
+
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="offers-page">
+
+  <!-- =======================================================
+       PAGE HEADER
+       ======================================================= -->
+
+  <div class="offers-page-header">
+
+    <div class="offers-page-header-content">
+
+      <h2 class="h3 fw-bold mb-1">
+        Offer Letter Management
+      </h2>
+
+      <p class="text-muted mb-0">
+        Design templates, generate offer letters, capture digital signatures,
+        and track candidate responses.
+      </p>
+
+    </div>
+
+
+    <div class="offers-header-actions">
+
+      <a
+        class="btn btn-outline-secondary"
+        href="{% url 'admin_offers_export' %}"
+        title="Export CSV Data">
+
+        <i class="bi bi-file-earmark-spreadsheet me-1 text-success"></i>
+        Export CSV
+
+      </a>
+
+
+      <a
+        class="btn btn-outline-secondary"
+        href="{% url 'admin_offers_bulk_zip_export' %}"
+        title="Download all offers as PDF ZIP">
+
+        <i class="bi bi-file-earmark-zip me-1 text-danger"></i>
+        Export PDFs (ZIP)
+
+      </a>
+
+
+      <button
+        type="button"
+        class="btn btn-gradient-primary px-4 py-2"
+        data-bs-toggle="modal"
+        data-bs-target="#sendOffer">
+
+        Send Employment Offer
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- =======================================================
+       QUICK ACTION NAVIGATION
+       ======================================================= -->
+
+  <div class="offers-quick-actions">
+
+    <!-- Offer Letter Templates -->
+
+    <a
+      href="{% url 'admin_offer_templates' %}"
+      class="quick-action-card shadow-sm">
+
+      <div
+        class="action-icon-box"
+        style="background:#e0e7ff; color:#4338ca;">
+
+        <i class="bi bi-file-earmark-richtext"></i>
+
+      </div>
+
+      <div class="quick-action-content">
+
+        <h6 class="fw-bold mb-0">
+          Offer Letter Templates
+        </h6>
+      </div>
+
+      <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
+    </a>
+
+
+    <!-- Email Templates -->
+
+    <a
+      href="{% url 'admin_offer_email_templates' %}"
+      class="quick-action-card shadow-sm">
+
+      <div
+        class="action-icon-box"
+        style="background:#cff4fc; color:#055160;">
+
+        <i class="bi bi-envelope-paper"></i>
+
+      </div>
+
+      <div class="quick-action-content">
+
+        <h6 class="fw-bold mb-0">
+          Email Templates
+        </h6>
+
+      </div>
+
+      <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
+    </a>
+
+
+    <!-- Analytics -->
+
+    <a
+      href="{% url 'admin_offers_analytics_page' %}"
+      class="quick-action-card shadow-sm">
+
+      <div
+        class="action-icon-box"
+        style="background:#f3e8ff; color:#6b21a8;">
+
+        <i class="bi bi-graph-up-arrow"></i>
+
+      </div>
+
+      <div class="quick-action-content">
+
+        <h6 class="fw-bold mb-0">
+          Analytics & Insights
+        </h6>
+
+      </div>
+
+      <i class="bi bi-chevron-right ms-auto text-muted"></i>
+
+    </a>
+
+  </div>
+
+
+  <!-- =======================================================
+       OFFERS DATA TABLE
+       ======================================================= -->
+
+  <div class="card shadow-sm offers-table-card">
+
+    <div class="offers-table-header">
+
+      <h5 class="fw-bold">
+
+        <i class="bi bi-list-stars me-2 text-primary"></i>
+
+        All Dispatched Offers ({{ offers|length }})
+
+      </h5>
+
+    </div>
+
+
+    <div class="card-body p-0">
+
+      <div class="offers-table-wrapper">
+
+        <table class="table align-middle table-hover offers-table">
+
+          <thead class="table-light">
+
+            <tr>
+
+              <th>Offer #</th>
+
+              <th>Candidate Name & Email</th>
+
+              <th>Position Title</th>
+
+              <th>Salary</th>
+
+              <th>Expiry Date</th>
+
+              <th>Status</th>
+
+              <th class="text-end">
+                Actions & Exports
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {% for offer in offers %}
+
+            <tr>
+
+              <!-- OFFER NUMBER -->
+
+              <td class="fw-bold text-primary">
+
+                {{ offer.offer_number }}
+
+              </td>
+
+
+              <!-- CANDIDATE -->
+
+              <td>
+
+                <div class="offer-candidate">
+
+                  <div class="offer-candidate-name text-dark">
+                    {{ offer.candidate_name }}
+                  </div>
+
+                  <span class="offer-candidate-email">
+                    {{ offer.candidate_email }}
+                  </span>
+
+                </div>
+
+              </td>
+
+
+              <!-- POSITION -->
+
+              <td>
+
+                <span class="badge bg-light text-dark border offer-position">
+
+                  {{ offer.offer_data.position_title|default:"Position" }}
+
+                </span>
+
+              </td>
+
+
+              <!-- SALARY -->
+
+              <td class="fw-semibold text-dark offer-salary">
+
+                {{ offer.offer_data.currency }}
+                {{ offer.offer_data.salary }}
+
+              </td>
+
+
+              <!-- EXPIRY -->
+
+              <td class="offer-expiry">
+
+                <small class="text-muted">
+
+                  {{ offer.expiry_date|date:"M d, Y H:i"|default:"No expiry" }}
+
+                </small>
+
+              </td>
+
+
+              <!-- STATUS -->
+
+              <td>
+
+                {% if offer.status == 'accepted' %}
+
+                <span
+                  class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill offer-status">
+
+                  <i class="bi bi-check-circle me-1"></i>
+                  Accepted
+
+                </span>
+
+
+                {% elif offer.status == 'sent' %}
+
+                <span
+                  class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill offer-status">
+
+                  <i class="bi bi-send me-1"></i>
+                  Sent
+
+                </span>
+
+
+                {% elif offer.status == 'rejected' %}
+
+                <span
+                  class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 rounded-pill offer-status">
+
+                  <i class="bi bi-x-circle me-1"></i>
+                  Declined
+
+                </span>
+
+
+                {% elif offer.status == 'expired' %}
+
+                <span
+                  class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill offer-status">
+
+                  <i class="bi bi-clock me-1"></i>
+                  Expired
+
+                </span>
+
+
+                {% else %}
+
+                <span
+                  class="badge bg-light text-dark border px-3 py-1 rounded-pill offer-status">
+
+                  {{ offer.get_status_display }}
+
+                </span>
+
+                {% endif %}
+
+              </td>
+
+
+              <!-- ACTIONS -->
+
+              <td class="offer-actions">
+
+                <div class="btn-group btn-group-sm">
+
+                  <!-- PDF -->
+
+                  <a
+                    href="{% url 'admin_offer_pdf_export' offer.id %}"
+                    class="btn btn-outline-primary fw-semibold"
+                    title="Download High-Fidelity PDF">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+                    PDF
+
+                  </a>
+
+
+                  <!-- CHANGE & RESEND -->
+
+                  {% if offer.status == 'rejected' %}
+
+                  <button
+                    type="button"
+                    class="btn btn-warning fw-semibold btn-resend-offer text-dark"
+
+                    data-offer-id="{{ offer.id }}"
+
+                    data-employee-id="{{ offer.candidate_user_id }}"
+
+                    data-employee-name="{{ offer.candidate_name }}"
+
+                    data-position-title="{{ offer.offer_data.position_title|default:'' }}"
+
+                    data-salary="{{ offer.offer_data.salary|default:'' }}"
+
+                    data-currency="{{ offer.offer_data.currency|default:'USD' }}"
+
+                    data-employment-type="{{ offer.offer_data.employment_type|default:'' }}"
+
+                    data-start-date="{{ offer.offer_data.start_date|default:'' }}"
+
+                    data-expiry-date="{{ offer.expiry_date.isoformat|default:'' }}"
+
+                    data-benefits="{{ offer.offer_data.benefits|default:'' }}"
+
+                    data-note="{{ offer.offer_data.note|default:'' }}"
+
+                    data-email-template-id="{{ offer.email_template_id|default:'' }}"
+
+                    data-offer-template-id="{{ offer.template_id|default:'' }}"
+
+                    data-bs-toggle="modal"
+                    data-bs-target="#resendOfferModal">
+
+                    <i class="bi bi-arrow-repeat me-1"></i>
+                    Change & Resend
+
+                  </button>
+
+                  {% endif %}
+
+                </div>
+
+              </td>
+
+            </tr>
+
+
+            {% empty %}
+
+            <!-- EMPTY STATE -->
+
+            <tr>
+
+              <td
+                colspan="7"
+                class="text-center text-muted offers-empty-state">
+
+                <i
+                  class="bi bi-inbox fs-1 text-secondary d-block mb-3">
+                </i>
+
+                <h5>
+                  No offers sent yet
+                </h5>
+
+                <p class="mb-3">
+                  Create an offer template and send your first candidate offer letter.
+                </p>
+
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  data-bs-toggle="modal"
+                  data-bs-target="#sendOffer">
+
+                  <i class="bi bi-plus-lg me-1"></i>
+                  Send Offer Now
+
+                </button>
+
+              </td>
+
+            </tr>
+
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div
+  class="modal fade offer-modal"
+  id="sendOffer"
+  tabindex="-1"
+  aria-labelledby="sendOfferLabel"
+  aria-hidden="true">
+
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+
+    <form
+      method="post"
+      action="{% url 'admin_send_offer' %}"
+      class="modal-content">
+
+      {% csrf_token %}
+
+
+      <!-- MODAL HEADER -->
+
+      <div class="modal-header">
+
+        <h5
+          class="modal-title fw-bold"
+          id="sendOfferLabel">
+
+          Send Employment Offer
+
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close">
+        </button>
+
+      </div>
+
+
+      <!-- MODAL BODY -->
+
+      <div class="modal-body">
+
+
+        <!-- CANDIDATE / EMPLOYMENT DETAILS -->
+
+        <div class="offer-modal-section">
+
+          <div class="row g-3">
+
+
+            <!-- Candidate -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+
+                Candidate Employee
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <select
+                name="employee_id"
+                class="form-select"
+                required>
+
+                <option value="">
+                  Select candidate...
+                </option>
+
+                {% for employee in employees %}
+
+                <option value="{{ employee.id }}">
+
+                  {{ employee.full_name }}
+                  — {{ employee.email }}
+
+                </option>
+
+                {% endfor %}
+
+              </select>
+
+            </div>
+
+
+            <!-- Position -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+                Position Title
+              </label>
+
+              <input
+                name="position_title"
+                class="form-control"
+                placeholder="e.g. Senior Software Engineer">
+
+            </div>
+
+
+            <!-- Salary -->
+
+            <div class="col-md-5">
+
+              <label class="form-label fw-semibold">
+
+                Salary Amount
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="salary"
+                type="number"
+                min="0"
+                step="0.01"
+                class="form-control"
+                placeholder="120000"
+                required>
+
+            </div>
+
+
+            <!-- Currency -->
+
+            <div class="col-md-3">
+
+              <label class="form-label fw-semibold">
+                Currency
+              </label>
+
+              <select
+                name="currency"
+                class="form-select">
+
+                <option>USD</option>
+                <option>PKR</option>
+                <option>GBP</option>
+                <option>AED</option>
+                <option>EUR</option>
+
+              </select>
+
+            </div>
+
+
+            <!-- Employment Type -->
+
+            <div class="col-md-4">
+
+              <label class="form-label fw-semibold">
+                Employment Type
+              </label>
+
+              <input
+                name="employment_type"
+                class="form-control"
+                placeholder="Full-time Permanent">
+
+            </div>
+
+
+            <!-- Start Date -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+
+                Proposed Start Date
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="start_date"
+                type="date"
+                class="form-control"
+                required>
+
+            </div>
+
+
+            <!-- Expiry -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+
+                Offer Expiration Date & Time
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="expiry_date"
+                type="datetime-local"
+                class="form-control"
+                required>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- TEMPLATE / NOTES SECTION -->
+
+        <div class="offer-modal-section">
+
+          <div class="row g-3">
+
+
+            <!-- Offer Letter Template -->
+
+            <div class="col-md-6">
+
+              <div class="d-flex justify-content-between align-items-center mb-1">
+
+                <label class="form-label fw-semibold mb-0">
+                  Offer Letter Template
+                </label>
+
+                <a
+                  href="{% url 'admin_offer_templates' %}"
+                  class="small text-primary text-decoration-none"
+                  target="_blank">
+
+                  <i class="bi bi-box-arrow-up-right me-1"></i>
+                  Templates
+
+                </a>
+
+              </div>
+
+              <select
+                name="offer_template_id"
+                class="form-select">
+
+                <option value="">
+                  Use System Default Template
+                </option>
+
+                {% for t in offer_templates %}
+
+                <option value="{{ t.id }}">
+                  {{ t.name }}
+                </option>
+
+                {% endfor %}
+
+              </select>
+
+            </div>
+
+
+            <!-- Email Template -->
+
+            <div class="col-md-6">
+
+              <div class="d-flex justify-content-between align-items-center mb-1">
+
+                <label class="form-label fw-semibold mb-0">
+                  Email Template
+                </label>
+
+                <a
+                  href="{% url 'admin_offer_email_templates' %}"
+                  class="small text-primary text-decoration-none"
+                  target="_blank">
+
+                  <i class="bi bi-box-arrow-up-right me-1"></i>
+                  Email Templates
+
+                </a>
+
+              </div>
+
+              <select
+                name="email_template_id"
+                class="form-select">
+
+                <option value="">
+                  Use System Default Email
+                </option>
+
+                {% for t in email_templates %}
+
+                <option value="{{ t.id }}">
+                  {{ t.name }}
+                </option>
+
+                {% endfor %}
+
+              </select>
+
+            </div>
+
+
+            <!-- Benefits -->
+
+            <div class="col-12">
+
+              <label class="form-label fw-semibold">
+                Benefits & Perks Summary
+              </label>
+
+              <textarea
+                name="benefits"
+                class="form-control"
+                rows="2"
+                placeholder="Comprehensive healthcare, 401(k) matching, 20 PTO days…"></textarea>
+
+            </div>
+
+
+            <!-- Welcome Note -->
+
+            <div class="col-12">
+
+              <label class="form-label fw-semibold">
+                Personal Welcome Note to Candidate
+              </label>
+
+              <textarea
+                name="note"
+                class="form-control"
+                rows="3"
+                placeholder="Optional personal welcome message included in email…"></textarea>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- MODAL FOOTER -->
+
+      <div class="modal-footer bg-white">
+
+        <button
+          type="button"
+          class="btn btn-light"
+          data-bs-dismiss="modal">
+
+          Cancel
+
+        </button>
+
+        <button
+          type="submit"
+          class="btn btn-gradient-primary px-4 fw-semibold">
+
+          <i class="bi bi-send me-1"></i>
+          Send Offer Letter
+
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     RESEND OFFER MODAL
+     ========================================================= -->
+
+<div
+  class="modal fade offer-modal"
+  id="resendOfferModal"
+  tabindex="-1"
+  aria-labelledby="resendOfferModalLabel"
+  aria-hidden="true">
+
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+
+    <form
+      method="post"
+      id="resendOfferForm"
+      action=""
+      class="modal-content">
+
+      {% csrf_token %}
+
+
+      <!-- HEADER -->
+
+      <div class="modal-header bg-warning text-dark">
+
+        <h5
+          class="modal-title fw-bold"
+          id="resendOfferModalLabel">
+
+          <i class="bi bi-arrow-repeat me-2"></i>
+          Change & Resend Offer
+
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close">
+        </button>
+
+      </div>
+
+
+      <!-- BODY -->
+
+      <div class="modal-body">
+
+
+        <!-- CANDIDATE DETAILS -->
+
+        <div class="offer-modal-section">
+
+          <div class="row g-3">
+
+
+            <!-- Candidate -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+                Candidate Employee
+              </label>
+
+              <input
+                type="text"
+                id="resend_employee_name"
+                class="form-control"
+                readonly
+                disabled>
+
+              <input
+                type="hidden"
+                name="employee_id"
+                id="resend_employee_id">
+
+            </div>
+
+
+            <!-- Position -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+                Position Title
+              </label>
+
+              <input
+                name="position_title"
+                id="resend_position_title"
+                class="form-control"
+                placeholder="e.g. Senior Software Engineer">
+
+            </div>
+
+
+            <!-- Salary -->
+
+            <div class="col-md-5">
+
+              <label class="form-label fw-semibold">
+
+                Salary Amount
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="salary"
+                id="resend_salary"
+                type="number"
+                min="0"
+                step="0.01"
+                class="form-control"
+                placeholder="120000"
+                required>
+
+            </div>
+
+
+            <!-- Currency -->
+
+            <div class="col-md-3">
+
+              <label class="form-label fw-semibold">
+                Currency
+              </label>
+
+              <select
+                name="currency"
+                id="resend_currency"
+                class="form-select">
+
+                <option>USD</option>
+                <option>PKR</option>
+                <option>GBP</option>
+                <option>AED</option>
+                <option>EUR</option>
+
+              </select>
+
+            </div>
+
+
+            <!-- Employment Type -->
+
+            <div class="col-md-4">
+
+              <label class="form-label fw-semibold">
+                Employment Type
+              </label>
+
+              <input
+                name="employment_type"
+                id="resend_employment_type"
+                class="form-control"
+                placeholder="Full-time Permanent">
+
+            </div>
+
+
+            <!-- Start Date -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+
+                Proposed Start Date
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="start_date"
+                id="resend_start_date"
+                type="date"
+                class="form-control"
+                required>
+
+            </div>
+
+
+            <!-- Expiry -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+
+                Offer Expiration Date & Time
+                <span class="text-danger">*</span>
+
+              </label>
+
+              <input
+                name="expiry_date"
+                id="resend_expiry_date"
+                type="datetime-local"
+                class="form-control"
+                required>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- TEMPLATE / NOTES -->
+
+        <div class="offer-modal-section">
+
+          <div class="row g-3">
+
+
+            <!-- Offer Template -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+                Offer Letter Template
+              </label>
+
+              <select
+                name="offer_template_id"
+                id="resend_offer_template_id"
+                class="form-select">
+
+                <option value="">
+                  Use System Default Template
+                </option>
+
+                {% for t in offer_templates %}
+
+                <option value="{{ t.id }}">
+                  {{ t.name }}
+                </option>
+
+                {% endfor %}
+
+              </select>
+
+            </div>
+
+
+            <!-- Email Template -->
+
+            <div class="col-md-6">
+
+              <label class="form-label fw-semibold">
+                Email Template
+              </label>
+
+              <select
+                name="email_template_id"
+                id="resend_email_template_id"
+                class="form-select">
+
+                <option value="">
+                  Use System Default Email
+                </option>
+
+                {% for t in email_templates %}
+
+                <option value="{{ t.id }}">
+                  {{ t.name }}
+                </option>
+
+                {% endfor %}
+
+              </select>
+
+            </div>
+
+
+            <!-- Benefits -->
+
+            <div class="col-12">
+
+              <label class="form-label fw-semibold">
+                Benefits & Perks Summary
+              </label>
+
+              <textarea
+                name="benefits"
+                id="resend_benefits"
+                class="form-control"
+                rows="2"
+                placeholder="Comprehensive healthcare, 401(k) matching, 20 PTO days…"></textarea>
+
+            </div>
+
+
+            <!-- Welcome Note -->
+
+            <div class="col-12">
+
+              <label class="form-label fw-semibold">
+                Personal Welcome Note to Candidate
+              </label>
+
+              <textarea
+                name="note"
+                id="resend_note"
+                class="form-control"
+                rows="3"
+                placeholder="Optional personal welcome message included in email…"></textarea>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- FOOTER -->
+
+      <div class="modal-footer bg-white">
+
+        <button
+          type="button"
+          class="btn btn-light"
+          data-bs-dismiss="modal">
+
+          Cancel
+
+        </button>
+
+        <button
+          type="submit"
+          class="btn btn-warning px-4 fw-semibold text-dark">
+
+          <i class="bi bi-send me-1"></i>
+          Resend Offer Letter
+
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     RESEND OFFER JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    const resendButtons =
+        document.querySelectorAll('.btn-resend-offer');
+
+
+    resendButtons.forEach(function(btn) {
+
+        btn.addEventListener('click', function() {
+
+
+            /* -------------------------------------------------
+               GET DATA FROM BUTTON
+               ------------------------------------------------- */
+
+            const offerId =
+                this.getAttribute('data-offer-id');
+
+            const empId =
+                this.getAttribute('data-employee-id');
+
+            const empName =
+                this.getAttribute('data-employee-name');
+
+            const position =
+                this.getAttribute('data-position-title');
+
+            const salary =
+                this.getAttribute('data-salary');
+
+            const currency =
+                this.getAttribute('data-currency');
+
+            const type =
+                this.getAttribute('data-employment-type');
+
+            const start =
+                this.getAttribute('data-start-date');
+
+            const expiry =
+                this.getAttribute('data-expiry-date');
+
+            const benefits =
+                this.getAttribute('data-benefits');
+
+            const note =
+                this.getAttribute('data-note');
+
+            const emailTpl =
+                this.getAttribute('data-email-template-id');
+
+            const offerTpl =
+                this.getAttribute('data-offer-template-id');
+
+
+            /* -------------------------------------------------
+               SET FORM ACTION
+               ------------------------------------------------- */
+
+            const form =
+                document.getElementById('resendOfferForm');
+
+            form.action =
+                `/admin/offers/${offerId}/resend/`;
+
+
+            /* -------------------------------------------------
+               POPULATE BASIC FIELDS
+               ------------------------------------------------- */
+
+            document.getElementById(
+                'resend_employee_id'
+            ).value = empId;
+
+
+            document.getElementById(
+                'resend_employee_name'
+            ).value = empName;
+
+
+            document.getElementById(
+                'resend_position_title'
+            ).value = position;
+
+
+            document.getElementById(
+                'resend_salary'
+            ).value = salary;
+
+
+            document.getElementById(
+                'resend_currency'
+            ).value = currency;
+
+
+            document.getElementById(
+                'resend_employment_type'
+            ).value = type;
+
+
+            document.getElementById(
+                'resend_start_date'
+            ).value = start;
+
+
+            /* -------------------------------------------------
+               FORMAT EXPIRY DATETIME
+               ------------------------------------------------- */
+
+            if (expiry) {
+
+                const dateObj =
+                    new Date(expiry);
+
+
+                if (!isNaN(dateObj.getTime())) {
+
+                    const localIso =
+                        new Date(
+                            dateObj.getTime()
+                            -
+                            dateObj.getTimezoneOffset() * 60000
+                        )
+                        .toISOString()
+                        .slice(0, 16);
+
+
+                    document.getElementById(
+                        'resend_expiry_date'
+                    ).value = localIso;
+
+                } else {
+
+                    document.getElementById(
+                        'resend_expiry_date'
+                    ).value = '';
+
+                }
+
+            } else {
+
+                document.getElementById(
+                    'resend_expiry_date'
+                ).value = '';
+
+            }
+
+
+            /* -------------------------------------------------
+               POPULATE TEXT AREAS
+               ------------------------------------------------- */
+
+            document.getElementById(
+                'resend_benefits'
+            ).value = benefits;
+
+
+            document.getElementById(
+                'resend_note'
+            ).value = note;
+
+
+            /* -------------------------------------------------
+               POPULATE TEMPLATES
+               ------------------------------------------------- */
+
+            document.getElementById(
+                'resend_email_template_id'
+            ).value = emailTpl;
+
+
+            document.getElementById(
+                'resend_offer_template_id'
+            ).value = offerTpl;
+
+        });
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Offer Analytics{% endblock %}
+{% block content %}
+<h1>Offer Analytics</h1>
+<div id="metrics">Loading…</div>
+<script>
+async function loadMetrics(){
+  const res = await fetch('{% url "admin_offers_analytics" %}');
+  if(!res.ok){ document.getElementById('metrics').innerText = 'Failed to load analytics'; return }
+  const data = await res.json();
+  document.getElementById('metrics').innerHTML = `
+    <ul>
+      <li>Total offers: ${data.total}</li>
+      <li>Sent: ${data.sent}</li>
+      <li>Accepted: ${data.accepted}</li>
+      <li>Rejected: ${data.rejected}</li>
+      <li>Acceptance rate: ${data.acceptance_rate.toFixed(1)}%</li>
+      <li>Avg time to accept (hours): ${data.avg_time_to_accept_hours ? data.avg_time_to_accept_hours.toFixed(2) : 'N/A'}</li>
+    </ul>
+  `;
+}
+loadMetrics();
+</script>
+{% endblock %}

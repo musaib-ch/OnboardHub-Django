@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}My Quizzes{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="mb-1"><i class="bi bi-patch-question-fill me-2 text-primary"></i>My Quizzes</h1>
+    <p class="text-muted">Test your knowledge and complete required assessments.</p>
+</div>
+
+<div class="row g-4">
+    {% for card in quiz_cards %}
+    <div class="col-md-6 col-xl-4">
+        <div class="glass-card h-100 d-flex flex-column position-relative {% if card.passed %}border-success-subtle{% endif %}">
+            {% if card.passed %}
+            <div class="position-absolute top-0 end-0 mt-3 me-3">
+                <i class="bi bi-check-circle-fill text-success fs-4" title="Passed"></i>
+            </div>
+            {% endif %}
+            
+            <div class="p-4 flex-grow-1">
+                <h5 class="fw-bold mb-2 pe-4">{{ card.quiz.name }}</h5>
+                {% if card.quiz.description %}
+                <p class="text-muted small mb-3">{{ card.quiz.description }}</p>
+                {% endif %}
+                
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="badge bg-light text-dark border"><i class="bi bi-question-circle me-1"></i>{{ card.questions }} Qs</span>
+                    <span class="badge bg-light text-dark border"><i class="bi bi-check2-circle me-1"></i>{{ card.passing_score }}% to pass</span>
+                    {% if card.time_limit %}
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-stopwatch me-1"></i>{{ card.time_limit }}m</span>
+                    {% endif %}
+                </div>
+
+                <div class="small text-muted border-top pt-3 mt-auto">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Attempts:</span>
+                        <span class="fw-medium text-dark">{{ card.attempts }} / {% if card.max_attempts == 0 %}Unlimited{% else %}{{ card.max_attempts }}{% endif %}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Best Score:</span>
+                        <span class="fw-medium {% if card.passed %}text-success{% elif card.best_score != None %}text-danger{% else %}text-dark{% endif %}">
+                            {% if card.best_score != None %}{{ card.best_score|floatformat:1 }}%{% else %}—{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-3 border-top bg-light bg-opacity-50">
+                {% if card.passed %}
+                    <div class="d-flex gap-2">
+                        <span class="btn btn-success w-100 disabled" style="opacity: 0.8"><i class="bi bi-check-lg me-1"></i>Passed</span>
+                        {% if card.can_attempt %}
+                        <a href="{% url 'take_quiz_standalone' card.quiz.id %}" class="btn btn-outline-secondary" title="Retake to improve score"><i class="bi bi-arrow-repeat"></i></a>
+                        {% endif %}
+                    </div>
+                {% elif card.can_attempt %}
+                    <a href="{% url 'take_quiz_standalone' card.quiz.id %}" class="btn btn-primary w-100">
+                        {% if card.attempts > 0 %}Try Again{% else %}Start Quiz{% endif %}
+                    </a>
+                {% else %}
+                    <button class="btn btn-secondary w-100" disabled>No Attempts Remaining</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="glass-card text-center py-5">
+            <i class="bi bi-inbox display-4 text-muted d-block mb-3"></i>
+            <h5 class="text-muted">No quizzes available</h5>
+            <p class="text-muted small">You don't have any quizzes assigned at this time.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

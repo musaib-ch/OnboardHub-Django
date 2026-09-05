@@ -1,0 +1,23 @@
+# Cloudflare Tunnel config for OnboardHub.
+#
+# 1) Authenticate + create a named tunnel (one-time):
+#      cloudflared tunnel login
+#      cloudflared tunnel create onboardhub
+#    This writes credentials to ~/.cloudflared/<TUNNEL_ID>.json
+#
+# 2) Route your DNS to the tunnel (one-time):
+#      cloudflared tunnel route dns onboardhub onboard.example.com
+#
+# 3) Copy this file to ~/.cloudflared/config.yml, fill in the IDs/hostname,
+#    then run:  cloudflared tunnel run onboardhub
+#
+# The app must be listening locally first (see deploy/serve.ps1 — port 8000).
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\Users\YOUR_USER\.cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: onboard.example.com
+    service: http://127.0.0.1:8000
+  # Catch-all (required as the last rule)
+  - service: http_status:404

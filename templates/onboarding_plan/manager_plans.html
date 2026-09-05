@@ -1,0 +1,1123 @@
+{% extends "base.html" %}
+{% block title %}Onboarding Success Plans{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <h1><i class="bi bi-signpost-2 me-2"></i>Onboarding Success Plans</h1>
+        <p class="text-muted mb-0">Assign plans, watch active roadmaps, and manage reusable templates from a dedicated
+            editor.</p>
+    </div>
+    <a href="{% url 'admin_analytics' %}" class="btn btn-outline-primary btn-sm mt-2">
+        <i class="bi bi-bar-chart me-1"></i>View Plan Analytics
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="glass-card p-3 plan-kpi">
+            <div class="small text-muted">Templates</div>
+            <div class="fs-3 fw-bold">{{ plan_analytics.template_count }}</div>
+            <div class="text-muted small">Reusable roadmap blueprints</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="glass-card p-3 plan-kpi">
+            <div class="small text-muted">Active Plans</div>
+            <div class="fs-3 fw-bold">{{ plan_analytics.active_plans }}</div>
+            <div class="text-muted small">Currently assigned plans</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="glass-card p-3 plan-kpi">
+            <div class="small text-muted">Average Progress</div>
+            <div class="fs-3 fw-bold">{{ plan_analytics.average_progress }}%</div>
+            <div class="progress mt-2" style="height:8px;">
+                <div class="progress-bar" style="width: {{ plan_analytics.average_progress }}%"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="glass-card p-3 plan-kpi">
+            <div class="small text-muted">Overdue Activities</div>
+            <div class="fs-3 fw-bold text-danger">{{ plan_analytics.overdue_activities }}</div>
+            <div class="text-muted small">Needs manager attention</div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4"
+    style="background: rgba(var(--primary-rgb), 0.08);">
+    <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-rocket-takeoff-fill fs-4" style="color: var(--primary);"></i>
+        <div>
+            <h6 class="fw-bold mb-0 text-dark">Quick-Seed Enterprise 30/60/90-Day Success Plans</h6>
+            <small class="text-muted">Industry-standard SAP & Oracle Fusion success plan blueprints are pre-loaded and
+                ready to assign.</small>
+        </div>
+    </div>
+    <form method="post" class="mb-0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="sync_defaults">
+        <button class="btn btn-sm btn-primary fw-semibold"><i class="bi bi-lightning-charge me-1"></i>Sync
+            Templates</button>
+    </form>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="glass-card p-4 h-100">
+        <h5 class="mb-3">Assign Template</h5>
+        <form method="post" class="mb-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_template">
+            <label class="form-label small fw-semibold">Employee</label>
+            <select name="employee_id" class="form-select mb-3" required>
+                <option value="">Choose employee</option>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">
+                    {{ emp.full_name }}
+                    {% if emp.department %}- {{ emp.department.name }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <label class="form-label small fw-semibold">Template</label>
+            <select name="template_id" class="form-select mb-3" required>
+                <option value="">Choose template</option>
+                {% for item in templates %}
+                <option value="{{ item.id }}">{{ item.title }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary w-100">Assign plan</button>
+        </form>
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="bulk_assign">
+            <label class="form-label small fw-semibold">Bulk assign</label>
+            <select name="template_id" class="form-select mb-3" required>
+                <option value="">Choose template</option>
+                {% for item in templates %}
+                <option value="{{ item.id }}">{{ item.title }}</option>
+                {% endfor %}
+            </select>
+            <div class="employee-checklist mb-3">
+                {% for emp in employees %}
+                <label class="check-pill">
+                    <input type="checkbox" name="employee_ids" value="{{ emp.id }}">
+                    <span>{{ emp.full_name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <button class="btn btn-outline-primary w-100">Bulk assign</button>
+        </form>
+    </div>
+</div>
+
+<div class="col-lg-7">
+    <div class="glass-card p-4 h-100">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="mb-0">Active Employee Plans</h5>
+                <div class="small text-muted">{{ active_plans|length }} live plans</div>
+            </div>
+            <span class="badge bg-primary-subtle text-primary">{{ plan_analytics.scope|default:"team"|title }}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Template</th>
+                        <th>Current Phase</th>
+                        <th>Progress</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in active_plans %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ item.employee.full_name }}</div>
+                            <div class="small text-muted">{{ item.employee.email }}</div>
+                        </td>
+                        <td>{{ item.template_title }}</td>
+                        <td>
+                            {% for phase in item.summary.phases %}
+                                {% if phase.is_current %}
+                                    <span class="badge bg-info-subtle text-info">{{ phase.label }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td style="min-width:160px;">
+                            <div class="progress soft-progress mb-1">
+                                <div class="progress-bar" style="width: {{ item.summary.overall.percentage }}%"></div>
+                            </div>
+                            <div class="small text-muted">{{ item.summary.overall.percentage }}%</div>
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'employee_plan_detail' item.employee.id %}"
+                                class="btn btn-sm btn-outline-primary">Open</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">No plans assigned yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-12">
+        <div class="glass-card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-0">Template Library</h5>
+                    <div class="small text-muted">Edit, duplicate, archive, or start a new template.</div>
+                </div>
+                <a class="btn btn-sm btn-primary" href="#template-editor" onclick="startNewTemplate()">Add new</a>
+            </div>
+
+            <div class="template-list">
+                {% for item in templates %}
+                <div
+                    class="template-item {% if selected_template and selected_template.id == item.id %}active{% endif %}">
+                    <div class="d-flex justify-content-between gap-3 align-items-start">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="small text-muted">{{ item.phase_count }} phases | {{ item.activity_count }}
+                                activities</div>
+                            {% if not item.is_active %}<span class="badge bg-secondary mt-2">Archived</span>{% endif %}
+                            {% if selected_template and selected_template.id == item.id %}<span
+                                class="badge bg-info-subtle text-info mt-2">Selected</span>{% endif %}
+                        </div>
+                        <div class="template-actions">
+                            <a href="?template={{ item.id }}#template-editor"
+                                class="btn btn-sm btn-outline-primary">Edit</a>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="duplicate_template">
+                                <input type="hidden" name="template_id" value="{{ item.id }}">
+                                <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
+                            </form>
+                            <form method="post" onsubmit="return confirm('Archive this template?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="archive_template">
+                                <input type="hidden" name="template_id" value="{{ item.id }}">
+                                <button class="btn btn-sm btn-outline-danger">Archive</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-muted small">No templates yet. Use Add new to create your first roadmap.</div>
+                {% endfor %}
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="import_templates">
+                <label class="form-label small fw-semibold">Import templates</label>
+                <div class="d-flex gap-2">
+                    <input type="file" name="import_file" class="form-control form-control-sm" accept=".json" required>
+                    <button class="btn btn-sm btn-outline-primary whitespace-nowrap" style="white-space: nowrap;">Import
+                        JSON</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card p-4 mb-4" id="template-editor">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center mb-3">
+        <div>
+            <div class="badge bg-primary-subtle text-primary mb-2">Template Editor</div>
+            <h4 id="editor-heading" class="mb-1">
+                {% if selected_template %}
+                    Edit Template
+                {% else %}
+                    Create Template
+                {% endif %}
+            </h4>
+            <p class="text-muted small mb-0">Phases, sections, and activities are organized as collapsible ribbons so
+                the structure stays readable.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <div id="selected-template-actions" class="d-flex flex-wrap gap-2">
+                {% if selected_template %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="duplicate_template">
+                    <input type="hidden" name="template_id" value="{{ selected_template.id }}">
+                    <button class="btn btn-sm btn-outline-secondary">Duplicate selected</button>
+                </form>
+                <form method="post" onsubmit="return confirm('Archive this template?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="archive_template">
+                    <input type="hidden" name="template_id" value="{{ selected_template.id }}">
+                    <button class="btn btn-sm btn-outline-danger">Archive selected</button>
+                </form>
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="startNewTemplate()">New
+                template</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadStarter()">Load starter
+                roadmap</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetBuilder()">Reset</button>
+        </div>
+    </div>
+
+    <form method="post" id="template-save-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_template">
+        <input type="hidden" name="template_id" id="template-id-field"
+            value="{% if selected_template %}{{ selected_template.id }}{% endif %}">
+
+        <div class="row g-3 mb-3">
+            <div class="col-lg-7">
+                <label class="form-label small fw-semibold">Template title</label>
+                <input id="builder-title" class="form-control" placeholder="Sales Executive Success Plan">
+            </div>
+            <div class="col-lg-5">
+                <label class="form-label small fw-semibold">Audience role</label>
+                <input id="builder-role" class="form-control" list="role-options" placeholder="employee">
+                <datalist id="role-options">
+                    <option value="employee"></option>
+                    <option value="manager"></option>
+                    <option value="hrbp"></option>
+                    <option value="admin"></option>
+                </datalist>
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-semibold">Summary</label>
+                <textarea id="builder-summary" class="form-control" rows="2"
+                    placeholder="What does success look like for this role?"></textarea>
+            </div>
+        </div>
+
+        <div class="builder-summary mb-3">
+            <div class="summary-chip"><strong id="count-phases">0</strong><span>Phases</span></div>
+            <div class="summary-chip"><strong id="count-sections">0</strong><span>Sections</span></div>
+            <div class="summary-chip"><strong id="count-activities">0</strong><span>Activities</span></div>
+            <div class="summary-chip"><strong id="count-estimated">0</strong><span>Weighted items</span></div>
+        </div>
+
+        <div class="builder-toolbar mb-3">
+            <button type="button" class="btn btn-sm btn-primary" onclick="addPhase()">Add phase</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadStarter()">Load starter
+                roadmap</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetBuilder()">Reset</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="syncPayload()">Refresh
+                preview</button>
+        </div>
+
+        <div class="builder-help mb-3">
+            <div class="small text-muted mb-2">Quick section library</div>
+            <div class="quick-chips">
+                <button type="button" class="quick-chip" onclick="quickAddSection('Company')">Company</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('HR')">HR</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Department')">Department</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Systems')">Systems</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Compliance')">Compliance</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Learning')">Learning</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Projects')">Projects</button>
+                <button type="button" class="quick-chip" onclick="quickAddSection('Custom')">Custom</button>
+            </div>
+        </div>
+
+        <datalist id="section-library">
+            {% for section in section_library_list %}
+            <option value="{{ section }}"></option>
+            {% endfor %}
+        </datalist>
+
+        <div id="phase-builder" class="builder-canvas"></div>
+
+        <textarea name="payload_json" id="payload_json" class="d-none"></textarea>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn btn-primary">Save Template</button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .template-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .template-item {
+        display: block;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: rgba(255, 255, 255, 0.72);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.18s ease;
+    }
+
+    .template-item.active {
+        border-color: rgba(var(--primary-rgb), 0.22);
+        background: rgba(var(--primary-rgb), 0.08);
+    }
+
+    .template-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .plan-kpi {
+        min-height: 126px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.84));
+    }
+
+    .builder-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .summary-chip {
+        padding: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.8);
+        text-align: center;
+    }
+
+    .summary-chip span {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .builder-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .builder-help {
+        padding: 12px 14px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
+    }
+
+    .quick-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .quick-chip {
+        border: 1px solid rgba(var(--primary-rgb), 0.18);
+        background: rgba(var(--primary-rgb), 0.08);
+        color: var(--primary);
+        border-radius: 999px;
+        padding: 7px 12px;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    .quick-chip:hover {
+        background: rgba(var(--primary-rgb), 0.14);
+    }
+
+    .builder-canvas {
+        display: grid;
+        gap: 12px;
+    }
+
+    .phase-ribbon,
+    .section-ribbon,
+    .activity-ribbon {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.78);
+        overflow: hidden;
+    }
+
+    .phase-ribbon>summary,
+    .section-ribbon>summary,
+    .activity-ribbon>summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .phase-ribbon>summary::-webkit-details-marker,
+    .section-ribbon>summary::-webkit-details-marker,
+    .activity-ribbon>summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .ribbon-body {
+        padding: 0 16px 16px;
+    }
+
+    .ribbon-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .phase-ribbon+.phase-ribbon {
+        margin-top: 0;
+    }
+
+    .section-ribbon {
+        margin-top: 12px;
+        border-style: dashed;
+    }
+
+    .activity-ribbon {
+        margin-top: 10px;
+        border-color: rgba(var(--primary-rgb), 0.12);
+        background: rgba(var(--primary-rgb), 0.04);
+    }
+
+    .activity-ribbon>summary {
+        background: rgba(var(--primary-rgb), 0.04);
+    }
+
+    .phase-body-actions,
+    .section-body-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .employee-checklist {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    .check-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .soft-progress {
+        height: 10px;
+        background: rgba(15, 23, 42, 0.08);
+    }
+
+    .analytics-stack {
+        display: grid;
+        gap: 10px;
+    }
+
+    .mini-stat {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: rgba(255, 255, 255, 0.72);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .mini-stat span {
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+    }
+
+    .journey-stepper {
+        position: relative;
+        padding: 10px 0 30px;
+    }
+
+    .journey-stepper .nav-pills {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        z-index: 1;
+    }
+
+    .journey-line {
+        position: absolute;
+        top: 24px;
+        left: 10%;
+        right: 10%;
+        height: 4px;
+        background: rgba(15, 23, 42, 0.06);
+        z-index: 0;
+        border-radius: 4px;
+    }
+
+    .journey-node {
+        z-index: 2;
+        flex: 1;
+        text-align: center;
+    }
+
+    .journey-node .nav-link {
+        background: transparent !important;
+        border: none;
+        padding: 0;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        color: var(--text-muted);
+    }
+
+    .journey-node .node-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: #fff;
+        border: 4px solid rgba(15, 23, 42, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    .journey-node .nav-link.active .node-icon {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.15);
+        transform: scale(1.15);
+    }
+
+    .journey-node .nav-link:hover:not(.active) .node-icon {
+        border-color: rgba(var(--primary-rgb), 0.5);
+        transform: scale(1.05);
+    }
+
+    .journey-node .node-label {
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .journey-node .nav-link.active .node-label {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    @media (max-width: 991px) {
+        .builder-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
+
+<script>
+    const sectionLibrary = {{ section_library| safe }};
+    const activityTypes = {{ activity_types| safe }};
+    const ownerOptions = {{ owner_options| safe }};
+    const completionTypes = {{ completion_types| safe }};
+    const initialPayload = {{ builder_payload| safe }};
+    const blankPayload = {
+        schema_version: 2,
+        title: "Custom Onboarding Success Plan",
+        summary: "",
+        audience: { role: "employee", department: "" },
+        phases: [
+            { id: "day-30", label: "30 Days", description: "", sections: [] },
+            { id: "day-60", label: "60 Days", description: "", sections: [] },
+            { id: "day-90", label: "90 Days", description: "", sections: [] }
+        ]
+    };
+
+    let builderState = JSON.parse(JSON.stringify(initialPayload || blankPayload));
+    let editingTemplateId = document.getElementById("template-id-field").value || "";
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function makePhase() {
+        return {
+            id: `phase-${Date.now()}`,
+            label: `New Phase ${builderState.phases.length + 1}`,
+            description: "",
+            sections: []
+        };
+    }
+
+    function makeSection() {
+        return {
+            id: `section-${Date.now()}`,
+            label: "Custom",
+            activities: []
+        };
+    }
+
+    function makeActivity() {
+        return {
+            id: `activity-${Date.now()}`,
+            activity_type: "task",
+            title: "New activity",
+            description: "",
+            instructions: "",
+            owner: "employee",
+            priority: "medium",
+            weight: 1,
+            estimated_time: "",
+            completion_type: "manual",
+            evidence_required: false,
+            allow_attachments: true,
+            related: { url: "" },
+            tags: [],
+            due_days: 0
+        };
+    }
+
+    function syncEditorMode() {
+        document.getElementById("template-id-field").value = editingTemplateId || "";
+        document.getElementById("editor-heading").textContent = editingTemplateId ? "Edit Template" : "Create Template";
+        const actions = document.getElementById("selected-template-actions");
+        if (actions) {
+            actions.style.display = editingTemplateId ? "" : "none";
+        }
+    }
+
+    function resetBuilder() {
+        builderState = JSON.parse(JSON.stringify(editingTemplateId ? (initialPayload || blankPayload) : blankPayload));
+        renderBuilder();
+    }
+
+    function startNewTemplate() {
+        builderState = JSON.parse(JSON.stringify(blankPayload));
+        editingTemplateId = "";
+        syncEditorMode();
+        renderBuilder();
+        document.getElementById("template-editor").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function loadStarter() {
+        builderState = {
+            schema_version: 2,
+            title: "Sales Executive Success Plan",
+            summary: "A practical first-90-days roadmap for a customer-facing role.",
+            audience: { role: "employee", department: "Sales" },
+            phases: [
+                {
+                    id: "day-30",
+                    label: "30 Days",
+                    description: "Foundations and confidence.",
+                    sections: [
+                        {
+                            id: "company",
+                            label: "Company",
+                            activities: [
+                                { ...makeActivity(), title: "Read welcome guide", activity_type: "reading", owner: "employee", due_days: 3 },
+                                { ...makeActivity(), title: "Meet the team", activity_type: "meeting", owner: "manager", due_days: 5 }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "day-60",
+                    label: "60 Days",
+                    description: "Build momentum and start contributing.",
+                    sections: [
+                        {
+                            id: "department",
+                            label: "Department",
+                            activities: [
+                                { ...makeActivity(), title: "Shadow a live call", activity_type: "observation", owner: "manager", due_days: 35 },
+                                { ...makeActivity(), title: "Complete product training", activity_type: "training", owner: "employee", due_days: 42 }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "day-90",
+                    label: "90 Days",
+                    description: "Operate with independence.",
+                    sections: [
+                        {
+                            id: "performance",
+                            label: "Performance",
+                            activities: [
+                                { ...makeActivity(), title: "Review pipeline targets", activity_type: "goal", owner: "manager", due_days: 75 },
+                                { ...makeActivity(), title: "90-day review", activity_type: "meeting", owner: "manager", due_days: 90 }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        renderBuilder();
+    }
+
+    function addPhase() {
+        builderState.phases.push(makePhase());
+        window.currentPhaseIndex = builderState.phases.length - 1;
+        renderBuilder();
+    }
+
+    function addSection(phaseIndex) {
+        builderState.phases[phaseIndex].sections.push(makeSection());
+        renderBuilder();
+    }
+
+    function quickAddSection(label) {
+        if (!builderState.phases.length) {
+            builderState.phases.push(makePhase());
+        }
+        const phaseIndex = builderState.phases.length - 1;
+        builderState.phases[phaseIndex].sections.push({
+            id: `section-${Date.now()}`,
+            label,
+            activities: []
+        });
+        renderBuilder();
+    }
+
+    function addActivity(phaseIndex, sectionIndex) {
+        builderState.phases[phaseIndex].sections[sectionIndex].activities.push(makeActivity());
+        renderBuilder();
+    }
+
+    function removeAt(list, index) {
+        list.splice(index, 1);
+    }
+
+    function renderPhase(phase, phaseIndex) {
+        const sections = (phase.sections || []).map((section, sectionIndex) => renderSection(section, phaseIndex, sectionIndex)).join("");
+        const sectionCount = (phase.sections || []).length;
+        const activityCount = (phase.sections || []).reduce((total, section) => total + (section.activities || []).length, 0);
+        return `
+        <div class="phase-container bg-white p-3 rounded border">
+            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                <div>
+                    <div class="small text-muted mb-1">Phase ${phaseIndex + 1}</div>
+                    <div class="fw-semibold fs-5">${escapeHtml(phase.label || `Phase ${phaseIndex + 1}`)}</div>
+                    <div class="small text-muted mt-1">${sectionCount} sections | ${activityCount} activities</div>
+                </div>
+                <div class="phase-body-actions mt-0">
+                    <button type="button" class="btn btn-sm btn-outline-primary js-add-section" data-phase-index="${phaseIndex}">Add section</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-phase" data-phase-index="${phaseIndex}">Remove phase</button>
+                </div>
+            </div>
+            <div class="ribbon-body px-0">
+                <div class="row g-3 mb-4">
+                    <div class="col-lg-4">
+                        <label class="form-label small fw-semibold">Phase title</label>
+                        <input class="form-control form-control-sm phase-label" data-phase-index="${phaseIndex}" value="${escapeHtml(phase.label || "")}">
+                    </div>
+                    <div class="col-lg-8">
+                        <label class="form-label small fw-semibold">Phase description</label>
+                        <input class="form-control form-control-sm phase-description" data-phase-index="${phaseIndex}" value="${escapeHtml(phase.description || "")}">
+                    </div>
+                </div>
+                <div class="sections-wrap" data-phase-index="${phaseIndex}">
+                    ${sections}
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    function renderSection(section, phaseIndex, sectionIndex) {
+        const activities = (section.activities || []).map((activity, activityIndex) => renderActivity(activity, phaseIndex, sectionIndex, activityIndex)).join("");
+        return `
+        <details class="section-ribbon" open>
+            <summary>
+                <div>
+                    <div class="small text-muted">Section ${sectionIndex + 1}</div>
+                    <div class="fw-semibold">${escapeHtml(section.label || "Custom")}</div>
+                    <div class="small text-muted">${(section.activities || []).length} activities</div>
+                </div>
+                <div class="ribbon-meta">
+                    <span class="badge bg-light text-dark">Section</span>
+                </div>
+            </summary>
+            <div class="ribbon-body">
+                <div class="row g-2">
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Section name</label>
+                        <input class="form-control form-control-sm section-label" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" list="section-library" value="${escapeHtml(section.label || "")}" placeholder="Choose or type a section">
+                    </div>
+                    <div class="col-lg-6 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-add-activity" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}">Add activity</button>
+                    </div>
+                </div>
+                <div class="section-body-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-section" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}">Remove section</button>
+                </div>
+                <div class="activities-wrap mt-3" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}">
+                    ${activities}
+                </div>
+            </div>
+        </details>
+    `;
+    }
+
+    function renderActivity(activity, phaseIndex, sectionIndex, activityIndex) {
+        const ownerLabel = (ownerOptions.find(item => item.value === activity.owner) || {}).label || activity.owner;
+        const typeLabel = String(activity.activity_type || "task").replace(/_/g, " ");
+        return `
+        <details class="activity-ribbon">
+            <summary>
+                <div>
+                    <div class="small text-muted">Activity ${activityIndex + 1}</div>
+                    <div class="fw-semibold">${escapeHtml(activity.title || "New activity")}</div>
+                    <div class="small text-muted">${escapeHtml(typeLabel)} | ${escapeHtml(ownerLabel)} | due ${escapeHtml(activity.due_days || 0)} days</div>
+                </div>
+                <div class="ribbon-meta">
+                    <span class="badge bg-primary-subtle text-primary">${escapeHtml(typeLabel)}</span>
+                </div>
+            </summary>
+            <div class="ribbon-body">
+                <div class="row g-2">
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Title</label>
+                        <input class="form-control form-control-sm act-title" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" value="${escapeHtml(activity.title || "")}" placeholder="What should happen?">
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Type</label>
+                        <select class="form-select form-select-sm act-type" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}">${activityTypes.map(item => `<option value="${item}" ${item === activity.activity_type ? "selected" : ""}>${item.replace(/_/g, " ")}</option>`).join("")}</select>
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Owner</label>
+                        <select class="form-select form-select-sm act-owner" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}">${ownerOptions.map(item => `<option value="${item.value}" ${item.value === activity.owner ? "selected" : ""}>${item.label}</option>`).join("")}</select>
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Due days</label>
+                        <input type="number" min="0" class="form-control form-control-sm act-due" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" value="${escapeHtml(activity.due_days || 0)}">
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Completion</label>
+                        <select class="form-select form-select-sm act-completion" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}">${completionTypes.map(item => `<option value="${item.value}" ${item.value === activity.completion_type ? "selected" : ""}>${item.label}</option>`).join("")}</select>
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Priority</label>
+                        <select class="form-select form-select-sm act-priority" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}">
+                            <option value="low" ${activity.priority === "low" ? "selected" : ""}>Low</option>
+                            <option value="medium" ${activity.priority !== "high" ? "selected" : ""}>Medium</option>
+                            <option value="high" ${activity.priority === "high" ? "selected" : ""}>High</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Weight</label>
+                        <input type="number" min="1" class="form-control form-control-sm act-weight" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" value="${escapeHtml(activity.weight || 1)}">
+                    </div>
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Related link</label>
+                        <input class="form-control form-control-sm act-url" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" value="${escapeHtml((activity.related && activity.related.url) || "")}" placeholder="Optional resource or URL">
+                    </div>
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Tags</label>
+                        <input class="form-control form-control-sm act-tags" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" value="${escapeHtml((activity.tags || []).join(", "))}" placeholder="sales, onboarding, systems">
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap gap-3 mt-1">
+                            <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1 act-evidence" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" ${activity.evidence_required ? "checked" : ""}> Evidence required</label>
+                            <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1 act-attach" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}" ${activity.allow_attachments !== false ? "checked" : ""}> Allow attachments</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <button type="button" class="btn btn-sm btn-outline-danger js-remove-activity" data-phase-index="${phaseIndex}" data-section-index="${sectionIndex}" data-activity-index="${activityIndex}">Remove activity</button>
+                    </div>
+                </div>
+            </div>
+        </details>
+    `;
+    }
+
+    function renderBuilder() {
+        const root = document.getElementById("phase-builder");
+
+        let activePhaseIndex = window.currentPhaseIndex || 0;
+        if (builderState.phases && activePhaseIndex >= builderState.phases.length) {
+            activePhaseIndex = Math.max(0, builderState.phases.length - 1);
+        }
+        window.currentPhaseIndex = activePhaseIndex;
+
+        let html = "";
+        if (builderState.phases && builderState.phases.length > 0) {
+            html += `<div class="journey-stepper mb-4">
+            <ul class="nav nav-pills justify-content-between position-relative" role="tablist">
+                <div class="journey-line"></div>`;
+
+            builderState.phases.forEach((phase, index) => {
+                const isActive = index === activePhaseIndex;
+                html += `
+                <li class="nav-item journey-node" role="presentation">
+                    <button class="nav-link ${isActive ? 'active' : ''}" type="button" role="tab" onclick="window.currentPhaseIndex=${index}; renderBuilder(); event.preventDefault();">
+                        <div class="node-icon">
+                            <i class="bi bi-flag"></i>
+                        </div>
+                        <div class="node-label">${escapeHtml(phase.label || `Phase ${index + 1}`)}</div>
+                    </button>
+                </li>
+            `;
+            });
+
+            html += `</ul></div>`;
+            html += `<div class="tab-content animate-fadeIn">`;
+            html += renderPhase(builderState.phases[activePhaseIndex], activePhaseIndex);
+            html += `</div>`;
+        } else {
+            html = `<div class="text-center p-4 text-muted border rounded">No phases added yet.</div>`;
+        }
+
+        root.innerHTML = html;
+
+        document.getElementById("builder-title").value = builderState.title || "";
+        document.getElementById("builder-summary").value = builderState.summary || "";
+        document.getElementById("builder-role").value = (builderState.audience && builderState.audience.role) || "employee";
+
+        root.querySelectorAll(".phase-label").forEach(input => {
+            input.addEventListener("input", event => {
+                const phaseIndex = parseInt(event.target.dataset.phaseIndex, 10);
+                builderState.phases[phaseIndex].label = event.target.value;
+                syncPayload();
+            });
+        });
+        root.querySelectorAll(".phase-description").forEach(input => {
+            input.addEventListener("input", event => {
+                const phaseIndex = parseInt(event.target.dataset.phaseIndex, 10);
+                builderState.phases[phaseIndex].description = event.target.value;
+                syncPayload();
+            });
+        });
+        root.querySelectorAll(".section-label").forEach(input => {
+            input.addEventListener("input", event => {
+                const phaseIndex = parseInt(event.target.dataset.phaseIndex, 10);
+                const sectionIndex = parseInt(event.target.dataset.sectionIndex, 10);
+                builderState.phases[phaseIndex].sections[sectionIndex].label = event.target.value;
+                syncPayload();
+            });
+        });
+
+        root.querySelectorAll(".act-title").forEach(input => input.addEventListener("input", updateActivityField("title")));
+        root.querySelectorAll(".act-type").forEach(input => input.addEventListener("change", updateActivityField("activity_type")));
+        root.querySelectorAll(".act-owner").forEach(input => input.addEventListener("change", updateActivityField("owner")));
+        root.querySelectorAll(".act-due").forEach(input => input.addEventListener("input", event => {
+            updateActivityObject(event, activity => { activity.due_days = parseInt(event.target.value || "0", 10); });
+        }));
+        root.querySelectorAll(".act-completion").forEach(input => input.addEventListener("change", updateActivityField("completion_type")));
+        root.querySelectorAll(".act-priority").forEach(input => input.addEventListener("change", updateActivityField("priority")));
+        root.querySelectorAll(".act-weight").forEach(input => input.addEventListener("input", event => {
+            updateActivityObject(event, activity => { activity.weight = parseInt(event.target.value || "1", 10); });
+        }));
+        root.querySelectorAll(".act-url").forEach(input => input.addEventListener("input", event => {
+            updateActivityObject(event, activity => {
+                activity.related = activity.related || {};
+                activity.related.url = event.target.value;
+            });
+        }));
+        root.querySelectorAll(".act-tags").forEach(input => input.addEventListener("input", event => {
+            updateActivityObject(event, activity => {
+                activity.tags = event.target.value.split(",").map(v => v.trim()).filter(Boolean);
+            });
+        }));
+        root.querySelectorAll(".act-evidence").forEach(input => input.addEventListener("change", event => {
+            updateActivityObject(event, activity => { activity.evidence_required = event.target.checked; });
+        }));
+        root.querySelectorAll(".act-attach").forEach(input => input.addEventListener("change", event => {
+            updateActivityObject(event, activity => { activity.allow_attachments = event.target.checked; });
+        }));
+
+        root.querySelectorAll(".js-add-section").forEach(button => {
+            button.addEventListener("click", event => addSection(parseInt(event.currentTarget.dataset.phaseIndex, 10)));
+        });
+        root.querySelectorAll(".js-remove-phase").forEach(button => {
+            button.addEventListener("click", event => {
+                removeAt(builderState.phases, parseInt(event.currentTarget.dataset.phaseIndex, 10));
+                renderBuilder();
+            });
+        });
+        root.querySelectorAll(".js-remove-section").forEach(button => {
+            button.addEventListener("click", event => {
+                const phaseIndex = parseInt(event.currentTarget.dataset.phaseIndex, 10);
+                const sectionIndex = parseInt(event.currentTarget.dataset.sectionIndex, 10);
+                removeAt(builderState.phases[phaseIndex].sections, sectionIndex);
+                renderBuilder();
+            });
+        });
+        root.querySelectorAll(".js-add-activity").forEach(button => {
+            button.addEventListener("click", event => {
+                addActivity(parseInt(event.currentTarget.dataset.phaseIndex, 10), parseInt(event.currentTarget.dataset.sectionIndex, 10));
+            });
+        });
+        root.querySelectorAll(".js-remove-activity").forEach(button => {
+            button.addEventListener("click", event => {
+                const phaseIndex = parseInt(event.currentTarget.dataset.phaseIndex, 10);
+                const sectionIndex = parseInt(event.currentTarget.dataset.sectionIndex, 10);
+                const activityIndex = parseInt(event.currentTarget.dataset.activityIndex, 10);
+                removeAt(builderState.phases[phaseIndex].sections[sectionIndex].activities, activityIndex);
+                renderBuilder();
+            });
+        });
+
+        syncPayload();
+    }
+
+    function updateActivityField(field) {
+        return event => {
+            updateActivityObject(event, activity => {
+                activity[field] = event.target.value;
+            });
+        };
+    }
+
+    function updateActivityObject(event, callback) {
+        const phaseIndex = parseInt(event.target.dataset.phaseIndex, 10);
+        const sectionIndex = parseInt(event.target.dataset.sectionIndex, 10);
+        const activityIndex = parseInt(event.target.dataset.activityIndex, 10);
+        const activity = builderState.phases[phaseIndex].sections[sectionIndex].activities[activityIndex];
+        callback(activity);
+        syncPayload();
+    }
+
+    function syncPayload() {
+        builderState.title = document.getElementById("builder-title").value.trim();
+        builderState.summary = document.getElementById("builder-summary").value.trim();
+        builderState.audience = builderState.audience || {};
+        builderState.audience.role = document.getElementById("builder-role").value.trim() || "employee";
+        document.getElementById("payload_json").value = JSON.stringify(builderState, null, 2);
+        document.getElementById("count-phases").textContent = builderState.phases.length;
+        document.getElementById("count-sections").textContent = builderState.phases.reduce((sum, phase) => sum + (phase.sections || []).length, 0);
+        document.getElementById("count-activities").textContent = builderState.phases.reduce((sum, phase) => sum + (phase.sections || []).reduce((s, section) => s + (section.activities || []).length, 0), 0);
+        document.getElementById("count-estimated").textContent = builderState.phases.reduce((sum, phase) => sum + (phase.sections || []).reduce((s, section) => s + (section.activities || []).reduce((a, activity) => a + (Number(activity.weight || 1)), 0), 0), 0);
+        syncEditorMode();
+    }
+
+    syncEditorMode();
+    renderBuilder();
+</script>
+{% endblock %}

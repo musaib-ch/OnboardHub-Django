@@ -1,0 +1,864 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Onboarding Buddy Program | OnboardHub{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* =========================================================
+     ONBOARDING BUDDY PAGE
+     ========================================================= */
+
+  .buddy-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px 32px 40px;
+  }
+
+  /* Header */
+  .buddy-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .buddy-page-header-content {
+    min-width: 0;
+  }
+
+  .buddy-page-header h2 {
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+
+  .buddy-page-header p {
+    max-width: 900px;
+    line-height: 1.5;
+  }
+
+  .buddy-primary-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 10px 18px;
+  }
+
+
+  /* =========================================================
+     KPI CARDS
+     ========================================================= */
+
+  .buddy-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  .buddy-kpi-card {
+    height: 100%;
+    min-height: 125px;
+    border: 0;
+    border-radius: 12px;
+  }
+
+  .buddy-kpi-card .card-body {
+    padding: 20px;
+  }
+
+  .buddy-kpi-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .buddy-kpi-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 7px;
+  }
+
+  .buddy-kpi-description {
+    display: block;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+
+  /* =========================================================
+     TABLE CARD
+     ========================================================= */
+
+  .buddy-table-card {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .buddy-table-header {
+    min-height: 62px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    background: #fff;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  }
+
+  .buddy-table-header h5 {
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .buddy-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .buddy-table {
+    width: 100%;
+    min-width: 1100px;
+    margin: 0;
+    table-layout: fixed;
+  }
+
+  /*
+     Fixed column proportions make the headers and body
+     line up consistently.
+  */
+  .buddy-table th:nth-child(1),
+  .buddy-table td:nth-child(1) {
+    width: 23%;
+  }
+
+  .buddy-table th:nth-child(2),
+  .buddy-table td:nth-child(2) {
+    width: 23%;
+  }
+
+  .buddy-table th:nth-child(3),
+  .buddy-table td:nth-child(3) {
+    width: 14%;
+  }
+
+  .buddy-table th:nth-child(4),
+  .buddy-table td:nth-child(4) {
+    width: 12%;
+  }
+
+  .buddy-table th:nth-child(5),
+  .buddy-table td:nth-child(5) {
+    width: 16%;
+  }
+
+  .buddy-table th:nth-child(6),
+  .buddy-table td:nth-child(6) {
+    width: 12%;
+  }
+
+  .buddy-table thead th {
+    padding: 13px 16px;
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .buddy-table tbody td {
+    padding: 15px 16px;
+    vertical-align: middle;
+  }
+
+  .buddy-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  .buddy-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.015);
+  }
+
+
+  /* =========================================================
+     PEOPLE / AVATARS
+     ========================================================= */
+
+  .mentor-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .buddy-person {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+  }
+
+  .buddy-person-info {
+    min-width: 0;
+  }
+
+  .buddy-person-name {
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .buddy-person-email {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color, #6c757d);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  /* =========================================================
+     STATUS
+     ========================================================= */
+
+  .buddy-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    padding: 6px 11px;
+  }
+
+
+  /* =========================================================
+     ACTIONS
+     ========================================================= */
+
+  .buddy-actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .buddy-unpair-btn {
+    white-space: nowrap;
+  }
+
+
+  /* =========================================================
+     EMPTY STATE
+     ========================================================= */
+
+  .buddy-empty-state {
+    padding: 55px 20px !important;
+  }
+
+  .buddy-empty-state-icon {
+    font-size: 2.7rem;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+
+  /* =========================================================
+     MODAL
+     ========================================================= */
+
+  .buddy-modal .modal-dialog {
+    max-width: 680px;
+  }
+
+  .buddy-modal .modal-content {
+    border: 0;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .buddy-modal .modal-header {
+    padding: 20px 24px 12px;
+  }
+
+  .buddy-modal .modal-body {
+    padding: 18px 24px 22px;
+  }
+
+  .buddy-modal .modal-footer {
+    padding: 14px 24px 20px;
+  }
+
+  .buddy-form-label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .buddy-modal .form-select,
+  .buddy-modal .form-control {
+    border-radius: 8px;
+  }
+
+  .buddy-modal .form-select-lg {
+    font-size: 0.95rem;
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+
+  .buddy-modal textarea {
+    resize: vertical;
+    min-height: 90px;
+  }
+
+
+  /* =========================================================
+     RESPONSIVE
+     ========================================================= */
+
+  @media (max-width: 1100px) {
+    .buddy-page {
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+
+    .buddy-kpi-row {
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .buddy-page {
+      padding: 20px 14px 30px;
+    }
+
+    .buddy-page-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .buddy-primary-btn {
+      width: 100%;
+    }
+
+    .buddy-kpi-row {
+      grid-template-columns: 1fr;
+      overflow: visible;
+    }
+
+    .buddy-table-header {
+      padding: 15px 16px;
+    }
+
+    .buddy-table th,
+    .buddy-table td {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .buddy-modal .modal-dialog {
+      margin: 12px;
+    }
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="buddy-page">
+
+  <!-- =======================================================
+       PAGE HEADER
+       ======================================================= -->
+
+  <div class="buddy-page-header">
+
+    <div class="buddy-page-header-content">
+      <h2 class="h3 fw-bold">
+        <i class="bi bi-people text-primary me-2"></i>
+        Onboarding Buddy & Mentorship Program
+      </h2>
+
+      <p class="text-muted mb-0">
+        Pair new hires with experienced team mentors, track 1-on-1 check-ins,
+        and accelerate workplace integration.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-primary fw-semibold buddy-primary-btn shadow-sm"
+      data-bs-toggle="modal"
+      data-bs-target="#pairBuddyModal">
+
+      <i class="bi bi-person-plus-fill me-1"></i>
+      Pair New Buddy
+
+    </button>
+
+  </div>
+
+
+  <!-- =======================================================
+       KPI CARDS
+       ======================================================= -->
+
+  <div class="buddy-kpi-row">
+
+    <div class="card shadow-sm buddy-kpi-card">
+      <div class="card-body">
+
+        <span class="text-muted buddy-kpi-label">
+          Active Buddy Pairings
+        </span>
+
+        <div class="buddy-kpi-value text-primary">
+          {{ total_pairings }}
+        </div>
+
+        <span class="text-muted buddy-kpi-description">
+          <i class="bi bi-link-45deg me-1"></i>
+          Active new hire & mentor pairs
+        </span>
+
+      </div>
+    </div>
+
+
+    <div class="card shadow-sm buddy-kpi-card">
+      <div class="card-body">
+
+        <span class="text-muted buddy-kpi-label">
+          Unassigned New Hires
+        </span>
+
+        <div class="buddy-kpi-value text-warning">
+          {{ unassigned_count }}
+        </div>
+
+        <span class="text-muted buddy-kpi-description">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Awaiting Onboarding Buddy assignment
+        </span>
+
+      </div>
+    </div>
+
+
+    <div class="card shadow-sm buddy-kpi-card">
+      <div class="card-body">
+
+        <span class="text-muted buddy-kpi-label">
+          1-on-1 Check-In Completion
+        </span>
+
+        <div class="buddy-kpi-value text-success">
+          {{ checkin_completion_rate }}%
+        </div>
+
+        <span class="text-muted buddy-kpi-description">
+          <i class="bi bi-journal-check me-1"></i>
+          Completed milestone check-ins
+        </span>
+
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- =======================================================
+       ACTIVE PAIRINGS
+       ======================================================= -->
+
+  <div class="card shadow-sm buddy-table-card">
+
+    <div class="buddy-table-header">
+
+      <h5 class="fw-bold">
+        <i class="bi bi-person-lines-fill me-2 text-primary"></i>
+        Active Buddy & Mentorship Pairings
+      </h5>
+
+    </div>
+
+
+    <div class="buddy-table-wrapper">
+
+      <table class="table align-middle table-hover buddy-table">
+
+        <thead class="table-light">
+          <tr>
+
+            <th>New Hire (Mentee)</th>
+            <th>Assigned Buddy (Mentor)</th>
+            <th>Department</th>
+            <th>Date Paired</th>
+            <th>Check-Ins Status</th>
+            <th class="text-end">Actions</th>
+
+          </tr>
+        </thead>
+
+
+        <tbody>
+
+          {% for p in pairings %}
+
+          <tr>
+
+            <!-- MENTEE -->
+            <td>
+
+              <div class="buddy-person">
+
+                <div class="mentor-avatar bg-primary">
+                  {{ p.user.full_name|slice:":1" }}
+                </div>
+
+                <div class="buddy-person-info">
+
+                  <div class="buddy-person-name text-dark">
+                    {{ p.user.full_name }}
+                  </div>
+
+                  <span class="buddy-person-email">
+                    {{ p.user.email }}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </td>
+
+
+            <!-- MENTOR -->
+            <td>
+
+              <div class="buddy-person">
+
+                <div class="mentor-avatar bg-success">
+                  {{ p.counterparty.full_name|slice:":1" }}
+                </div>
+
+                <div class="buddy-person-info">
+
+                  <div class="buddy-person-name text-dark">
+                    {{ p.counterparty.full_name }}
+                  </div>
+
+                  <span class="buddy-person-email">
+                    {{ p.counterparty.email }}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </td>
+
+
+            <!-- DEPARTMENT -->
+            <td>
+              {{ p.user.department.name|default:"Global / All" }}
+            </td>
+
+
+            <!-- DATE -->
+            <td>
+              <small class="text-muted">
+                {{ p.created_at|date:"M d, Y" }}
+              </small>
+            </td>
+
+
+            <!-- STATUS -->
+            <td>
+
+              <span class="badge bg-info-subtle text-info border border-info-subtle buddy-status rounded-pill">
+
+                <i class="bi bi-clock"></i>
+                Active Program
+
+              </span>
+
+            </td>
+
+
+            <!-- ACTION -->
+            <td class="buddy-actions">
+
+              <form
+                method="POST"
+                class="d-inline"
+                onsubmit="return confirm('Remove buddy pairing for {{ p.user.full_name|escapejs }}?');">
+
+                {% csrf_token %}
+
+                <input
+                  type="hidden"
+                  name="action"
+                  value="unpair">
+
+                <input
+                  type="hidden"
+                  name="engagement_id"
+                  value="{{ p.id }}">
+
+                <button
+                  type="submit"
+                  class="btn btn-sm btn-outline-danger buddy-unpair-btn"
+                  title="Unpair Buddy">
+
+                  <i class="bi bi-person-x me-1"></i>
+                  Unpair
+
+                </button>
+
+              </form>
+
+            </td>
+
+          </tr>
+
+
+          {% empty %}
+
+          <tr>
+
+            <td colspan="6" class="text-center text-muted buddy-empty-state">
+
+              <i class="bi bi-people text-secondary buddy-empty-state-icon"></i>
+
+              <p class="mb-2">
+                No Onboarding Buddies paired yet.
+              </p>
+
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#pairBuddyModal">
+
+                <i class="bi bi-person-plus-fill me-1"></i>
+                Pair Your First Buddy
+
+              </button>
+
+            </td>
+
+          </tr>
+
+          {% endfor %}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     PAIR BUDDY MODAL
+     ========================================================= -->
+
+<div
+  class="modal fade buddy-modal"
+  id="pairBuddyModal"
+  tabindex="-1"
+  aria-labelledby="pairBuddyModalLabel"
+  aria-hidden="true">
+
+  <div class="modal-dialog modal-dialog-centered">
+
+    <div class="modal-content shadow-lg">
+
+      <form
+        method="POST"
+        action="{% url 'admin_buddy_program' %}">
+
+        {% csrf_token %}
+
+        <input
+          type="hidden"
+          name="action"
+          value="pair">
+
+
+        <!-- MODAL HEADER -->
+        <div class="modal-header border-bottom-0">
+
+          <h5
+            class="modal-title fw-bold"
+            id="pairBuddyModalLabel">
+
+            <i class="bi bi-person-plus-fill text-primary me-2"></i>
+            Pair Onboarding Buddy
+
+          </h5>
+
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close">
+          </button>
+
+        </div>
+
+
+        <!-- MODAL BODY -->
+        <div class="modal-body">
+
+
+          <!-- NEW HIRE -->
+          <div class="mb-4">
+
+            <label class="buddy-form-label">
+              Select New Hire (Mentee)
+              <span class="text-danger">*</span>
+            </label>
+
+            <select
+              name="new_hire_id"
+              class="form-select form-select-lg"
+              required>
+
+              <option value="">
+                -- Choose New Hire --
+              </option>
+
+              {% for u in unassigned_new_hires %}
+
+              <option value="{{ u.id }}">
+
+                {{ u.full_name }}
+                ({{ u.email }})
+
+                {% if u.department %}
+                  — {{ u.department.name }}
+                {% endif %}
+
+              </option>
+
+              {% endfor %}
+
+            </select>
+
+          </div>
+
+
+          <!-- MENTOR -->
+          <div class="mb-4">
+
+            <label class="buddy-form-label">
+              Assign Onboarding Buddy (Mentor)
+              <span class="text-danger">*</span>
+            </label>
+
+            <select
+              name="buddy_id"
+              class="form-select form-select-lg"
+              required>
+
+              <option value="">
+                -- Choose Experienced Team Member --
+              </option>
+
+              {% for b in potential_buddies %}
+
+              <option value="{{ b.id }}">
+
+                {{ b.full_name }}
+                ({{ b.email }})
+
+                {% if b.position_title %}
+                  — {{ b.position_title }}
+                {% endif %}
+
+              </option>
+
+              {% endfor %}
+
+            </select>
+
+          </div>
+
+
+          <!-- NOTES -->
+          <div>
+
+            <label class="buddy-form-label">
+              Program Notes / Focus Areas
+            </label>
+
+            <textarea
+              name="notes"
+              class="form-control"
+              rows="3"
+              placeholder="e.g. Focus on engineering workflow, codebase architecture, and team introductions."></textarea>
+
+          </div>
+
+        </div>
+
+
+        <!-- MODAL FOOTER -->
+        <div class="modal-footer border-top-0">
+
+          <button
+            type="button"
+            class="btn btn-light"
+            data-bs-dismiss="modal">
+
+            Cancel
+
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-primary px-4 fw-bold">
+
+            <i class="bi bi-link-45deg me-1"></i>
+            Pair Buddy Now
+
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}

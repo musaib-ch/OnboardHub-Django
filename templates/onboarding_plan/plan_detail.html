@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block title %}{{ employee.full_name }} Onboarding Success Plan{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-signpost-2 me-2"></i>{{ employee.full_name }} Success Plan</h1>
+        <p class="text-muted mb-0">Manager and HR roadmap view with approvals, feedback, and plan editing.</p>
+    </div>
+    <a href="{% url 'manage_onboarding_plans' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+
+{% if engagement %}
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4 h-100">
+            <div class="row g-3">
+                <div class="col-md-4"><small class="text-muted d-block">Employee</small><strong>{{ employee.full_name }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Template</small><strong>{% if template %}{{ template.title }}{% else %}Custom plan{% endif %}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Progress</small><strong>{{ summary.overall.percentage }}%</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Department</small><strong>{% if employee.department %}{{ employee.department.name }}{% else %}-{% endif %}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Join Date</small><strong>{{ employee.date_of_joining|date:"d M Y"|default:"-" }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Status</small><strong>{{ engagement.status|title }}</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="glass-card p-4 h-100">
+            <h6 class="mb-3">Plan Pulse</h6>
+            <div class="pulse-ring mx-auto mb-3" style="--pct: {{ summary.overall.percentage }};">
+                <span>{{ summary.overall.percentage }}%</span>
+            </div>
+            <div class="small text-muted">
+                {{ summary.upcoming|length }} upcoming activities · {{ summary.overdue|length }} overdue · {{ summary.manager_feedback|length }} recent feedback touchpoints
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="journey-stepper mb-4">
+            <ul class="nav nav-pills justify-content-between position-relative" id="managerJourneyTabs" role="tablist">
+                <div class="journey-line"></div>
+                {% for phase in summary.phases %}
+                <li class="nav-item journey-node" role="presentation">
+                    <button class="nav-link {% if phase.is_current %}active{% endif %}" id="mgr-tab-{{ phase.id }}" data-bs-toggle="pill" data-bs-target="#mgr-pane-{{ phase.id }}" type="button" role="tab">
+                        <div class="node-icon">
+                            <i class="bi {% if phase.progress == 100 %}bi-check-lg{% else %}bi-flag{% endif %}"></i>
+                        </div>
+                        <div class="node-label">{{ phase.label }}</div>
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="tab-content animate-fadeIn" id="managerJourneyTabContent">
+            {% for phase in summary.phases %}
+            <div class="tab-pane fade {% if phase.is_current %}show active{% endif %}" id="mgr-pane-{{ phase.id }}" role="tabpanel">
+                <div class="glass-card mb-4 p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                        <div>
+                            <h4 class="fw-bold mb-1">{{ phase.label }}</h4>
+                            <p class="text-muted mb-0">{{ phase.description }}</p>
+                        </div>
+                        <div class="phase-meter" style="background: conic-gradient(var(--primary) calc({{ phase.progress }} * 1%), rgba(15,23,42,0.08) 0);">{{ phase.progress }}%</div>
+                    </div>
+
+                    {% for section in phase.sections %}
+                    <div class="section-card mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-semibold mb-0">{{ section.label }}</h5>
+                            <span class="badge bg-light text-dark border">{{ section.progress }}% Complete</span>
+                        </div>
+                        {% for activity in section.activities %}
+                        <div class="activity-card shadow-sm hover-lift transition-all">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <div class="fw-semibold fs-6">{{ activity.title }}</div>
+                                    <div class="small text-muted text-capitalize mb-2">
+                                        <i class="bi bi-tag me-1"></i>{{ activity.activity_type }} · 
+                                        <i class="bi bi-person me-1"></i>owner: {{ activity.owner }} · 
+                                        {{ activity.completion_type|cut:"_" }}
+                                    </div>
+                                    {% if activity.instructions %}<div class="small text-secondary mt-1">{{ activity.instructions }}</div>{% endif %}
+                                    {% if activity.due_date %}<div class="tiny-meta mt-2 fw-medium"><i class="bi bi-calendar-event me-1"></i>Due {{ activity.due_date|slice:":10" }}</div>{% endif %}
+                                </div>
+                                <span class="badge status-badge status-{{ activity.status|slugify }} px-3 py-2">{{ activity.status|title }}</span>
+                            </div>
+
+                            {% if activity.attachments %}
+                            <div class="attachment-row mt-3">
+                                {% for file in activity.attachments %}
+                                <a href="{{ file.url }}" class="attachment-pill" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ file.name }}</a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div class="thread-box mt-3 pt-3 border-top">
+                                {% for msg in activity.messages %}
+                                <div class="thread-message mb-2 bg-light rounded p-2">
+                                    <div class="d-flex justify-content-between">
+                                        <strong class="small">{{ msg.author_name }}</strong>
+                                        <span class="text-muted" style="font-size: 0.7rem;">{{ msg.created_at|slice:":16" }}</span>
+                                    </div>
+                                    <div class="small mt-1">{{ msg.message }}</div>
+                                </div>
+                                {% empty %}
+                                <div class="text-muted small fst-italic"><i class="bi bi-chat-left-text me-1"></i>No discussion yet.</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="manager-actions mt-3 p-3 bg-light rounded border">
+                                <form class="inline-form manager-action-form mb-0" data-endpoint="{% url 'manager_mark_milestone' employee.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="activity_id" value="{{ activity.id }}">
+                                    <input type="hidden" name="action" value="approve">
+                                    <input type="text" name="comment" class="form-control form-control-sm" placeholder="Approval note">
+                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                </form>
+                                <form class="inline-form manager-action-form mb-0" data-endpoint="{% url 'manager_mark_milestone' employee.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="activity_id" value="{{ activity.id }}">
+                                    <input type="hidden" name="action" value="return">
+                                    <input type="text" name="comment" class="form-control form-control-sm" placeholder="Return with changes">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Return</button>
+                                </form>
+                                <form class="inline-form manager-feedback-form mb-0" data-endpoint="{% url 'manager_post_feedback' employee.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="activity_id" value="{{ activity.id }}">
+                                    <input type="text" name="message" class="form-control form-control-sm" placeholder="Comment on this activity">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Comment</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4 mb-4">
+            <h5 class="mb-3">Roadmap Editor</h5>
+            <p class="small text-muted mb-3">Keep the everyday work in the guided plan view. Open the advanced editor only when you need to make structural changes.</p>
+            <div class="editor-notice mb-3">
+                <div><strong>{{ summary.phases|length }}</strong><span>phases</span></div>
+                <div><strong>{{ summary.upcoming|length }}</strong><span>upcoming</span></div>
+                <div><strong>{{ summary.overdue|length }}</strong><span>overdue</span></div>
+            </div>
+            <details class="advanced-editor">
+                <summary>Advanced JSON editor</summary>
+                <div class="mt-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="save_plan_json">
+                        <textarea name="payload_json" class="form-control code-area mb-3" rows="18">{{ plan_json }}</textarea>
+                        <button class="btn btn-primary w-100">Save Plan Structure</button>
+                    </form>
+                </div>
+            </details>
+        </div>
+        <div class="glass-card p-4">
+            <h5 class="mb-3">Highlights</h5>
+            <div class="small text-muted mb-2">Upcoming</div>
+            {% for item in summary.upcoming %}
+            <div class="mini-item">{{ item.title }}<span>{{ item.due_date|slice:":10" }}</span></div>
+            {% empty %}
+            <div class="text-muted small mb-3">No upcoming deadlines.</div>
+            {% endfor %}
+            <div class="small text-muted mb-2 mt-3">Recently Completed</div>
+            {% for item in summary.recent_completed %}
+            <div class="mini-item">{{ item.title }}<span>{{ item.at|slice:":10" }}</span></div>
+            {% empty %}
+            <div class="text-muted small">Nothing completed yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="glass-card p-5 text-center">
+    <div style="font-size:3rem; opacity:.3;"><i class="bi bi-signpost-2"></i></div>
+    <h3 class="mt-3">No Plan Created Yet</h3>
+    <p class="text-muted">Create a custom success plan for this employee with a starter roadmap, then refine the structure if needed.</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_plan">
+        <textarea name="payload_json" class="form-control code-area mb-3" rows="14">{
+  "title": "{{ employee.full_name }} Success Plan",
+  "summary": "Guided onboarding roadmap",
+  "phases": [
+    {"id": "day-30", "label": "30 Days", "description": "", "sections": []},
+    {"id": "day-60", "label": "60 Days", "description": "", "sections": []},
+    {"id": "day-90", "label": "90 Days", "description": "", "sections": []}
+  ]
+}</textarea>
+        <button class="btn btn-primary">Create Starter Plan</button>
+    </form>
+</div>
+{% endif %}
+
+<style>
+    .code-area {
+        font-family: Consolas, monospace;
+        font-size: 0.84rem;
+        background: rgba(15,23,42,0.04);
+    }
+    .editor-notice {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .editor-notice div {
+        border: 1px solid rgba(15,23,42,0.08);
+        border-radius: 14px;
+        padding: 12px;
+        text-align: center;
+        background: rgba(255,255,255,0.72);
+    }
+    .editor-notice span {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+    .advanced-editor {
+        border: 1px solid rgba(15,23,42,0.08);
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: rgba(255,255,255,0.66);
+    }
+    .advanced-editor summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--primary);
+    }
+    .pulse-ring {
+        --pct: 0;
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(var(--primary) calc(var(--pct) * 1%), rgba(15,23,42,0.08) 0);
+        position: relative;
+    }
+    .pulse-ring::after {
+        content: "";
+        position: absolute;
+        inset: 12px;
+        border-radius: 50%;
+        background: white;
+    }
+    .pulse-ring span {
+        position: relative;
+        z-index: 1;
+        font-size: 1.35rem;
+        font-weight: 700;
+    }
+    .section-card {
+        border: 1px solid rgba(15,23,42,0.08);
+        border-radius: 16px;
+        padding: 16px;
+        background: rgba(255,255,255,0.72);
+    }
+    .activity-card {
+        border: 1px solid rgba(15,23,42,0.06);
+        border-radius: 14px;
+        padding: 14px;
+        background: #fff;
+        margin-top: 12px;
+    }
+    .thread-box {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(15,23,42,0.06);
+    }
+    .thread-message {
+        padding: 8px 0;
+        font-size: .9rem;
+    }
+    .thread-message span {
+        display: block;
+        color: var(--text-secondary);
+        font-size: .75rem;
+    }
+    .attachment-row {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .attachment-pill, .mini-item {
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(var(--primary-rgb), .08);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 8px;
+    }
+    .mini-item span {
+        display: block;
+        color: var(--text-secondary);
+        font-size: .78rem;
+    }
+    .inline-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .inline-form .form-control {
+        flex: 1;
+        min-width: 180px;
+    }
+    .journey-stepper {
+        position: relative;
+        padding: 10px 0 30px;
+    }
+    .journey-stepper .nav-pills {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        z-index: 1;
+    }
+    .journey-line {
+        position: absolute;
+        top: 24px;
+        left: 10%;
+        right: 10%;
+        height: 4px;
+        background: rgba(15,23,42,0.06);
+        z-index: 0;
+        border-radius: 4px;
+    }
+    .journey-node {
+        z-index: 2;
+        flex: 1;
+        text-align: center;
+    }
+    .journey-node .nav-link {
+        background: transparent !important;
+        border: none;
+        padding: 0;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        color: var(--text-muted);
+    }
+    .journey-node .node-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: #fff;
+        border: 4px solid rgba(15,23,42,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    }
+    .journey-node .nav-link.active .node-icon {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.15);
+        transform: scale(1.15);
+    }
+    .journey-node .nav-link:hover:not(.active) .node-icon {
+        border-color: rgba(var(--primary-rgb), 0.5);
+        transform: scale(1.05);
+    }
+    .journey-node .node-label {
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    .journey-node .nav-link.active .node-label {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important;
+    }
+    .phase-meter {
+        min-width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+    }
+</style>
+
+<script>
+document.querySelectorAll('.manager-action-form, .manager-feedback-form').forEach(form => {
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const response = await fetch(form.dataset.endpoint, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+        if (response.ok) {
+            window.location.reload();
+        }
+    });
+});
+</script>
+{% endblock %}

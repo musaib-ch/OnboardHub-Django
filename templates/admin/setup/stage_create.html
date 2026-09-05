@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Create Custom Stage{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex align-items-center">
+        <a href="{% url 'admin_stages_list' %}" class="btn btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create Custom Stage</h1>
+            <p class="text-muted mb-0">Add a new onboarding stage to your workflow</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" class="glass-card p-4 animate-fadeIn">
+    {% csrf_token %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Stage Key <span class="text-danger">*</span></label>
+            <select name="stage_key" class="form-select" required>
+                <option value="">Select a code-defined stage</option>
+                {% for option in stage_catalog %}
+                <option value="{{ option.key }}" {% if option.exists %}disabled{% endif %}>
+                    {{ option.label }} ({{ option.key }}){% if option.exists %} - already configured{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <small class="text-muted d-block mt-1">Choose a stage that matches the portal code exactly. Existing keys are disabled.</small>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-medium">Stage Label <span class="text-danger">*</span></label>
+            <input type="text" name="label" class="form-control" placeholder="e.g., Offer Acceptance" required>
+        </div>
+        <div class="col-12">
+            <label class="form-label fw-medium">Description</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="What happens in this stage?"></textarea>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-medium">Default Due Days <span class="text-danger">*</span></label>
+            <input type="number" name="default_due_date_days" class="form-control" value="7" min="1" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-medium">Stage Type <span class="text-danger">*</span></label>
+            <select name="stage_type" class="form-select" required>
+                <option value="mandatory">Mandatory - All employees</option>
+                <option value="optional">Optional - By selection</option>
+                <option value="conditional">Conditional - Based on rules</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-medium">&nbsp;</label>
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="is_mandatory" id="isMandatory">
+                <label class="form-check-label" for="isMandatory">Mark as Mandatory</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Create Stage
+        </button>
+        <a href="{% url 'admin_stages_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

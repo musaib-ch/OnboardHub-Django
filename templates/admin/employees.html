@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><h1><i class="bi bi-people me-2"></i>Employees</h1></div>
+    <div class="d-flex gap-2">
+        {% if can_export %}
+        <a href="{% url 'admin_export_employees' %}?q={{ q|urlencode }}&status={{ status|urlencode }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+        {% endif %}
+        {% if user.role == 'super_admin' or user.role == 'admin' %}
+        <a href="{% url 'admin_import_employees' %}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i>Import CSV</a>
+        <a href="{% url 'admin_create_user' %}?next={% url 'admin_employees' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Employee</a>
+        {% endif %}
+        <form id="bulk-delete-employees-form" method="POST" action="{% url 'admin_bulk_delete_employees' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="selected_ids" id="selectedIdsEmployees">
+            <button type="submit" class="btn btn-outline-danger" id="bulkDeleteEmployeesBtn" disabled><i class="bi bi-trash me-1"></i>Delete Selected</button>
+        </form>
+    </div>
+</div>
+
+<div class="glass-card p-3 mb-3">
+    <form method="GET" class="row g-2 align-items-end">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="dir" value="{{ dir }}">
+        <div class="col-md-5">
+            <label class="form-label">Search</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Name, email, or employee ID">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+                <option value="">All statuses</option>
+                {% for s in statuses %}<option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s|humanize_status }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Columns</label>
+            <div class="dropdown">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">Visible</button>
+                <div class="dropdown-menu p-3" style="min-width: 220px;">
+                    {% for key, label in column_options %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="cols" value="{{ key }}" id="emp_col_{{ key }}" {% if key in visible_columns %}checked{% endif %}>
+                        <label class="form-check-label" for="emp_col_{{ key }}">{{ label }}</label>
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary btn-sm mt-2 w-100">Apply</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div>
+    </form>
+</div>
+
+<div class="table-container">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 40px;"><input class="form-check-input" type="checkbox" id="selectAllEmployees"></th>
+                    {% if 'name' in visible_columns %}<th><a href="?q={{ q|urlencode }}&status={{ status|urlencode }}&sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Name{% if sort == 'name' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'email' in visible_columns %}<th><a href="?q={{ q|urlencode }}&status={{ status|urlencode }}&sort=email&dir={% if sort == 'email' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Email{% if sort == 'email' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'department' in visible_columns %}<th><a href="?q={{ q|urlencode }}&status={{ status|urlencode }}&sort=department&dir={% if sort == 'department' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Department{% if sort == 'department' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'stage' in visible_columns %}<th><a href="?q={{ q|urlencode }}&status={{ status|urlencode }}&sort=stage&dir={% if sort == 'stage' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Stage{% if sort == 'stage' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'date_of_joining' in visible_columns %}<th><a href="?q={{ q|urlencode }}&status={{ status|urlencode }}&sort=date_of_joining&dir={% if sort == 'date_of_joining' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Date of Joining{% if sort == 'date_of_joining' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in employees %}
+                <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_employee_detail' e.id %}'">
+                    <td onclick="event.stopPropagation()"><input class="form-check-input employee-select" type="checkbox" value="{{ e.id }}"></td>
+                    {% if 'name' in visible_columns %}<td class="fw-medium">{{ e.full_name }}</td>{% endif %}
+                    {% if 'email' in visible_columns %}<td>{{ e.email }}</td>{% endif %}
+                    {% if 'department' in visible_columns %}<td>{{ e.department.name|default:"—" }}</td>{% endif %}
+                    {% if 'stage' in visible_columns %}<td>
+                        {{ e|render_stage_badge }}
+                    </td>{% endif %}
+                    {% if 'date_of_joining' in visible_columns %}<td>{{ e.date_of_joining|date:"d M Y"|default:"—" }}</td>{% endif %}
+                    <td onclick="event.stopPropagation()"><a href="{% url 'admin_employee_detail' e.id %}" class="btn btn-xs btn-outline-secondary">Open</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No employees found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+(function(){
+  const form = document.getElementById('bulk-delete-employees-form');
+  const selectedIds = document.getElementById('selectedIdsEmployees');
+  const selectAll = document.getElementById('selectAllEmployees');
+  const button = document.getElementById('bulkDeleteEmployeesBtn');
+  const checkboxes = () => Array.from(document.querySelectorAll('.employee-select'));
+
+  function syncSelection(){
+    const values = checkboxes().filter(cb => cb.checked).map(cb => cb.value);
+    selectedIds.value = values.join(',');
+    button.disabled = values.length === 0;
+    if (selectAll) {
+      selectAll.checked = checkboxes().length > 0 && checkboxes().every(cb => cb.checked);
+    }
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      checkboxes().forEach(cb => cb.checked = this.checked);
+      syncSelection();
+    });
+  }
+
+  checkboxes().forEach(cb => cb.addEventListener('change', syncSelection));
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      if (!selectedIds.value) {
+        e.preventDefault();
+        button.disabled = true;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

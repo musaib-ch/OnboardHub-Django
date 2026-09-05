@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+
+{% block title %}{{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1>{{ session.title }}</h1>
+            <p class="text-muted mb-0">
+                <span class="badge bg-secondary me-2">{{ session_data.session_type|humanize_status|upper }}</span>
+                {{ session_data.scheduled_date|slice:":10" }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if session_data.zoom.join_url %}
+            <a href="{{ session_data.zoom.join_url }}" target="_blank" class="btn btn-success">
+                <i class="bi bi-camera-video me-2"></i>Join Zoom
+            </a>
+            {% endif %}
+            {% if can_manage and session_data.zoom.start_url %}
+            <a href="{{ session_data.zoom.start_url }}" target="_blank" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-camera-video-fill me-1"></i>Start (Host)
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Main Info -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4 animate-fadeIn delay-1">
+            <h5 class="mb-3">Session Details</h5>
+            {% if session.body %}
+            <p class="mb-4 text-muted">{{ session.body }}</p>
+            {% endif %}
+            <div class="row g-3">
+                <div class="col-6">
+                    <small class="text-muted d-block">Date & Time</small>
+                    <span class="fw-500">{{ session_data.scheduled_date|slice:":16"|replace:"T: " }}</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Duration</small>
+                    <span class="fw-500">{{ session_data.duration_minutes }} minutes</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Organized By</small>
+                    <span class="fw-500">{{ session.created_by.full_name }}</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Status</small>
+                    {% if session_data.status == 'approved' %}
+                        <span class="badge bg-success">Approved</span>
+                    {% elif session_data.status == 'completed' %}
+                        <span class="badge bg-info">Completed</span>
+                    {% elif session_data.status == 'pending_approval' %}
+                        <span class="badge bg-warning">Pending Approval</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ session_data.status|upper }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendees List -->
+        <div class="glass-card p-4 mt-4 animate-fadeIn delay-2">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Attendees ({{ attendees|length }})</h5>
+                {% if can_manage and attendees %}
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#markAttendanceModal">
+                    <i class="bi bi-person-check me-1"></i>Mark Attendance
+                </button>
+                {% endif %}
+            </div>
+
+            {% if attendees %}
+            <div class="list-group list-group-flush">
+                {% for attendee in attendees %}
+                <div class="list-group-item px-0 py-2 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="mb-0 fw-500">{{ attendee.user.full_name }}</p>
+                            <small class="text-muted">{{ attendee.user.get_role_display }}</small>
+                            {% if attendee.joined_at %}
+                            <small class="text-muted ms-2"><i class="bi bi-clock me-1"></i>{{ attendee.joined_at|slice:"11:16" }}
+                                {% if attendee.duration_minutes %} · {{ attendee.duration_minutes }}min{% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            {% if attendee.status == 'attended' %}
+                                <span class="badge bg-info"><i class="bi bi-check2 me-1"></i>Attended</span>
+                            {% elif attendee.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                                {% if is_organizer %}
+                                <form method="post" action="{% url 'approve_attendee' session.id attendee.user.id %}" class="d-inline ms-1">
+                                    {% csrf_token %}
+                                </form>
+                                {% endif %}
+                            {% elif attendee.status == 'pending_approval' %}
+                                <span class="badge bg-warning">Pending</span>
+                                {% if is_organizer %}
+                                <form method="post" action="{% url 'approve_attendee' session.id attendee.user.id %}" class="d-inline ms-1">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-xs btn-success">Approve</button>
+                                </form>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">{{ attendee.status|upper }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No attendees yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Feedback Section -->
+        {% if feedback_list %}
+        <div class="glass-card p-4 mt-4 animate-fadeIn delay-3">
+            <h5 class="mb-3"><i class="bi bi-star me-2"></i>Feedback
+                {% if avg_rating %}
+                <span class="badge bg-warning text-dark ms-2">{{ avg_rating }}/5</span>
+                {% endif %}
+            </h5>
+            {% for fb in feedback_list %}
+            <div class="border-bottom pb-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong class="small">{{ fb.user.full_name }}</strong>
+                        <div class="text-warning small">
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= fb.rating %}★{% else %}☆{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <small class="text-muted">{{ fb.submitted_at|slice:":10" }}</small>
+                </div>
+                {% if fb.comment %}
+                <p class="small text-muted mt-1 mb-0">{{ fb.comment }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Approval -->
+        {% if is_organizer and session_data.status == 'pending_approval' %}
+        <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+            <h6 class="mb-3">Approval Needed</h6>
+            <form method="post" action="{% url 'approve_session' session.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-check-circle me-2"></i>Approve Session
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- My Registration -->
+        {% if not my_registration and request.user.role == 'employee' and session_data.status in 'approved,scheduled' %}
+        <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+            <form method="post" action="{% url 'register_session' session.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-plus-circle me-2"></i>Register for Session
+                </button>
+            </form>
+        </div>
+        {% elif my_registration %}
+        <div class="glass-card p-4 mb-4 animate-fadeIn delay-3">
+            <h6 class="mb-3">Your Registration</h6>
+            <div class="mb-2">
+                <small class="text-muted d-block">Status</small>
+                {% if my_registration.status == 'approved' %}
+                    <span class="badge bg-success">Approved</span>
+                {% elif my_registration.status == 'pending_approval' %}
+                    <span class="badge bg-warning">Pending Approval</span>
+                {% elif my_registration.status == 'attended' %}
+                    <span class="badge bg-info">Attended</span>
+                {% else %}
+                    <span class="badge bg-secondary">{{ my_registration.status|upper }}</span>
+                {% endif %}
+            </div>
+
+            <!-- Feedback form (only after attended, not already submitted) -->
+            {% if my_registration.status == 'attended' and not my_feedback %}
+            <hr>
+            <h6 class="mb-2">Leave Feedback</h6>
+            <form method="post" action="{% url 'session_feedback' session.id %}">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label small">Rating</label>
+                    <div class="d-flex gap-2">
+                        {% for i in "12345" %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input visually-hidden" type="radio" name="rating" id="r{{ forloop.counter }}" value="{{ forloop.counter }}" required>
+                            <label class="form-check-label star-label fs-5 text-muted" for="r{{ forloop.counter }}" style="cursor:pointer;">★</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <textarea name="comment" class="form-control form-control-sm" rows="2" placeholder="Optional comment..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm w-100">Submit Feedback</button>
+            </form>
+            {% elif my_feedback %}
+            <hr>
+            <small class="text-success"><i class="bi bi-check-circle me-1"></i>Feedback submitted</small>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Stats -->
+        <div class="glass-card p-4 animate-fadeIn delay-4">
+            <h6 class="mb-3"><i class="bi bi-graph-up me-2"></i>Stats</h6>
+            <div class="mb-2">
+                <small class="text-muted">Registered</small>
+                <p class="fw-500 mb-0">{{ attendees|length }}</p>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted">Attended</small>
+                <p class="fw-500 mb-0">{{ attended_count }}</p>
+            </div>
+            {% if attendees %}
+            <div>
+                <small class="text-muted">Attendance Rate</small>
+                <p class="fw-500 mb-0">{{ attendance_rate }}%</p>
+            </div>
+            {% endif %}
+            {% if avg_rating %}
+            <div class="mt-2">
+                <small class="text-muted">Avg Rating</small>
+                <p class="fw-500 mb-0 text-warning">{{ avg_rating }}/5 ★</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Mark Attendance Modal -->
+{% if can_manage and attendees %}
+<div class="modal fade" id="markAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-check me-2"></i>Mark Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'session_mark_attendance' session.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Select attendees who were present at this session.</p>
+                    {% for attendee in attendees %}
+                    {% if attendee.status != 'attended' %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="attendee_ids" value="{{ attendee.user.id }}" id="att_{{ attendee.user.id }}"
+                               {% if attendee.status == 'approved' %}checked{% endif %}>
+                        <label class="form-check-label" for="att_{{ attendee.user.id }}">
+                            {{ attendee.user.full_name }}
+                            <span class="badge bg-light text-muted ms-1 small">{{ attendee.status }}</span>
+                        </label>
+                    </div>
+                    {% else %}
+                    <div class="d-flex align-items-center mb-2 text-muted">
+                        <i class="bi bi-check-circle-fill text-info me-2"></i>
+                        <span class="small">{{ attendee.user.full_name }} — already attended</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Mark Selected as Attended</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="mt-4">
+    <a href="{% url 'sessions_dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Sessions
+    </a>
+</div>
+
+<style>
+input[type="radio"]:checked + .star-label { color: #f59e0b; }
+</style>
+{% endblock %}

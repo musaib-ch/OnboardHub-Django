@@ -1,0 +1,663 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}{{ emp.full_name }}{% endblock %}
+{% block extra_head %}
+<style>
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 10px 35px rgba(31, 38, 135, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+        border-radius: 18px;
+    }
+    .glass-card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 40px rgba(31, 38, 135, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+        border-color: rgba(var(--primary-rgb), 0.3) !important;
+    }
+    .employee-page-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .employee-page-header h4 {
+        font-weight: 700;
+        letter-spacing: -.02em;
+    }
+    .employee-identity {
+        height: 100%;
+        min-height: 270px;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        border-radius: 16px;
+        color: var(--text-primary);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(var(--primary-rgb), 0.08));
+        border: 1px solid rgba(var(--primary-rgb), 0.14);
+        box-shadow: 0 8px 24px rgba(var(--primary-rgb), 0.06);
+    }
+    .employee-initials {
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 16px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        box-shadow: 0 10px 22px rgba(var(--primary-rgb), 0.25);
+        color: #fff;
+        font-size: 1.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .employee-photo {
+        width: 72px;
+        height: 72px;
+        display: block;
+        margin-bottom: 16px;
+        border: 3px solid rgba(255, 255, 255, 0.9);
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(var(--primary-rgb), 0.2);
+        object-fit: cover;
+    }
+    .profile-fact {
+        min-height: 90px;
+        padding: 16px 18px;
+        border: 1px solid rgba(var(--primary-rgb), 0.08);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(10px);
+        transition: all 0.2s ease;
+    }
+    .profile-fact:hover {
+        background: rgba(255, 255, 255, 0.92);
+        border-color: rgba(var(--primary-rgb), 0.2);
+    }
+    .profile-fact .label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+    }
+    .profile-fact .value {
+        font-weight: 650;
+        color: var(--text-primary);
+        overflow-wrap: anywhere;
+    }
+    .stage-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 20px 24px;
+        border: 1px solid rgba(var(--primary-rgb), 0.12);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(16px);
+        border-radius: 16px;
+    }
+    .glass-btn-xs {
+        font-size: 0.74rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        transition: all 0.2s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="employee-page-header">
+    <a href="{% url 'admin_employees' %}" class="btn btn-sm btn-outline-secondary me-2 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h4 class="mb-1 fw-bold text-dark">{{ emp.full_name }}</h4>
+        <span class="badge {% if user.role == 'medical_approver' and is_med_approved %}bg-success{% else %}badge-status-{{ emp.status }}{% endif %} px-3 py-1 rounded-pill">
+            {% if user.role == 'medical_approver' and is_med_approved %}Medical Approved{% else %}{{ emp.status|humanize_status }}{% endif %}
+        </span>
+    </div>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        {% if can_export %}
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#exportEmployeeModal">
+            <i class="bi bi-download me-1"></i>Export Package
+        </button>
+        {% endif %}
+        {% if can_manage_users and emp.status != 'deleted' %}
+        <form method="post" action="{% url 'admin_reset_user_password' emp.id %}" onsubmit="return confirm('Generate a new temporary password for this user?');" class="mb-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                <i class="bi bi-key me-1"></i>Reset Password
+            </button>
+        </form>
+        {% endif %}
+        {% if emp.status != 'deleted' %}
+        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="bi bi-trash me-1"></i>Delete
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% if can_export %}
+<div class="modal fade" id="exportEmployeeModal" tabindex="-1" aria-labelledby="exportEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'admin_export_employee_package' emp.id %}" class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; backdrop-filter: blur(20px); background: rgba(255, 255, 255, 0.95);">
+            {% csrf_token %}
+            <div class="modal-header border-0 p-4" style="background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff;">
+                <div>
+                    <h5 class="modal-title mb-1 fw-bold" id="exportEmployeeModalLabel"><i class="bi bi-file-earmark-zip me-2"></i>Export Onboarding Records</h5>
+                    <p class="small mb-0 opacity-75">Choose what to include for {{ emp.full_name }}.</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">The download is a ZIP with one folder per selected stage. Forms are exported as Excel files; uploaded documents retain their original filenames.</p>
+                <div class="vstack gap-2">
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="medical" checked><span><strong><i class="bi bi-heart-pulse me-1 text-danger"></i>Medical</strong><small class="d-block text-muted">Medical report, test name, review status and notes.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="pre_onboarding" checked><span><strong><i class="bi bi-clipboard-check me-1 text-primary"></i>Pre-Onboarding</strong><small class="d-block text-muted">Submitted forms and their file uploads.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="onboarding" checked><span><strong><i class="bi bi-folder-check me-1 text-success"></i>Onboarding</strong><small class="d-block text-muted">Signed documents, forms and uploaded files.</small></span></label>
+                    <label class="border rounded-3 p-3 d-flex gap-3 align-items-start export-choice"><input class="form-check-input mt-1" type="checkbox" name="sections" value="post_onboarding" checked><span><strong><i class="bi bi-flag me-1 text-warning"></i>Post-Onboarding</strong><small class="d-block text-muted">Post-onboarding forms, documents and files.</small></span></label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-3 bg-light bg-opacity-50">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="bi bi-download me-1"></i>Download ZIP</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- EMPLOYEE DETAILS - TOP FULL WIDTH GLASS CARD -->
+<div class="glass-panel p-4 mb-4">
+    <div class="row g-4">
+        <div class="col-lg-3">
+            <div class="employee-identity">
+                {% if emp.avatar %}
+                <img src="/media/avatars/{{ emp.avatar }}" class="employee-photo" alt="{{ emp.full_name }} profile photo">
+                {% else %}
+                <div class="employee-initials">{{ emp.full_name|first }}{{ emp.full_name|last }}</div>
+                {% endif %}
+                <h5 class="mb-1 fw-bold text-dark">{{ emp.full_name }}</h5>
+                <div class="small text-muted mb-3">{{ emp.position_title|default:"Employee" }}</div>
+                {% if can_manage_users %}
+                <a href="{% url 'admin_edit_user' emp.id %}?next={% url 'admin_employee_detail' emp.id %}" class="btn btn-sm btn-outline-primary rounded-pill w-100 mt-auto"><i class="bi bi-pencil me-1"></i>Edit Profile</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-9">
+            <div class="row g-3">
+                <div class="col-md-6"><div class="profile-fact"><span class="label"><i class="bi bi-envelope me-1 text-primary"></i>Email</span><div class="value">{{ emp.email }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label"><i class="bi bi-badge-ad me-1 text-info"></i>Employee ID</span><div class="value">{{ emp.employee_id|default:"Not assigned" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label"><i class="bi bi-building me-1 text-success"></i>Department</span><div class="value">{{ emp.department.name|default:"Not assigned" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label"><i class="bi bi-person-badge me-1 text-secondary"></i>Employment Type</span><div class="value">{{ emp.employee_type|default:"Not specified" }}</div></div></div>
+                <div class="col-md-6"><div class="profile-fact"><span class="label"><i class="bi bi-calendar-event me-1 text-warning"></i>Date of Joining</span><div class="value">{{ emp.date_of_joining|date:'d M Y'|default:"Not set" }}</div></div></div>
+                <div class="col-md-6">
+                    <div class="profile-fact">
+                        <span class="label"><i class="bi bi-pie-chart me-1 text-primary"></i>Onboarding Progress</span>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="value">{{ pct }}%</div>
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1" style="font-size:0.75rem;">Overall</span>
+                        </div>
+                        <div class="progress mt-2" style="height:7px; border-radius: 10px; background: rgba(0,0,0,0.06);">
+                            <div class="progress-bar bg-gradient" style="width:{{ pct }}%; background: linear-gradient(90deg, var(--primary), var(--accent));"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PHASE 1: PROGRESS VISUALIZATION CARD -->
+<div class="glass-panel stage-summary mb-4">
+    <div>
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="letter-spacing:0.06em;">Current Stage</div>
+        <h5 class="mb-0 fw-bold text-dark">{{ stage_progress.stage_name }}</h5>
+    </div>
+    <div>{% include "components/status_badge.html" with status=stage_progress.status %}</div>
+    {% if stage_progress.due_date %}
+    <div class="d-flex gap-4 text-sm align-items-center">
+        <div>
+            <small class="text-muted d-block">Due Date</small>
+            <div class="fw-semibold text-dark">{{ stage_progress.due_date|date:'d M Y H:i' }}</div>
+        </div>
+        <div>
+            <small class="text-muted d-block">Days Remaining</small>
+            <div class="fw-semibold">
+                {% if stage_progress.is_overdue %}
+                    <span class="badge bg-danger-subtle text-danger rounded-pill">Overdue</span>
+                {% else %}
+                    <span class="badge bg-info-subtle text-info rounded-pill">{{ stage_progress.days_remaining }} day{{ stage_progress.days_remaining|pluralize }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if awaiting_review and can_review %}
+    <div class="alert alert-warning mt-3 mb-0 rounded-4 w-100">
+        <h6 class="mb-2 fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Awaiting Your Review</h6>
+        <p class="small mb-3">This employee has submitted their <strong>{{ review_stage_label }}</strong> for approval.</p>
+
+        <form method="POST" action="{% url 'admin_review_employee' emp.id %}" class="mb-0">
+            {% csrf_token %}
+            <label class="form-label small">Your note (optional)</label>
+            <textarea name="note" class="form-control form-control-sm mb-2 rounded-3" rows="2" placeholder="Add feedback..."></textarea>
+
+            <div class="d-flex gap-2 flex-wrap">
+                {% if review_actions.approve %}<button name="action" value="approve" class="btn btn-sm btn-success rounded-pill px-3" data-confirm="Approve and advance to next stage?"><i class="bi bi-check-lg me-1"></i>Approve</button>{% endif %}
+                {% if review_actions.request_changes %}<button name="action" value="request_changes" class="btn btn-sm btn-warning text-white rounded-pill px-3"><i class="bi bi-arrow-repeat me-1"></i>Request Changes</button>{% endif %}
+                {% if review_actions.request_info %}<button name="action" value="request_info" class="btn btn-sm btn-info text-white rounded-pill px-3"><i class="bi bi-chat-dots me-1"></i>Request Info</button>{% endif %}
+                {% if review_actions.reject %}<button name="action" value="reject" class="btn btn-sm btn-danger rounded-pill px-3" data-confirm="Reject this submission?"><i class="bi bi-x-circle me-1"></i>Reject</button>{% endif %}
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- UNIFIED ONBOARDING JOURNEY - ALL STAGES WITH ACTIVITIES IN POPUP -->
+{% if unified_stages %}
+<div class="glass-panel mb-4 p-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h5 class="mb-1 fw-bold text-dark"><i class="bi bi-map me-2 text-primary"></i>Onboarding Journey</h5>
+            <p class="text-muted small mb-0">Overview of all mandatory and optional onboarding milestones.</p>
+        </div>
+        <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 font-semibold" style="font-size:0.8rem;">
+            {{ unified_stages|length }} Journey Stage{% if unified_stages|length > 1 %}s{% endif %}
+        </span>
+    </div>
+
+    <div class="row g-4">
+        {% for stage in unified_stages %}
+        <div class="col-lg-6">
+            <div class="p-4 rounded-4 border glass-card-hover" style="background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(12px); border-color: rgba(var(--primary-rgb), 0.12) !important;">
+                <div class="d-flex align-items-start justify-content-between mb-3 gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(var(--primary-rgb), 0.08); color: var(--{{ stage.color|default:'primary' }});">
+                            <i class="bi {{ stage.icon }} fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold text-dark">{{ stage.label }}</h6>
+                            <p class="small text-muted mb-0" style="font-size: 0.82rem;">{{ stage.description }}</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        {% if stage.activities %}
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1 shadow-sm glass-btn-xs" data-bs-toggle="modal" data-bs-target="#activitiesModal-{{ stage.key }}">
+                            <i class="bi bi-layers-half"></i>
+                            <span>Activities ({{ stage.activities|length }})</span>
+                        </button>
+                        {% endif %}
+
+                        {% if stage.status == 'completed' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-check-circle-fill me-1"></i>Completed</span>
+                        {% elif stage.status == 'locked' %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                        {% elif stage.status == 'pending' %}
+                        <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                        {% elif stage.status == 'in_progress' %}
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-arrow-repeat me-1"></i>In Progress</span>
+                        {% elif stage.status == 'unassigned' %}
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1 rounded-pill" style="font-size:0.75rem;"><i class="bi bi-dash-circle me-1"></i>Unassigned</span>
+                        {% elif stage.status == 'active' %}
+                        <span class="badge bg-primary px-2.5 py-1 rounded-pill" style="font-size:0.75rem;">Active</span>
+                        {% elif stage.status == 'unlocked' %}
+                        <span class="badge bg-success px-2.5 py-1 rounded-pill" style="font-size:0.75rem;">Unlocked</span>
+                        {% else %}
+                        <span class="badge bg-secondary px-2.5 py-1 rounded-pill" style="font-size:0.75rem;">Not Assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if stage.progress %}
+                <div class="mt-3 pt-2 border-top" style="border-color: rgba(0,0,0,0.04) !important;">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <small class="text-muted fw-medium" style="font-size:0.75rem;">Progress</small>
+                        <small class="fw-bold text-dark" style="font-size:0.75rem;">
+                            {% if stage.progress.total %}
+                            {{ stage.progress.completed }}/{{ stage.progress.total }} ({{ stage.progress.percentage }}%)
+                            {% else %}
+                            {{ stage.progress.percentage }}%
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="progress" style="height: 6px; border-radius: 10px; background: rgba(0,0,0,0.06);">
+                        <div class="progress-bar bg-primary rounded-pill" style="width: {{ stage.progress.percentage|default:0 }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- STAGE ACTIVITIES POPUP MODALS -->
+{% for stage in unified_stages %}
+{% if stage.activities %}
+<div class="modal fade" id="activitiesModal-{{ stage.key }}" tabindex="-1" aria-labelledby="actModalLabel-{{ stage.key }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; backdrop-filter: blur(24px); background: rgba(255, 255, 255, 0.95);">
+            <div class="modal-header border-bottom-0 p-4" style="background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08), rgba(var(--accent-rgb), 0.04));">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle p-3 d-grid place-items-center" style="background: rgba(var(--primary-rgb), 0.12); color: var(--primary);">
+                        <i class="bi {{ stage.icon }} fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="actModalLabel-{{ stage.key }}">{{ stage.label }} Activities</h5>
+                        <small class="text-muted">{{ stage.activities|length }} activity item{% if stage.activities|length > 1 %}s{% endif %} in this stage</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="vstack gap-3">
+                    {% for activity in stage.activities %}
+                    <div class="p-3 rounded-4 border d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: rgba(255,255,255,0.75); border-color: rgba(var(--primary-rgb), 0.12) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-3 p-2 text-center d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; background: rgba(var(--primary-rgb), 0.08); color: var(--primary);">
+                                <i class="bi bi-file-earmark-text fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-semibold mb-1 text-dark">{{ activity.title }}</h6>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    {% if activity.type %}
+                                    <span class="badge bg-light text-secondary border font-normal" style="font-size: 0.72rem;">{{ activity.type }}</span>
+                                    {% endif %}
+                                    {% if activity.description %}
+                                    <small class="text-muted">{{ activity.description }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 ms-auto">
+                            {% if activity.progress %}
+                            <div class="text-end me-2" style="min-width: 90px;">
+                                <div class="progress mb-1" style="height: 6px;">
+                                    <div class="progress-bar bg-primary rounded-pill" style="width: {{ activity.progress }}%"></div>
+                                </div>
+                                <small class="text-muted fw-semibold" style="font-size: 0.72rem;">{{ activity.progress }}%</small>
+                            </div>
+                            {% endif %}
+                            {% if activity.status %}
+                            <span class="badge badge-status-{{ activity.status }} px-3 py-1.5 rounded-pill" style="font-size:0.75rem;">{{ activity.status|humanize_status }}</span>
+                            {% endif %}
+                            {% if activity.file %}
+                            <a href="{{ activity.file }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                <i class="bi bi-download me-1"></i>View File
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 p-3 bg-light bg-opacity-50">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endif %}
+
+<!-- CONVERSATIONS & ACTIONS SECTION -->
+{% if emp.status != 'deleted' %}
+<div class="glass-panel p-4 mb-4" style="border-left: 4px solid var(--primary);">
+    <div class="collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#ed_convo" aria-expanded="false">
+        <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-chat-dots me-2 text-primary"></i>Stage Conversation Thread</h6>
+        <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
+            <a href="{% url 'chat_with_user' emp.id %}" class="btn btn-xs btn-outline-primary rounded-pill px-3" style="font-size:0.75rem;">
+                <i class="bi bi-chat-fill me-1"></i>Open Direct Chat
+            </a>
+            <i class="bi bi-chevron-down collapse-chevron"></i>
+        </div>
+    </div>
+    <div class="collapse" id="ed_convo" data-persist>
+        <div class="mt-3">
+            {% include "components/conversation_thread.html" %}
+            <form method="POST" action="{% url 'admin_message_employee' emp.id %}" class="mt-3">
+                {% csrf_token %}
+                {% if msg_templates %}
+                <div class="mb-2">
+                    <label class="small text-muted d-block mb-1"><i class="bi bi-envelope-paper me-1"></i>Insert Template:</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for t in msg_templates %}
+                        <button type="button" class="btn btn-xs btn-outline-secondary js-quick-template rounded-pill" data-key="{{ t.key }}" style="font-size:0.75rem; padding: 0.15rem 0.6rem;">
+                            {{ t.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {{ msg_templates|json_script:"msgTemplates" }}
+                {% endif %}
+                <div class="input-group input-group-sm mt-2">
+                    <textarea name="message" id="msgBox" class="form-control rounded-start-3" rows="2" placeholder="Write a message to {{ emp.full_name }}..." required></textarea>
+                    <button class="btn btn-primary rounded-end-3 px-3"><i class="bi bi-send me-1"></i>Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ACTIONS AT BOTTOM -->
+{% if can_on_behalf %}
+<div class="glass-panel p-4 mb-4" style="border-left: 4px solid var(--info);">
+    <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-cloud-upload me-2 text-info"></i>Upload Document on Behalf</h6>
+    <p class="text-muted small mb-3">Upload a document for this employee (e.g. a medical report they sent offline).</p>
+    <form method="POST" action="{% url 'admin_upload_on_behalf' emp.id %}" enctype="multipart/form-data" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-4">
+            <label class="form-label small mb-1">Attach to</label>
+            <select name="requirement" class="form-select form-select-sm rounded-3" onchange="document.getElementById('obCustom').style.display=this.value=='new'?'block':'none'">
+                {% for m in medical %}<option value="{{ m.id }}">{{ m.requirement_name }}</option>{% endfor %}
+                <option value="new">— Other (new document) —</option>
+            </select>
+        </div>
+        <div class="col-md-3" id="obCustom" style="{% if medical %}display:none;{% endif %}">
+            <label class="form-label small mb-1">Document name</label>
+            <input type="text" name="custom_name" class="form-control form-control-sm rounded-3" placeholder="e.g. Offer Letter">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">File</label>
+            <input type="file" name="file" class="form-control form-control-sm rounded-3" required>
+        </div>
+        <div class="col-md-2">
+            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="approved" id="obAppr"><label class="form-check-label small" for="obAppr">Mark approved</label></div>
+            <button class="btn btn-sm btn-info text-white rounded-pill w-100">Upload</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if can_bypass and is_onboarding_active %}
+<div class="glass-panel p-4 mb-4" style="border-left: 4px solid var(--warning);">
+    <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-fast-forward-circle me-2 text-warning"></i>Stage Bypass — Complete on Behalf</h6>
+    <p class="text-muted small mb-3">Override the normal flow for this employee. Current step: <strong>{{ current_stage_label }}</strong>. Bypassing marks the step's required items as done on their behalf and advances them.</p>
+    <div class="d-flex gap-2 flex-wrap">
+        <form method="POST" action="{% url 'admin_bypass_stage' emp.id %}" class="mb-0">
+            {% csrf_token %}
+            <button class="btn btn-outline-warning rounded-pill px-3" data-confirm="Bypass {{ current_stage_label }} on behalf and advance?"><i class="bi bi-skip-forward me-1"></i>Bypass Current Stage</button>
+        </form>
+        <form method="POST" action="{% url 'admin_bypass_all' emp.id %}" class="mb-0">
+            {% csrf_token %}
+            <button class="btn btn-warning text-white rounded-pill px-3" data-confirm="Bypass ALL remaining stages?"><i class="bi bi-fast-forward me-1"></i>Bypass All Remaining</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if role == 'super_admin' or role == 'admin' %}
+<!-- WORKFLOW CONFIGURATION -->
+<div class="glass-panel p-4 mb-4 animate-fadeIn" style="border-left: 4px solid var(--primary);">
+    <h5 class="mb-3 fw-bold text-dark"><i class="bi bi-diagram-2 me-2 text-primary"></i>Onboarding Workflow</h5>
+
+    <div class="row g-4 align-items-center">
+        <div class="col-lg-8">
+            <h6 class="mb-2 fw-semibold">Current Stage Path:</h6>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                {% for stage_key in employee_stage_path|get_enabled_stages %}
+                    {% with stage_def=stage_definitions|dict_get:stage_key %}
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2" style="font-size: 0.85rem;">
+                        {{ stage_def.label|default:stage_key }}
+                    </span>
+                    {% if not forloop.last %}<i class="bi bi-chevron-right text-muted opacity-50"></i>{% endif %}
+                    {% endwith %}
+                {% endfor %}
+            </div>
+
+            <small class="text-muted d-block">
+                {% if has_custom_path %}
+                <i class="bi bi-info-circle me-1"></i>This employee has a custom workflow path.
+                {% else %}
+                <i class="bi bi-info-circle me-1"></i>This employee uses the default workflow.
+                {% endif %}
+            </small>
+        </div>
+
+        {% if can_customize_workflow %}
+        <div class="col-lg-4 text-end">
+            <button type="button" class="btn btn-outline-primary rounded-pill px-4 btn-sm" data-bs-toggle="modal" data-bs-target="#workflowEditModal">
+                <i class="bi bi-pencil me-1"></i>Edit Workflow
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- WORKFLOW EDIT MODAL -->
+<div class="modal fade" id="workflowEditModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; backdrop-filter: blur(24px); background: rgba(255, 255, 255, 0.95);">
+            <div class="modal-header border-0 p-4 bg-light bg-opacity-50">
+                <h5 class="modal-title fw-bold text-dark">Edit Onboarding Workflow</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'admin_employee_detail' emp.id %}" id="workflowForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_workflow">
+
+                <div class="modal-body p-4">
+                    <p class="text-muted mb-3">Reorder or customize this employee's onboarding stages.</p>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label fw-medium">Workflow Stages:</label>
+                        <small class="text-muted d-block mb-2">Only enabled stages shown. Uncheck to remove.</small>
+                        <div id="stageList" class="p-3 rounded-4 border bg-white bg-opacity-50">
+                            {% for stage_key in employee_stage_path|get_enabled_stages %}
+                                {% with stage_def=stage_definitions|dict_get:stage_key %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="workflow_stages" value="{{ stage_key }}" id="ws_{{ stage_key }}" checked>
+                                    <label class="form-check-label" for="ws_{{ stage_key }}">
+                                        <strong>{{ stage_def.label|default:stage_key }}</strong>
+                                        <small class="text-muted d-block">{{ stage_def.description }}</small>
+                                    </label>
+                                </div>
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label fw-medium">Reason for change (optional)</label>
+                        <textarea name="workflow_change_reason" class="form-control rounded-3" rows="2" placeholder="e.g., Employee type changed, Custom request from HR..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 p-3 bg-light bg-opacity-50">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var box = document.getElementById("msgBox");
+    var dataEl = document.getElementById("msgTemplates");
+    if (!box || !dataEl) return;
+    var tpls = {};
+    try { JSON.parse(dataEl.textContent).forEach(function (t) { tpls[t.key] = t; }); } catch (e) {}
+    
+    document.querySelectorAll('.js-quick-template').forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var key = this.getAttribute("data-key");
+            var t = tpls[key];
+            if (t) {
+                box.value = (t.subject ? t.subject + "\n\n" : "") + (t.body || "");
+                box.focus();
+            }
+        });
+    });
+})();
+</script>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden; backdrop-filter: blur(24px); background: rgba(255, 255, 255, 0.95);">
+            <div class="modal-header border-0 p-4 bg-danger bg-opacity-10">
+                <h5 class="modal-title text-danger fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Delete Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-2">Are you sure you want to delete <strong>{{ emp.full_name }}</strong>?</p>
+                <p class="text-muted small mb-0">This will mark them as inactive. Their data will be preserved for audit purposes.</p>
+            </div>
+            <div class="modal-footer border-0 p-3 bg-light bg-opacity-50">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{% url 'admin_delete_employee' emp.id %}" style="display:inline;" class="mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Back arrow breadcrumb - go back to previous page
+document.querySelectorAll('a[href*="admin_employees"]').forEach(function(link) {
+    if (link.classList.contains('btn-outline-secondary') && link.innerHTML.includes('arrow-left')) {
+        link.onclick = function(e) {
+            e.preventDefault();
+            let referrerPathname = "";
+            try {
+                referrerPathname = document.referrer ? new URL(document.referrer).pathname : "";
+            } catch (err) {}
+            const currentPathname = window.location.pathname;
+            if (document.referrer && 
+                document.referrer.includes(window.location.hostname) && 
+                referrerPathname && 
+                referrerPathname !== currentPathname) {
+                window.history.back();
+            } else {
+                window.location = this.href;
+            }
+        };
+    }
+});
+</script>
+{% endblock %}

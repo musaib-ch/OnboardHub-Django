@@ -1,0 +1,52 @@
+{% comment %}
+Mobile-optimized table wrapper with horizontal scroll support on mobile.
+
+Usage:
+{% include "components/mobile_table_wrapper.html" with table_id="employees_table" %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th class="d-none d-md-table-cell">Email</th>
+                <th>Stage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>{{ employee.name }}</td>
+                <td class="d-none d-md-table-cell">{{ employee.email }}</td>
+                <td><span class="badge bg-primary">{{ employee.stage }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endinclude %}
+{% endcomment %}
+
+<div class="table-responsive-wrapper">
+    <div class="table-responsive">
+        {{ table_content }}
+    </div>
+    <div class="swipe-hint">
+        ← Swipe to see more →
+    </div>
+</div>
+
+<style>
+    .table-responsive-wrapper {
+        position: relative;
+    }
+
+    @media (max-width: 768px) {
+        .table-responsive-wrapper .swipe-hint {
+            display: block;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .table-responsive-wrapper .swipe-hint {
+            display: none;
+        }
+    }
+</style>

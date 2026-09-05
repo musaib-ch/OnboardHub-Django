@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load onboard_extras %}
+{% block title %}Email Templates{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.tiny.cloud/1/ysfy365so9hk57a7ogcu1vo8dzsv7kuc8ntl4mjzwvzueh94/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+tinymce.init({
+  selector: 'textarea.rich-editor',
+  plugins: 'lists link image table code help',
+  toolbar: 'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image table | removeformat help',
+  menubar: 'file edit view insert format tools table help',
+  height: 400,
+  font_size_formats: '8pt 10pt 12pt 14pt 18pt 24pt 30pt 36pt',
+  fontsize_formats: '8pt 10pt 12pt 14pt 18pt 24pt 30pt 36pt',
+  font_formats: 'Arial=arial,helvetica,sans-serif; Courier New=courier new,courier,monospace; Georgia=georgia,serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Trebuchet MS=trebuchet ms,sans-serif; Verdana=verdana,arial,sans-serif',
+  branding: false,
+  relative_urls: false,
+  paste_as_text: false,
+  content_css: false,
+});
+</script>
+{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-envelope me-2"></i>Email Templates</h1>
+    <p class="text-muted mb-0">Customize email notifications sent to employees throughout their journey.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <h6 class="mb-4"><i class="bi bi-bookmark-fill me-2"></i>Available Templates ({{ templates|length }})</h6>
+
+            <form method="POST" id="templatesForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save">
+
+                <div class="nav nav-tabs mb-4" role="tablist">
+                    {% for t in templates %}
+                    <button class="nav-link {% if forloop.first %}active{% endif %}" id="tab-{{ t.key }}" data-bs-toggle="tab" data-bs-target="#panel-{{ t.key }}" type="button" role="tab">
+                        {{ t.label }}
+                        {% if t.custom %}<span class="badge bg-info ms-2">custom</span>{% endif %}
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <div class="tab-content">
+                    {% for t in templates %}
+                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="panel-{{ t.key }}" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label fw-600">Subject</label>
+                            <input type="text" name="{{ t.key }}_subject" class="form-control" value="{{ t.subject }}" required>
+                            <div class="form-text">Use <code>{% verbatim %}{{variable}}{% endverbatim %}</code> syntax to insert data</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-600">Email Body</label>
+                            <textarea name="{{ t.key }}_body" class="form-control rich-editor" rows="12" required>{{ t.body }}</textarea>
+                            <div class="form-text"><i class="bi bi-info-circle me-1"></i>Use <code>{% verbatim %}{{variable}}{% endverbatim %}</code> syntax. Format with bold, italic, lists, etc. using the toolbar above.</div>
+                        </div>
+
+                        {% if t.custom %}
+                        <button type="submit" name="action" value="delete_template" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this custom template?');">
+                            <input type="hidden" name="template_key" value="{{ t.key }}">
+                            <i class="bi bi-trash me-1"></i>Delete
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4 mb-4">
+            <h6 class="mb-3"><i class="bi bi-plus-circle me-2"></i>Create Custom Template</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_template">
+                <div class="mb-3">
+                    <label class="form-label form-label-sm">Template Name</label>
+                    <input type="text" name="new_key" class="form-control form-control-sm" placeholder="e.g. custom_announcement" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm">Display Label</label>
+                    <input type="text" name="new_label" class="form-control form-control-sm" placeholder="e.g. Custom Announcement" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm">Subject</label>
+                    <input type="text" name="new_subject" class="form-control form-control-sm" placeholder="e.g. Hello {{employee_name}}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm">Body</label>
+                    <textarea name="new_body" class="form-control rich-editor" rows="8" placeholder="Email body..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus me-1"></i>Create</button>
+            </form>
+        </div>
+
+        <div class="glass-card p-4">
+            <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Available Variables</h6>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% for item in email_tags %}
+                <div class="mb-3 pb-3 border-bottom">
+                    <code class="bg-light px-2 py-1 rounded d-block mb-1">{% verbatim %}{{{% endverbatim %}}{{ item.tag }}{% verbatim %}}}{% endverbatim %}</code>
+                    <p class="small mb-1"><strong>{{ item.desc }}</strong></p>
+                    <p class="small text-muted mb-0">Example: <em>{{ item.sample }}</em></p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <h1><i class="bi bi-person me-2"></i>My Profile</h1>
+</div>
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" class="form-control" value="{{ profile_user.full_name }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" value="{{ profile_user.email }}" disabled>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" name="phone_number" class="form-control" value="{{ profile_user.phone_number|default:'' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Avatar</label>
+                        <input type="file" name="avatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_email_notifications" id="een" {% if profile_user.enable_email_notifications %}checked{% endif %}>
+                            <label class="form-check-label" for="een">Email notifications</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_in_app_notifications" id="ein" {% if profile_user.enable_in_app_notifications %}checked{% endif %}>
+                            <label class="form-check-label" for="ein">In-app notifications</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="glass-card p-4 text-center">
+            <div class="user-avatar mx-auto mb-3" style="width:72px;height:72px;font-size:1.5rem;">
+                {{ profile_user.full_name|slice:":2"|upper }}
+            </div>
+            <h5 class="mb-1">{{ profile_user.full_name }}</h5>
+            <span class="role-badge role-{{ profile_user.role }}">{{ profile_user.get_role_display }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
