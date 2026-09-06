@@ -186,7 +186,7 @@ def import_employees(request):
 
     if request.GET.get("template"):
         from ..exporters import csv_response
-        example = ["Jane Doe", "jane.doe@company.com", "EMP-1001", "Engineering",
+        example = ["Test Employee", "testemployee1@company.com", "EMP-1001", "Engineering",
                    "Software Engineer", "M1", "Lahore", "Monthly", "Permanent",
                    "1995-04-21", "female", "2026-07-01"]
         return csv_response("employee_import_template.csv", IMPORT_COLUMNS, [example])
