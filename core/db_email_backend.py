@@ -6,45 +6,52 @@ import re
 import socket
 import smtplib
 import ssl
+import urllib.parse
 
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 
 from .models import AppSetting
 
 
-# Public resolver IPs. Connecting to the IP directly avoids depending on the
-# application's broken DNS resolver just to resolve the resolver hostname.
 _DOH_RESOLVERS = (
     ("1.1.1.1", "cloudflare-dns.com"),
     ("8.8.8.8", "dns.google"),
 )
 
 
+class _DirectHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection to a resolver IP while preserving TLS SNI/Host."""
+
+    def __init__(self, resolver_ip, server_name, timeout):
+        super().__init__(server_name, 443, timeout=timeout)
+        self.resolver_ip = resolver_ip
+        self.server_name = server_name
+
+    def connect(self):
+        sock = socket.create_connection((self.resolver_ip, 443), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.server_name)
+
+
 def _resolve_via_doh(host, timeout=8):
-    """Resolve an A record without relying on the local DNS resolver."""
-    path = "/dns-query?name=" + host + "&type=A"
+    """Resolve an A record without depending on the application's DNS."""
+    path = "/dns-query?" + urllib.parse.urlencode({"name": host, "type": "A"})
     last_error = None
 
     for resolver_ip, server_name in _DOH_RESOLVERS:
+        conn = None
         try:
-            raw_sock = socket.create_connection((resolver_ip, 443), timeout=timeout)
-            context = ssl.create_default_context()
-            tls_sock = context.wrap_socket(raw_sock, server_hostname=server_name)
-            conn = http.client.HTTPSConnection(server_name, 443, timeout=timeout)
-            # Replace the connection's normal DNS-created socket with our
-            # already-connected TLS socket. The Host header preserves the
-            # resolver hostname required by the DoH service.
-            conn.sock = tls_sock
-            conn._HTTPConnection__state = http.client._CS_IDLE
-            conn.request("GET", path, headers={
-                "Accept": "application/dns-json",
-                "Host": server_name,
-                "User-Agent": "OnboardHub/1.0",
-            })
+            conn = _DirectHTTPSConnection(resolver_ip, server_name, timeout)
+            conn.request(
+                "GET",
+                path,
+                headers={
+                    "Accept": "application/dns-json",
+                    "Host": server_name,
+                    "User-Agent": "OnboardHub/1.0",
+                },
+            )
             response = conn.getresponse()
             payload = json.loads(response.read().decode("utf-8"))
-            conn.close()
-
             addresses = [
                 answer.get("data")
                 for answer in payload.get("Answer", [])
@@ -52,19 +59,21 @@ def _resolve_via_doh(host, timeout=8):
             ]
             if addresses:
                 return addresses
-            last_error = RuntimeError(
-                f"DNS resolver returned no A record for '{host}'"
-            )
-        except Exception as exc:  # noqa: BLE001 - try the second resolver
+            last_error = RuntimeError(f"No A record returned for '{host}'")
+        except Exception as exc:  # noqa: BLE001
             last_error = exc
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
-    if last_error:
-        raise socket.gaierror(f"DNS could not resolve SMTP host '{host}'") from last_error
-    raise socket.gaierror(f"DNS could not resolve SMTP host '{host}'")
+    raise socket.gaierror(f"DNS could not resolve SMTP host '{host}'") from last_error
 
 
 class ResilientSMTP(smtplib.SMTP):
-    """SMTP client with a direct-IP DNS-over-HTTPS fallback."""
+    """SMTP client that falls back to direct-IP DNS-over-HTTPS resolution."""
 
     def _get_socket(self, host, port, timeout):
         try:
@@ -74,8 +83,6 @@ class ResilientSMTP(smtplib.SMTP):
             last_error = None
             for address in addresses:
                 try:
-                    if self.debuglevel > 0:
-                        self._print_debug("connect: DNS-over-HTTPS resolved", (host, address, port))
                     return socket.create_connection((address, port), timeout, self.source_address)
                 except OSError as exc:
                     last_error = exc
@@ -87,7 +94,11 @@ class ResilientSMTP(smtplib.SMTP):
 class AppSettingEmailBackend(SMTPEmailBackend):
     """SMTP backend whose connection settings come from AppSetting."""
 
-    connection_class = ResilientSMTP
+    @property
+    def connection_class(self):
+        # Django exposes connection_class as a property, so assigning a class
+        # attribute here would not override it on supported Django versions.
+        return smtplib.SMTP_SSL if self.use_ssl else ResilientSMTP
 
     @staticmethod
     def _clean_host(value):
