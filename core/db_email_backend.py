@@ -5,7 +5,6 @@ import json
 import re
 import socket
 import smtplib
-import ssl
 import urllib.parse
 
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
@@ -42,8 +41,7 @@ def _resolve_via_doh(host, timeout=8):
         try:
             conn = _DirectHTTPSConnection(resolver_ip, server_name, timeout)
             conn.request(
-                "GET",
-                path,
+                "GET", path,
                 headers={
                     "Accept": "application/dns-json",
                     "Host": server_name,
@@ -73,22 +71,31 @@ def _resolve_via_doh(host, timeout=8):
 
 
 class ResilientSMTP(smtplib.SMTP):
-    """SMTP client that falls back to direct-IP DNS-over-HTTPS resolution."""
+    """SMTP client that prefers IPv4 A records and bypasses broken IPv6 routing."""
 
     def _get_socket(self, host, port, timeout):
+        # Some hosts resolve smtp.gmail.com to IPv6 first while the server has
+        # no working IPv6 egress. That produces OSError 101. Resolve an IPv4
+        # A record through DNS-over-HTTPS and connect directly to that address.
         try:
-            return super()._get_socket(host, port, timeout)
-        except socket.gaierror:
             addresses = _resolve_via_doh(host, timeout=min(timeout or 15, 8))
+        except Exception:
+            # Healthy environments can still use the normal system resolver.
+            addresses = None
+
+        if addresses:
             last_error = None
             for address in addresses:
                 try:
-                    return socket.create_connection((address, port), timeout, self.source_address)
+                    return socket.create_connection(
+                        (address, port), timeout, self.source_address
+                    )
                 except OSError as exc:
                     last_error = exc
             if last_error:
                 raise last_error
-            raise socket.gaierror(f"Unable to connect to SMTP host '{host}'")
+
+        return super()._get_socket(host, port, timeout)
 
 
 class AppSettingEmailBackend(SMTPEmailBackend):
@@ -96,8 +103,6 @@ class AppSettingEmailBackend(SMTPEmailBackend):
 
     @property
     def connection_class(self):
-        # Django exposes connection_class as a property, so assigning a class
-        # attribute would not override it on supported Django versions.
         return smtplib.SMTP_SSL if self.use_ssl else ResilientSMTP
 
     @staticmethod
@@ -119,11 +124,9 @@ class AppSettingEmailBackend(SMTPEmailBackend):
                 description=detail,
             )
         except Exception:
-            # Email logging is best-effort and must never change mail behavior.
             pass
 
     def _send(self, email_message):
-        """Send and surface recipient refusals instead of reporting false success."""
         if not email_message.recipients():
             self._audit_email(email_message, False, "No recipients")
             return False
@@ -136,9 +139,7 @@ class AppSettingEmailBackend(SMTPEmailBackend):
             )
         except Exception as exc:
             self._audit_email(email_message, False, f"{type(exc).__name__}: {exc}")
-            if isinstance(exc, smtplib.SMTPException) and not self.fail_silently:
-                raise
-            if not self.fail_silently and not isinstance(exc, smtplib.SMTPException):
+            if not self.fail_silently:
                 raise
             return False
         if refused:
