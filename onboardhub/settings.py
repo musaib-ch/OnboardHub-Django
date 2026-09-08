@@ -134,6 +134,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ── Session ────────────────────────────────────────────────────────────────────
+# SMTP is intentionally database-driven. The admin SMTP Settings page is the
+# single source of truth, and this backend makes django.core.mail.send_mail()
+# use the same saved host/port/user/password/TLS settings.
+EMAIL_BACKEND = "core.db_email_backend.AppSettingEmailBackend"
 EMAIL_ASYNC = os.environ.get("EMAIL_ASYNC", "true").lower() == "true"
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
