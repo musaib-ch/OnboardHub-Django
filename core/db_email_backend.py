@@ -100,9 +100,32 @@ class AppSettingEmailBackend(SMTPEmailBackend):
         # attribute would not override it on supported Django versions.
         return smtplib.SMTP_SSL if self.use_ssl else ResilientSMTP
 
+    @staticmethod
+    def _audit_email(email_message, ok, error=None):
+        """Write one durable AuditLog entry for every email transaction."""
+        try:
+            from .services import log_activity
+            recipients = email_message.recipients()
+            detail = (
+                f"SMTP {'accepted' if ok else 'failed'} email; "
+                f"from={email_message.from_email}; "
+                f"to={', '.join(recipients)}; subject={email_message.subject!r}"
+            )
+            if error:
+                detail += f"; error={error}"
+            log_activity(
+                action="email_sent" if ok else "email_failed",
+                entity_type="email",
+                description=detail,
+            )
+        except Exception:
+            # Email logging is best-effort and must never change mail behavior.
+            pass
+
     def _send(self, email_message):
         """Send and surface recipient refusals instead of reporting false success."""
         if not email_message.recipients():
+            self._audit_email(email_message, False, "No recipients")
             return False
         from_email = self.prep_address(email_message.from_email)
         recipients = [self.prep_address(addr) for addr in email_message.recipients()]
@@ -111,12 +134,18 @@ class AppSettingEmailBackend(SMTPEmailBackend):
             refused = self.connection.sendmail(
                 from_email, recipients, message.as_bytes(linesep="\r\n")
             )
-        except smtplib.SMTPException:
-            if not self.fail_silently:
+        except Exception as exc:
+            self._audit_email(email_message, False, f"{type(exc).__name__}: {exc}")
+            if isinstance(exc, smtplib.SMTPException) and not self.fail_silently:
+                raise
+            if not self.fail_silently and not isinstance(exc, smtplib.SMTPException):
                 raise
             return False
         if refused:
-            raise smtplib.SMTPRecipientsRefused(refused)
+            error = smtplib.SMTPRecipientsRefused(refused)
+            self._audit_email(email_message, False, str(error))
+            raise error
+        self._audit_email(email_message, True)
         return True
 
     @staticmethod

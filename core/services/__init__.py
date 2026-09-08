@@ -132,6 +132,8 @@ def log_activity(request=None, user=None, action="", entity_type=None, entity_id
         ip = request.META.get("REMOTE_ADDR")
         if user is None and getattr(request, "user", None) and request.user.is_authenticated:
             user = request.user
+        # Prevent the audit middleware from duplicating an explicit business-action log.
+        request._audit_logged = True
     AuditLog.objects.create(
         user=user if (user and user.is_authenticated) else None,
         action=action, entity_type=entity_type, entity_id=entity_id,
@@ -145,15 +147,38 @@ def notify(user, title, message="", link=None, category="info"):
     note = Notification.objects.create(
         user=user, title=title, message=message, link=link, category=category
     )
+    log_activity(
+        user=user,
+        action="notification_created",
+        entity_type="notification",
+        entity_id=note.id,
+        description=f"Created in-app notification '{title}' for {user.email}",
+    )
     # Best-effort email copy, sent in the background so the request doesn't block.
     try:
         from ..email_service import smtp_configured, send_email_async
         if user.enable_email_notifications and smtp_configured():
-            def _mark(ok, err, note_id=note.id):
+            def _mark(ok, err, note_id=note.id, recipient=user.email, title_value=title):
                 Notification.objects.filter(id=note_id).update(
                     email_sent=ok, email_error=None if ok else (err or "")[:500],
                 )
+                log_activity(
+                    user=user,
+                    action="notification_email_sent" if ok else "notification_email_failed",
+                    entity_type="notification",
+                    entity_id=note_id,
+                    description=(
+                        f"Notification email {'accepted' if ok else 'failed'} for {recipient}: "
+                        f"{title_value}" + (f" — {err}" if err else "")
+                    ),
+                )
             send_email_async(user.email, title, message or title, on_sent=_mark)
-    except Exception:
-        pass
+    except Exception as exc:
+        log_activity(
+            user=user,
+            action="notification_email_failed",
+            entity_type="notification",
+            entity_id=note.id,
+            description=f"Could not start notification email for {user.email}: {exc}",
+        )
     return note
