@@ -35,26 +35,6 @@ def _connection():
     )
 
 
-def _audit_email(to, subject, ok, error=None, user=None, source="smtp"):
-    """Persist an email outcome in the unified AuditLog table."""
-    try:
-        from .services import log_activity
-        recipients = [to] if isinstance(to, str) else list(to)
-        safe_error = f" — error: {error}" if error else ""
-        log_activity(
-            user=user,
-            action="email_sent" if ok else "email_failed",
-            entity_type="email",
-            description=(
-                f"{source} email {'accepted by SMTP backend' if ok else 'failed'}; "
-                f"to={', '.join(str(r) for r in recipients)}; subject={subject!r}{safe_error}"
-            ),
-        )
-    except Exception:
-        # Logging must never prevent the mail result from reaching the caller.
-        pass
-
-
 # ── Editable email templates (stored in AppSetting JSON) ─────────────────────
 EMAIL_TEMPLATE_DEFAULTS = {
     "password_reset": {
@@ -215,9 +195,7 @@ def render_email(key, context):
 def send_email(to, subject, body, html=None):
     """Synchronous send. Returns (ok, error_message). Never raises."""
     if not smtp_configured():
-        err = "SMTP is not configured."
-        _audit_email(to, subject, False, err, source="smtp")
-        return False, err
+        return False, "SMTP is not configured."
     recipients = [to] if isinstance(to, str) else list(to)
     try:
         msg = EmailMultiAlternatives(subject, body, from_address(), recipients,
@@ -226,15 +204,10 @@ def send_email(to, subject, body, html=None):
             msg.attach_alternative(html, "text/html")
         sent = msg.send(fail_silently=False)
         if sent != 1:
-            err = f"SMTP backend did not report delivery (returned {sent})."
-            _audit_email(recipients, subject, False, err, source="smtp")
-            return False, err
-        _audit_email(recipients, subject, True, user=None, source="smtp")
+            return False, f"SMTP backend did not report delivery (returned {sent})."
         return True, None
     except Exception as exc:
-        err = f"{type(exc).__name__}: {exc}"
-        _audit_email(recipients, subject, False, err, source="smtp")
-        return False, err
+        return False, f"{type(exc).__name__}: {exc}"
 
 
 def send_email_async(to, subject, body, html=None, on_sent=None):
