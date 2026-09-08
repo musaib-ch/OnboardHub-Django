@@ -97,8 +97,27 @@ class AppSettingEmailBackend(SMTPEmailBackend):
     @property
     def connection_class(self):
         # Django exposes connection_class as a property, so assigning a class
-        # attribute here would not override it on supported Django versions.
+        # attribute would not override it on supported Django versions.
         return smtplib.SMTP_SSL if self.use_ssl else ResilientSMTP
+
+    def _send(self, email_message):
+        """Send and surface recipient refusals instead of reporting false success."""
+        if not email_message.recipients():
+            return False
+        from_email = self.prep_address(email_message.from_email)
+        recipients = [self.prep_address(addr) for addr in email_message.recipients()]
+        message = email_message.message()
+        try:
+            refused = self.connection.sendmail(
+                from_email, recipients, message.as_bytes(linesep="\r\n")
+            )
+        except smtplib.SMTPException:
+            if not self.fail_silently:
+                raise
+            return False
+        if refused:
+            raise smtplib.SMTPRecipientsRefused(refused)
+        return True
 
     @staticmethod
     def _clean_host(value):
