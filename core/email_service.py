@@ -2,10 +2,6 @@
 
 Settings live in AppSetting keys: smtp_host, smtp_port, smtp_user, smtp_password,
 smtp_use_tls, smtp_use_ssl, smtp_from_name, smtp_from_email.
-
-`send_email` is synchronous (returns ok/err). `send_email_async` offloads the
-SMTP round-trip to a background thread so web requests don't block on the mail
-server. Set settings.EMAIL_ASYNC=False to force synchronous (used in tests).
 """
 import threading
 
@@ -32,7 +28,7 @@ def from_address():
 
 
 def _connection():
-    """Return the same resilient AppSetting-backed backend used by normal mail."""
+    """Return the same resilient AppSetting-backed backend used by all mail."""
     return get_connection(
         backend="core.db_email_backend.AppSettingEmailBackend",
         fail_silently=False,
@@ -76,9 +72,6 @@ EMAIL_TEMPLATE_DEFAULTS = {
     },
 }
 
-
-# Usable tags (placeholder catalog) surfaced in the admin UI + resolvable for sends.
-# tag -> (human description, sample value for preview)
 EMAIL_TAGS = {
     "full_name": ("Employee's full name", "Demo Employee"),
     "email": ("Employee's email address", "employee@company.com"),
@@ -133,7 +126,6 @@ def _slug_template_key(value):
 
 
 def all_email_templates():
-    """Built-in (editable) + custom templates as a flat list for the admin UI."""
     overrides = get_email_templates()
     custom = get_custom_templates()
     out = []
@@ -151,7 +143,6 @@ def all_email_templates():
 
 
 def upsert_custom_template(key, label, subject, body, user=None):
-    """Create/update a custom template. Placeholders are detected from content."""
     import re
     key = _slug_template_key(key or label)
     if not key or key in EMAIL_TEMPLATE_DEFAULTS:
@@ -174,7 +165,6 @@ def delete_custom_template(key, user=None):
 
 
 def employee_email_context(emp, link="/employee/home/", message="", title=""):
-    """Build the tag→value map for a specific employee (for sendable templates)."""
     return {
         "full_name": emp.full_name or "",
         "email": emp.email or "",
@@ -190,10 +180,6 @@ def employee_email_context(emp, link="/employee/home/", message="", title=""):
 
 
 def render_email(key, context):
-    """Render (subject, body) for a template key, applying {placeholder} values.
-
-    Resolves an admin override, then a custom template, then the built-in default.
-    """
     overrides = get_email_templates().get(key, {})
     custom = get_custom_templates().get(key, {})
     default = EMAIL_TEMPLATE_DEFAULTS.get(key, {})
@@ -216,17 +202,15 @@ def send_email(to, subject, body, html=None):
                                      connection=_connection())
         if html:
             msg.attach_alternative(html, "text/html")
-        msg.send()
+        sent = msg.send(fail_silently=False)
+        if sent != 1:
+            return False, f"SMTP backend did not report delivery (returned {sent})."
         return True, None
-    except Exception as exc:  # noqa: BLE001 - surface any SMTP error to caller
-        return False, str(exc)
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
 
 
 def send_email_async(to, subject, body, html=None, on_sent=None):
-    """Send without blocking the request. `on_sent(ok, err)` runs after delivery.
-
-    Returns the Thread (or None when sent synchronously, e.g. in tests).
-    """
     def _run():
         try:
             ok, err = send_email(to, subject, body, html)
@@ -236,7 +220,6 @@ def send_email_async(to, subject, body, html=None, on_sent=None):
                 except Exception:
                     pass
         finally:
-            # Release per-thread DB connections opened by AppSetting queries.
             connections.close_all()
 
     if getattr(settings, "EMAIL_ASYNC", True):
