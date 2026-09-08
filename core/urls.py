@@ -3,7 +3,8 @@ from django.urls import path
 from .views import (auth_views, employee_views, admin_views, public_views,
                     common_views, content_views, training_views, analytics_views, signature_views,
                     assessment_views, session_views, onboarding_plan_views, chat_views, zoom_settings_views,
-                    stage_config_views, quiz_views, offer_views, offer_api_views, public_offer_views, buddy_views)
+                    stage_config_views, quiz_views, offer_views, offer_api_views, public_offer_views, buddy_views,
+                    log_views)
 
 urlpatterns = [
     # ── Public / dispatch ───────────────────────────────────────────────
@@ -109,6 +110,7 @@ urlpatterns = [
     path("admin/settings/email-templates/", admin_views.email_templates, name="admin_email_templates"),
     path("admin/settings/email-logs/", admin_views.email_logs, name="admin_email_logs"),
     path("admin/settings/email-statistics/", admin_views.email_statistics, name="admin_email_statistics"),
+    path("admin/settings/logs/", log_views.system_logs, name="admin_system_logs"),
     path("admin/settings/offer-templates/", admin_views.offer_templates_manage, name="admin_offer_templates"),
     path("admin/settings/offer-templates/<int:template_id>/delete/", admin_views.offer_template_delete, name="admin_offer_template_delete"),
     path("admin/settings/offer-email-templates/", admin_views.offer_email_templates_manage, name="admin_offer_email_templates"),
@@ -209,7 +211,6 @@ urlpatterns = [
 
     # ── Quiz module ──────────────────────────────────────────────────────
     # Admin
-
     path("admin/quizzes/<int:quiz_id>/responses/", quiz_views.quiz_responses, name="quiz_responses"),
     path("admin/quizzes/<int:quiz_id>/preview/", quiz_views.quiz_preview, name="quiz_preview"),
     # Employee
