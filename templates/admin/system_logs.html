@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}System Logs{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h1><i class="bi bi-journal-text me-2"></i>System Logs</h1>
+            <p class="text-muted mb-0">Unified history of emails, notifications and portal actions.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_email_logs' %}" class="btn btn-outline-primary"><i class="bi bi-envelope-check me-1"></i>Email Logs</a>
+            <a href="?{% for k,v in filters.items %}{% if v %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}export=csv" class="btn btn-primary"><i class="bi bi-download me-1"></i>Export CSV</a>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card p-4 mb-4">
+    <form method="GET">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small">Log Type</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">All Types</option>
+                    <option value="email" {% if filters.type == "email" %}selected{% endif %}>Emails</option>
+                    <option value="notification" {% if filters.type == "notification" %}selected{% endif %}>Notifications</option>
+                    <option value="action" {% if filters.type == "action" %}selected{% endif %}>Portal Actions</option>
+                    <option value="error" {% if filters.type == "error" %}selected{% endif %}>Failures / Errors</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="success" {% if filters.status == "success" %}selected{% endif %}>Success</option>
+                    <option value="failed" {% if filters.status == "failed" %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Action</label>
+                <input name="action" value="{{ filters.action }}" class="form-control form-control-sm" placeholder="e.g. create_user">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Entity</label>
+                <input name="entity_type" value="{{ filters.entity_type }}" class="form-control form-control-sm" placeholder="employee, email...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">User</label>
+                <select name="user_id" class="form-select form-select-sm">
+                    <option value="">All users</option>
+                    {% for u in users %}
+                    <option value="{{ u.id }}" {% if filters.user_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.full_name|default:u.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Search</label>
+                <input name="q" value="{{ filters.q }}" class="form-control form-control-sm" placeholder="Search description...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">From</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">To</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-8 d-flex gap-2 flex-wrap">
+                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel me-1"></i>Apply Filters</button>
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'admin_system_logs' %}"><i class="bi bi-x-circle me-1"></i>Clear</a>
+                <a class="btn btn-outline-success btn-sm" href="{% url 'admin_system_logs' %}?type=email"><i class="bi bi-envelope me-1"></i>Emails</a>
+                <a class="btn btn-outline-info btn-sm" href="{% url 'admin_system_logs' %}?type=notification"><i class="bi bi-bell me-1"></i>Notifications</a>
+                <a class="btn btn-outline-warning btn-sm" href="{% url 'admin_system_logs' %}?status=failed"><i class="bi bi-exclamation-triangle me-1"></i>Failures</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="text-muted small">{{ total_count }} log entries</span>
+    <a class="btn btn-sm btn-light" href="{% url 'admin_system_logs' %}{% if filters.type %}?type={{ filters.type }}{% endif %}"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</a>
+</div>
+
+<div class="table-container">
+    <table class="table mb-0 align-middle small">
+        <thead>
+            <tr>
+                <th>Time</th><th>User</th><th>Type</th><th>Action</th><th>Entity</th><th>Status</th><th>Description</th><th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for log in logs %}
+            <tr>
+                <td class="text-nowrap"><code>{{ log.timestamp|date:"Y-m-d H:i:s" }}</code></td>
+                <td>{{ log.user.full_name|default:log.user.email|default:"System" }}</td>
+                <td>
+                    {% if log.entity_type == "email" %}<span class="badge bg-primary"><i class="bi bi-envelope me-1"></i>Email</span>
+                    {% elif log.entity_type == "notification" %}<span class="badge bg-info"><i class="bi bi-bell me-1"></i>Notification</span>
+                    {% else %}<span class="badge bg-secondary"><i class="bi bi-activity me-1"></i>Action</span>{% endif %}
+                </td>
+                <td><code>{{ log.action }}</code></td>
+                <td>{{ log.entity_type|default:"-" }}{% if log.entity_id %} #{{ log.entity_id }}{% endif %}</td>
+                <td>
+                    {% if "failed" in log.action or " failed " in log.description %}<span class="badge bg-danger">Failed</span>
+                    {% else %}<span class="badge bg-success">Success</span>{% endif %}
+                </td>
+                <td style="max-width:520px; white-space:normal;">{{ log.description|default:"-" }}</td>
+                <td><code>{{ log.ip_address|default:"-" }}</code></td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-5">No log entries match your filters.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if logs.paginator.num_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if logs.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ logs.previous_page_number }}&type={{ filters.type }}&status={{ filters.status }}&action={{ filters.action|urlencode }}&entity_type={{ filters.entity_type|urlencode }}&user_id={{ filters.user_id }}&q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}">Previous</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span></li>
+        {% if logs.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ logs.next_page_number }}&type={{ filters.type }}&status={{ filters.status }}&action={{ filters.action|urlencode }}&entity_type={{ filters.entity_type|urlencode }}&user_id={{ filters.user_id }}&q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
