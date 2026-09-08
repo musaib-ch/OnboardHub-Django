@@ -32,19 +32,10 @@ def from_address():
 
 
 def _connection():
-    try:
-        port = int(AppSetting.get("smtp_port") or 587)
-    except (TypeError, ValueError):
-        port = 587
+    """Return the same resilient AppSetting-backed backend used by normal mail."""
     return get_connection(
-        backend="django.core.mail.backends.smtp.EmailBackend",
-        host=(AppSetting.get("smtp_host") or "").strip(),
-        port=port,
-        username=(AppSetting.get("smtp_user") or "").strip(),
-        password=(AppSetting.get("smtp_password") or ""),
-        use_tls=_flag("smtp_use_tls", "true"),
-        use_ssl=_flag("smtp_use_ssl", "false"),
-        timeout=15,
+        backend="core.db_email_backend.AppSettingEmailBackend",
+        fail_silently=False,
     )
 
 
