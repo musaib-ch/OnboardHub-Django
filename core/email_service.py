@@ -1,15 +1,15 @@
-"""Email service with SMTP and HTTPS transactional-provider support.
+"""Email service with SMTP and Resend HTTPS transactional-provider support.
 
 SMTP settings live in AppSetting keys: smtp_host, smtp_port, smtp_user,
 smtp_password, smtp_use_tls, smtp_use_ssl, smtp_from_name, smtp_from_email.
 
 For hosting environments where outbound SMTP is blocked, set:
-  EMAIL_PROVIDER=brevo
-  BREVO_API_KEY=<secret>
-  BREVO_SENDER_EMAIL=<verified sender>
-  BREVO_SENDER_NAME=<sender name>
+  EMAIL_PROVIDER=resend
+  RESEND_API_KEY=<secret>
+  RESEND_SENDER_EMAIL=<verified sender>
+  RESEND_SENDER_NAME=<sender name>
 
-The Brevo API uses normal HTTPS (443), avoiding direct SMTP network restrictions.
+The Resend API uses normal HTTPS (443), avoiding direct SMTP network restrictions.
 """
 import os
 import threading
@@ -21,12 +21,12 @@ from django.db import connections
 
 from .models import AppSetting
 
-BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
-def brevo_configured():
-    return bool(os.getenv("BREVO_API_KEY", "").strip() and
-                (os.getenv("BREVO_SENDER_EMAIL", "").strip() or
+def resend_configured():
+    return bool(os.getenv("RESEND_API_KEY", "").strip() and
+                (os.getenv("RESEND_SENDER_EMAIL", "").strip() or
                  AppSetting.get("smtp_from_email") or
                  AppSetting.get("smtp_user")))
 
@@ -35,13 +35,13 @@ def email_provider():
     configured = (os.getenv("EMAIL_PROVIDER", "") or "").strip().lower()
     if configured:
         return configured
-    if brevo_configured():
-        return "brevo"
+    if resend_configured():
+        return "resend"
     return "smtp"
 
 
 def smtp_configured():
-    return bool((AppSetting.get("smtp_host") or "").strip()) or brevo_configured()
+    return bool((AppSetting.get("smtp_host") or "").strip()) or resend_configured()
 
 
 def _flag(key, default="false"):
@@ -49,8 +49,8 @@ def _flag(key, default="false"):
 
 
 def from_address():
-    name = (os.getenv("BREVO_SENDER_NAME", "") or AppSetting.get("smtp_from_name") or "OnboardHub").strip()
-    email = (os.getenv("BREVO_SENDER_EMAIL", "") or AppSetting.get("smtp_from_email")
+    name = (os.getenv("RESEND_SENDER_NAME", "") or AppSetting.get("smtp_from_name") or "OnboardHub").strip()
+    email = (os.getenv("RESEND_SENDER_EMAIL", "") or AppSetting.get("smtp_from_email")
              or AppSetting.get("smtp_user") or "noreply@onboardhub.local").strip()
     return f"{name} <{email}>"
 
@@ -82,34 +82,34 @@ def _audit_email(to, subject, ok, error=None, provider=None, message_id=None):
         pass
 
 
-def _send_brevo(to, subject, body, html=None):
-    """Send transactional email over HTTPS using Brevo's REST API."""
-    api_key = os.getenv("BREVO_API_KEY", "").strip()
-    sender_email = (os.getenv("BREVO_SENDER_EMAIL", "").strip() or
+def _send_resend(to, subject, body, html=None):
+    """Send transactional email over HTTPS using Resend's REST API."""
+    api_key = os.getenv("RESEND_API_KEY", "").strip()
+    sender_email = (os.getenv("RESEND_SENDER_EMAIL", "").strip() or
                     AppSetting.get("smtp_from_email") or AppSetting.get("smtp_user") or "").strip()
-    sender_name = (os.getenv("BREVO_SENDER_NAME", "").strip() or
+    sender_name = (os.getenv("RESEND_SENDER_NAME", "").strip() or
                    AppSetting.get("smtp_from_name") or "OnboardHub").strip()
     if not api_key:
-        return False, "BREVO_API_KEY is not configured."
+        return False, "RESEND_API_KEY is not configured."
     if not sender_email:
-        return False, "BREVO_SENDER_EMAIL is not configured."
+        return False, "RESEND_SENDER_EMAIL is not configured."
 
     recipients = [to] if isinstance(to, str) else list(to)
     payload = {
-        "sender": {"name": sender_name, "email": sender_email},
-        "to": [{"email": address} for address in recipients],
+        "from": f"{sender_name} <{sender_email}>",
+        "to": recipients,
         "subject": subject,
-        "textContent": body,
+        "text": body,
     }
     if html:
-        payload["htmlContent"] = html
+        payload["html"] = html
 
     try:
         response = requests.post(
-            BREVO_API_URL,
+            RESEND_API_URL,
             headers={
                 "accept": "application/json",
-                "api-key": api_key,
+                "authorization": f"Bearer {api_key}",
                 "content-type": "application/json",
             },
             json=payload,
@@ -120,24 +120,24 @@ def _send_brevo(to, subject, body, html=None):
                 data = response.json()
             except ValueError:
                 data = {}
-            message_id = data.get("messageId") or data.get("messageIds", [None])[0]
-            _audit_email(to, subject, True, provider="brevo", message_id=message_id)
+            message_id = data.get("id")
+            _audit_email(to, subject, True, provider="resend", message_id=message_id)
             return True, None
 
         try:
             detail = response.json()
         except ValueError:
             detail = response.text[:1000]
-        error = f"Brevo HTTP {response.status_code}: {detail}"
-        _audit_email(to, subject, False, error=error, provider="brevo")
+        error = f"Resend HTTP {response.status_code}: {detail}"
+        _audit_email(to, subject, False, error=error, provider="resend")
         return False, error
     except requests.RequestException as exc:
         error = f"{type(exc).__name__}: {exc}"
-        _audit_email(to, subject, False, error=error, provider="brevo")
+        _audit_email(to, subject, False, error=error, provider="resend")
         return False, error
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-        _audit_email(to, subject, False, error=error, provider="brevo")
+        _audit_email(to, subject, False, error=error, provider="resend")
         return False, error
 
 
@@ -313,8 +313,8 @@ def send_email(to, subject, body, html=None):
         return False, "No email provider is configured."
 
     recipients = [to] if isinstance(to, str) else list(to)
-    if provider in {"brevo", "https", "api"}:
-        return _send_brevo(recipients, subject, body, html)
+    if provider in {"resend", "https", "api"}:
+        return _send_resend(recipients, subject, body, html)
 
     try:
         msg = EmailMultiAlternatives(subject, body, from_address(), recipients,
