@@ -1,144 +1,70 @@
-"""Email service with SMTP and Resend HTTPS transactional-provider support.
+"""Email service for the main OnboardHub portal.
 
+All main-portal email is sent through the AppSetting-backed SMTP backend.
 SMTP settings live in AppSetting keys: smtp_host, smtp_port, smtp_user,
 smtp_password, smtp_use_tls, smtp_use_ssl, smtp_from_name, smtp_from_email.
 
-For hosting environments where outbound SMTP is blocked, set:
-  EMAIL_PROVIDER=resend
-  RESEND_API_KEY=<secret>
-  RESEND_SENDER_EMAIL=<verified sender>
-  RESEND_SENDER_NAME=<sender name>
-
-The Resend API uses normal HTTPS (443), avoiding direct SMTP network restrictions.
+This module intentionally uses SMTP only. No external transactional provider
+is selected or required for employee creation, welcome emails, password reset,
+or portal notifications.
 """
 import os
 import threading
 
-import requests
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.db import connections
 
 from .models import AppSetting
 
-RESEND_API_URL = "https://api.resend.com/emails"
-
-
-def resend_configured():
-    return bool(os.getenv("RESEND_API_KEY", "").strip() and
-                (os.getenv("RESEND_SENDER_EMAIL", "").strip() or
-                 AppSetting.get("smtp_from_email") or
-                 AppSetting.get("smtp_user")))
-
 
 def email_provider():
-    configured = (os.getenv("EMAIL_PROVIDER", "") or "").strip().lower()
-    if configured:
-        return configured
-    if resend_configured():
-        return "resend"
+    """Main portal always uses the configured AppSetting SMTP server."""
     return "smtp"
 
 
 def smtp_configured():
-    return bool((AppSetting.get("smtp_host") or "").strip()) or resend_configured()
+    """Return True only when a usable SMTP host is configured."""
+    return bool((AppSetting.get("smtp_host") or "").strip())
 
 
-def _flag(key, default="false"):
-    return (AppSetting.get(key, default) or default).strip().lower() == "true"
+def _clean(value):
+    return (value or "").replace("\ufeff", "").strip().strip('"\'')
 
 
 def from_address():
-    name = (os.getenv("RESEND_SENDER_NAME", "") or AppSetting.get("smtp_from_name") or "OnboardHub").strip()
-    email = (os.getenv("RESEND_SENDER_EMAIL", "") or AppSetting.get("smtp_from_email")
-             or AppSetting.get("smtp_user") or "noreply@onboardhub.local").strip()
+    name = _clean(AppSetting.get("smtp_from_name") or "OnboardHub")
+    email = _clean(AppSetting.get("smtp_from_email") or AppSetting.get("smtp_user") or "noreply@onboardhub.local")
     return f"{name} <{email}>"
 
 
 def _connection():
-    """Return the resilient AppSetting-backed SMTP backend."""
+    """Return the AppSetting-backed resilient SMTP backend."""
     return get_connection(
         backend="core.db_email_backend.AppSettingEmailBackend",
         fail_silently=False,
     )
 
 
-def _audit_email(to, subject, ok, error=None, provider=None, message_id=None):
-    """Record a durable email audit entry without affecting mail delivery."""
+def _audit_email(to, subject, ok, error=None, provider="smtp", message_id=None):
     try:
         from .services import log_activity
         recipients = [to] if isinstance(to, str) else list(to)
         detail = (
-            f"Email {'accepted' if ok else 'failed'} via {provider or email_provider()}; "
+            f"Email {'accepted' if ok else 'failed'} via {provider}; "
             f"to={', '.join(recipients)}; subject={subject!r}"
         )
         if message_id:
             detail += f"; message_id={message_id}"
         if error:
             detail += f"; error={error}"
-        log_activity(action="email_sent" if ok else "email_failed",
-                     entity_type="email", description=detail)
+        log_activity(
+            action="email_sent" if ok else "email_failed",
+            entity_type="email",
+            description=detail,
+        )
     except Exception:
         pass
-
-
-def _send_resend(to, subject, body, html=None):
-    """Send transactional email over HTTPS using Resend's REST API."""
-    api_key = os.getenv("RESEND_API_KEY", "").strip()
-    sender_email = (os.getenv("RESEND_SENDER_EMAIL", "").strip() or
-                    AppSetting.get("smtp_from_email") or AppSetting.get("smtp_user") or "").strip()
-    sender_name = (os.getenv("RESEND_SENDER_NAME", "").strip() or
-                   AppSetting.get("smtp_from_name") or "OnboardHub").strip()
-    if not api_key:
-        return False, "RESEND_API_KEY is not configured."
-    if not sender_email:
-        return False, "RESEND_SENDER_EMAIL is not configured."
-
-    recipients = [to] if isinstance(to, str) else list(to)
-    payload = {
-        "from": f"{sender_name} <{sender_email}>",
-        "to": recipients,
-        "subject": subject,
-        "text": body,
-    }
-    if html:
-        payload["html"] = html
-
-    try:
-        response = requests.post(
-            RESEND_API_URL,
-            headers={
-                "accept": "application/json",
-                "authorization": f"Bearer {api_key}",
-                "content-type": "application/json",
-            },
-            json=payload,
-            timeout=20,
-        )
-        if 200 <= response.status_code < 300:
-            try:
-                data = response.json()
-            except ValueError:
-                data = {}
-            message_id = data.get("id")
-            _audit_email(to, subject, True, provider="resend", message_id=message_id)
-            return True, None
-
-        try:
-            detail = response.json()
-        except ValueError:
-            detail = response.text[:1000]
-        error = f"Resend HTTP {response.status_code}: {detail}"
-        _audit_email(to, subject, False, error=error, provider="resend")
-        return False, error
-    except requests.RequestException as exc:
-        error = f"{type(exc).__name__}: {exc}"
-        _audit_email(to, subject, False, error=error, provider="resend")
-        return False, error
-    except Exception as exc:
-        error = f"{type(exc).__name__}: {exc}"
-        _audit_email(to, subject, False, error=error, provider="resend")
-        return False, error
 
 
 # ── Editable email templates (stored in AppSetting JSON) ─────────────────────
@@ -307,34 +233,39 @@ def render_email(key, context):
 
 
 def send_email(to, subject, body, html=None):
-    """Synchronous send. Returns (ok, error_message). Never raises."""
-    provider = email_provider()
+    """Synchronous SMTP send. Returns (ok, error_message). Never raises."""
     if not smtp_configured():
-        return False, "No email provider is configured."
+        return False, "SMTP host is not configured."
 
     recipients = [to] if isinstance(to, str) else list(to)
-    if provider in {"resend", "https", "api"}:
-        return _send_resend(recipients, subject, body, html)
+    if not recipients:
+        return False, "No email recipients were supplied."
 
     try:
-        msg = EmailMultiAlternatives(subject, body, from_address(), recipients,
-                                     connection=_connection())
+        msg = EmailMultiAlternatives(
+            subject=subject or "",
+            body=body or "",
+            from_email=from_address(),
+            to=recipients,
+            connection=_connection(),
+        )
         if html:
             msg.attach_alternative(html, "text/html")
         sent = msg.send(fail_silently=False)
         if sent != 1:
             error = f"SMTP backend did not report delivery (returned {sent})."
-            _audit_email(recipients, subject, False, error=error, provider="smtp")
+            _audit_email(recipients, subject, False, error=error)
             return False, error
-        _audit_email(recipients, subject, True, provider="smtp")
+        _audit_email(recipients, subject, True)
         return True, None
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-        _audit_email(recipients, subject, False, error=error, provider="smtp")
+        _audit_email(recipients, subject, False, error=error)
         return False, error
 
 
 def send_email_async(to, subject, body, html=None, on_sent=None):
+    """Send SMTP in a background thread without losing the actual result."""
     def _run():
         try:
             ok, err = send_email(to, subject, body, html)
@@ -346,8 +277,10 @@ def send_email_async(to, subject, body, html=None, on_sent=None):
         finally:
             connections.close_all()
 
+    # Async sending is convenient for web requests, but can hide failures.
+    # EMAIL_ASYNC=False can be used to force synchronous delivery while testing.
     if getattr(settings, "EMAIL_ASYNC", True):
-        thread = threading.Thread(target=_run, daemon=True)
+        thread = threading.Thread(target=_run, daemon=True, name="onboardhub-email")
         thread.start()
         return thread
     _run()
