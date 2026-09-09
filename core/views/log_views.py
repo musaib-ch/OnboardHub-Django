@@ -3,6 +3,7 @@ import csv
 import io
 
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -16,8 +17,6 @@ from ..models import AuditLog, User
 @require_GET
 def system_logs(request):
     """Unified audit, email, notification and portal-action log."""
-    qs = AuditLog.objects.select_related("user").all()
-
     log_type = (request.GET.get("type") or "").strip().lower()
     status = (request.GET.get("status") or "").strip().lower()
     action = (request.GET.get("action") or "").strip()
@@ -26,6 +25,8 @@ def system_logs(request):
     search = (request.GET.get("q") or "").strip()
     date_from = (request.GET.get("date_from") or "").strip()
     date_to = (request.GET.get("date_to") or "").strip()
+
+    qs = AuditLog.objects.select_related("user").all()
 
     if log_type == "email":
         qs = qs.filter(entity_type="email")
@@ -39,7 +40,9 @@ def system_logs(request):
     if status == "success":
         qs = qs.exclude(action__icontains="failed").exclude(description__icontains=" failed ")
     elif status == "failed":
-        qs = qs.filter(action__icontains="failed") | qs.filter(description__icontains=" failed ")
+        qs = qs.filter(
+            Q(action__icontains="failed") | Q(description__icontains=" failed ")
+        )
 
     if action:
         qs = qs.filter(action__icontains=action)
@@ -48,7 +51,9 @@ def system_logs(request):
     if user_id.isdigit():
         qs = qs.filter(user_id=int(user_id))
     if search:
-        qs = qs.filter(description__icontains=search) | qs.filter(action__icontains=search)
+        qs = qs.filter(
+            Q(description__icontains=search) | Q(action__icontains=search)
+        )
     if date_from:
         qs = qs.filter(timestamp__date__gte=date_from)
     if date_to:
@@ -61,9 +66,40 @@ def system_logs(request):
     paginator = Paginator(qs, 50)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 
+    # Convert records to plain display dictionaries. This keeps template rendering
+    # deliberately simple and prevents NULL related-user/description values from
+    # causing a 500 in the admin page.
+    rows = []
+    for log in page_obj.object_list:
+        description = log.description or ""
+        action_value = log.action or ""
+        failed = "failed" in action_value.lower() or " failed " in description.lower()
+        if log.user_id:
+            user_name = (getattr(log.user, "full_name", None) or getattr(log.user, "email", None) or "System")
+        else:
+            user_name = "System"
+        rows.append({
+            "timestamp": log.timestamp,
+            "user_name": user_name,
+            "entity_type": log.entity_type or "",
+            "action": action_value,
+            "entity_id": log.entity_id,
+            "failed": failed,
+            "description": description,
+            "ip_address": log.ip_address or "",
+        })
+
+    try:
+        users = list(User.objects.filter(is_active=True).order_by("full_name", "email"))
+    except Exception:
+        # User filtering is optional; a broken user query must not make logs
+        # themselves inaccessible.
+        users = []
+
     return render(request, "admin/system_logs.html", {
-        "logs": page_obj,
-        "users": User.objects.filter(is_active=True).order_by("full_name", "email"),
+        "logs": rows,
+        "page_obj": page_obj,
+        "users": users,
         "filters": {
             "type": log_type,
             "status": status,
