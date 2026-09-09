@@ -100,8 +100,13 @@
                 <td><code>{{ log.action }}</code></td>
                 <td>{{ log.entity_type|default:"-" }}{% if log.entity_id %} #{{ log.entity_id }}{% endif %}</td>
                 <td>
-                    {% if "failed" in log.action or " failed " in log.description %}<span class="badge bg-danger">Failed</span>
-                    {% else %}<span class="badge bg-success">Success</span>{% endif %}
+                    {% with action_text=log.action|default:"" description_text=log.description|default:"" %}
+                        {% if "failed" in action_text|lower or " failed " in description_text|lower %}
+                            <span class="badge bg-danger">Failed</span>
+                        {% else %}
+                            <span class="badge bg-success">Success</span>
+                        {% endif %}
+                    {% endwith %}
                 </td>
                 <td style="max-width:520px; white-space:normal;">{{ log.description|default:"-" }}</td>
                 <td><code>{{ log.ip_address|default:"-" }}</code></td>
