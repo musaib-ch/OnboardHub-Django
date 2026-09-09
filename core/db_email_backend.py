@@ -58,7 +58,7 @@ def _resolve_via_doh(host, timeout=8):
             if addresses:
                 return addresses
             last_error = RuntimeError(f"No A record returned for '{host}'")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last_error = exc
         finally:
             if conn:
@@ -74,22 +74,38 @@ class ResilientSMTP(smtplib.SMTP):
     """SMTP client that prefers IPv4 A records and bypasses broken IPv6 routing."""
 
     def _get_socket(self, host, port, timeout):
-        # Some hosts resolve smtp.gmail.com to IPv6 first while the server has
-        # no working IPv6 egress. That produces OSError 101. Resolve an IPv4
-        # A record through DNS-over-HTTPS and connect directly to that address.
         try:
             addresses = _resolve_via_doh(host, timeout=min(timeout or 15, 8))
         except Exception:
-            # Healthy environments can still use the normal system resolver.
             addresses = None
 
         if addresses:
             last_error = None
             for address in addresses:
                 try:
-                    return socket.create_connection(
-                        (address, port), timeout, self.source_address
-                    )
+                    return socket.create_connection((address, port), timeout, self.source_address)
+                except OSError as exc:
+                    last_error = exc
+            if last_error:
+                raise last_error
+
+        return super()._get_socket(host, port, timeout)
+
+
+class ResilientSMTPSSL(smtplib.SMTP_SSL):
+    """SSL SMTP client with the same IPv4/DNS resilience as ResilientSMTP."""
+
+    def _get_socket(self, host, port, timeout):
+        try:
+            addresses = _resolve_via_doh(host, timeout=min(timeout or 15, 8))
+        except Exception:
+            addresses = None
+
+        if addresses:
+            last_error = None
+            for address in addresses:
+                try:
+                    return socket.create_connection((address, port), timeout, self.source_address)
                 except OSError as exc:
                     last_error = exc
             if last_error:
@@ -103,11 +119,10 @@ class AppSettingEmailBackend(SMTPEmailBackend):
 
     @property
     def connection_class(self):
-        return smtplib.SMTP_SSL if self.use_ssl else ResilientSMTP
+        return ResilientSMTPSSL if self.use_ssl else ResilientSMTP
 
     @staticmethod
     def _audit_email(email_message, ok, error=None):
-        """Write one durable AuditLog entry for every email transaction."""
         try:
             from .services import log_activity
             recipients = email_message.recipients()
@@ -134,9 +149,7 @@ class AppSettingEmailBackend(SMTPEmailBackend):
         recipients = [self.prep_address(addr) for addr in email_message.recipients()]
         message = email_message.message()
         try:
-            refused = self.connection.sendmail(
-                from_email, recipients, message.as_bytes(linesep="\r\n")
-            )
+            refused = self.connection.sendmail(from_email, recipients, message.as_bytes(linesep="\r\n"))
         except Exception as exc:
             self._audit_email(email_message, False, f"{type(exc).__name__}: {exc}")
             if not self.fail_silently:
@@ -158,18 +171,22 @@ class AppSettingEmailBackend(SMTPEmailBackend):
             value = value.rsplit(":", 1)[0].strip()
         return value.rstrip(".").strip()
 
+    @staticmethod
+    def _clean_value(value):
+        return (value or "").replace("\ufeff", "").strip().strip('"\'')
+
     def __init__(self, fail_silently=False, **kwargs):
         host = self._clean_host(AppSetting.get("smtp_host") or "")
-        username = (AppSetting.get("smtp_user") or "").replace("\ufeff", "").strip()
-        password = AppSetting.get("smtp_password") or ""
+        username = self._clean_value(AppSetting.get("smtp_user") or "")
+        password = self._clean_value(AppSetting.get("smtp_password") or "")
 
         try:
-            port = int(AppSetting.get("smtp_port") or 587)
+            port = int(self._clean_value(AppSetting.get("smtp_port") or "587"))
         except (TypeError, ValueError):
             port = 587
 
-        use_tls = (AppSetting.get("smtp_use_tls", "true") or "true").strip().lower() == "true"
-        use_ssl = (AppSetting.get("smtp_use_ssl", "false") or "false").strip().lower() == "true"
+        use_tls = self._clean_value(AppSetting.get("smtp_use_tls", "true")).lower() == "true"
+        use_ssl = self._clean_value(AppSetting.get("smtp_use_ssl", "false")).lower() == "true"
         if use_ssl:
             use_tls = False
 
