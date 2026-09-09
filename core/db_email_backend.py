@@ -164,7 +164,7 @@ class AppSettingEmailBackend(SMTPEmailBackend):
 
     @staticmethod
     def _clean_host(value):
-        value = (value or "").replace("\ufeff", "").strip().strip('"\'')
+        value = (value or "").replace("\ufeff", "").strip().strip('\"\'')
         value = re.sub(r"^smtps?://", "", value, flags=re.IGNORECASE)
         value = value.split("/", 1)[0].strip()
         if value.count(":") == 1:
@@ -173,9 +173,15 @@ class AppSettingEmailBackend(SMTPEmailBackend):
 
     @staticmethod
     def _clean_value(value):
-        return (value or "").replace("\ufeff", "").strip().strip('"\'')
+        return (value or "").replace("\ufeff", "").strip().strip('\"\'')
 
     def __init__(self, fail_silently=False, **kwargs):
+        # Django's backend factory may pass standard SMTP connection kwargs.
+        # AppSetting is the single source of truth for this portal, so remove
+        # duplicates before supplying the database-backed values below.
+        for key in ("host", "port", "username", "password", "use_tls", "use_ssl", "timeout"):
+            kwargs.pop(key, None)
+
         host = self._clean_host(AppSetting.get("smtp_host") or "")
         username = self._clean_value(AppSetting.get("smtp_user") or "")
         password = self._clean_value(AppSetting.get("smtp_password") or "")
