@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import os
 import re
 import socket
 import smtplib
@@ -184,7 +185,13 @@ class AppSettingEmailBackend(SMTPEmailBackend):
 
         host = self._clean_host(AppSetting.get("smtp_host") or "")
         username = self._clean_value(AppSetting.get("smtp_user") or "")
-        password = self._clean_value(AppSetting.get("smtp_password") or "")
+
+        # Match the known-working Flask portal: Render's SMTP_PASSWORD
+        # environment variable takes precedence, with the encrypted AppSetting
+        # password retained as the normal database-backed fallback.
+        password = self._clean_value(
+            os.getenv("SMTP_PASSWORD") or AppSetting.get("smtp_password") or ""
+        )
 
         try:
             port = int(self._clean_value(AppSetting.get("smtp_port") or "587"))
