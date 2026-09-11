@@ -1,14 +1,10 @@
 """Email service for the main OnboardHub portal.
 
-All main-portal email is sent through the AppSetting-backed SMTP backend.
-SMTP settings live in AppSetting keys: smtp_host, smtp_port, smtp_user,
-smtp_password, smtp_use_tls, smtp_use_ssl, smtp_from_name, smtp_from_email.
-
-This module intentionally uses SMTP only. No external transactional provider
-is selected or required for employee creation, welcome emails, password reset,
-or portal notifications.
+Main-portal email prefers Gmail API over HTTPS when Gmail OAuth is configured.
+SMTP remains available as a fallback for environments that still permit SMTP.
+The Gmail path is used for employee creation, welcome emails, password reset,
+and portal notifications without requiring SMTP ports 25/465/587.
 """
-import os
 import threading
 
 from django.conf import settings
@@ -19,13 +15,31 @@ from .models import AppSetting
 
 
 def email_provider():
-    """Main portal always uses the configured AppSetting SMTP server."""
+    """Return the active main-portal email transport."""
+    try:
+        from .gmail_service import configured as gmail_configured
+        if gmail_configured():
+            return "gmail_api"
+    except Exception:
+        pass
     return "smtp"
 
 
 def smtp_configured():
-    """Return True only when a usable SMTP host is configured."""
+    """Return True when the legacy SMTP host is configured."""
     return bool((AppSetting.get("smtp_host") or "").strip())
+
+
+def gmail_configured():
+    try:
+        from .gmail_service import configured as _configured
+        return bool(_configured())
+    except Exception:
+        return False
+
+
+def email_configured():
+    return gmail_configured() or smtp_configured()
 
 
 def _clean(value):
@@ -33,6 +47,14 @@ def _clean(value):
 
 
 def from_address():
+    if gmail_configured():
+        try:
+            from .gmail_service import account_email, sender_name
+            email = _clean(account_email())
+            if email:
+                return f"{sender_name()} <{email}>"
+        except Exception:
+            pass
     name = _clean(AppSetting.get("smtp_from_name") or "OnboardHub")
     email = _clean(AppSetting.get("smtp_from_email") or AppSetting.get("smtp_user") or "noreply@onboardhub.local")
     return f"{name} <{email}>"
@@ -46,10 +68,11 @@ def _connection():
     )
 
 
-def _audit_email(to, subject, ok, error=None, provider="smtp", message_id=None):
+def _audit_email(to, subject, ok, error=None, provider=None, message_id=None):
     try:
         from .services import log_activity
         recipients = [to] if isinstance(to, str) else list(to)
+        provider = provider or email_provider()
         detail = (
             f"Email {'accepted' if ok else 'failed'} via {provider}; "
             f"to={', '.join(recipients)}; subject={subject!r}"
@@ -233,13 +256,24 @@ def render_email(key, context):
 
 
 def send_email(to, subject, body, html=None):
-    """Synchronous SMTP send. Returns (ok, error_message). Never raises."""
-    if not smtp_configured():
-        return False, "SMTP host is not configured."
-
+    """Send synchronously through Gmail API or the legacy SMTP fallback."""
     recipients = [to] if isinstance(to, str) else list(to)
     if not recipients:
         return False, "No email recipients were supplied."
+
+    if gmail_configured():
+        try:
+            from .gmail_service import send_email as gmail_send
+            ok, error, message_id = gmail_send(recipients, subject, body, html)
+            _audit_email(recipients, subject, ok, error=error, provider="gmail_api", message_id=message_id)
+            return ok, error
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            _audit_email(recipients, subject, False, error=error, provider="gmail_api")
+            return False, error
+
+    if not smtp_configured():
+        return False, "Email is not configured. Connect a Gmail account or configure SMTP."
 
     try:
         msg = EmailMultiAlternatives(
@@ -254,18 +288,18 @@ def send_email(to, subject, body, html=None):
         sent = msg.send(fail_silently=False)
         if sent != 1:
             error = f"SMTP backend did not report delivery (returned {sent})."
-            _audit_email(recipients, subject, False, error=error)
+            _audit_email(recipients, subject, False, error=error, provider="smtp")
             return False, error
-        _audit_email(recipients, subject, True)
+        _audit_email(recipients, subject, True, provider="smtp")
         return True, None
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-        _audit_email(recipients, subject, False, error=error)
+        _audit_email(recipients, subject, False, error=error, provider="smtp")
         return False, error
 
 
 def send_email_async(to, subject, body, html=None, on_sent=None):
-    """Send SMTP in a background thread without losing the actual result."""
+    """Send in a background thread without losing the actual result."""
     def _run():
         try:
             ok, err = send_email(to, subject, body, html)
@@ -277,8 +311,6 @@ def send_email_async(to, subject, body, html=None, on_sent=None):
         finally:
             connections.close_all()
 
-    # Async sending is convenient for web requests, but can hide failures.
-    # EMAIL_ASYNC=False can be used to force synchronous delivery while testing.
     if getattr(settings, "EMAIL_ASYNC", True):
         thread = threading.Thread(target=_run, daemon=True, name="onboardhub-email")
         thread.start()
