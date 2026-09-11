@@ -88,9 +88,14 @@ class ResilientSMTP(smtplib.SMTP):
                 except OSError as exc:
                     last_error = exc
             if last_error:
-                raise last_error
+                # Preserve the original exception type while adding the exact
+                # SMTP endpoint that could not be reached to the error text.
+                raise type(last_error)(f"SMTP TCP connection to {host}:{port} failed: {last_error}") from last_error
 
-        return super()._get_socket(host, port, timeout)
+        try:
+            return super()._get_socket(host, port, timeout)
+        except OSError as exc:
+            raise type(exc)(f"SMTP TCP connection to {host}:{port} failed: {exc}") from exc
 
 
 class ResilientSMTPSSL(smtplib.SMTP_SSL):
@@ -110,9 +115,12 @@ class ResilientSMTPSSL(smtplib.SMTP_SSL):
                 except OSError as exc:
                     last_error = exc
             if last_error:
-                raise last_error
+                raise type(last_error)(f"SMTP SSL TCP connection to {host}:{port} failed: {last_error}") from last_error
 
-        return super()._get_socket(host, port, timeout)
+        try:
+            return super()._get_socket(host, port, timeout)
+        except OSError as exc:
+            raise type(exc)(f"SMTP SSL TCP connection to {host}:{port} failed: {exc}") from exc
 
 
 class AppSettingEmailBackend(SMTPEmailBackend):
@@ -152,7 +160,15 @@ class AppSettingEmailBackend(SMTPEmailBackend):
         try:
             refused = self.connection.sendmail(from_email, recipients, message.as_bytes(linesep="\r\n"))
         except Exception as exc:
-            self._audit_email(email_message, False, f"{type(exc).__name__}: {exc}")
+            config = (
+                f"host={self.host!r}, port={self.port}, "
+                f"tls={self.use_tls}, ssl={self.use_ssl}"
+            )
+            self._audit_email(
+                email_message,
+                False,
+                f"{type(exc).__name__}: {exc}; SMTP config: {config}",
+            )
             if not self.fail_silently:
                 raise
             return False
