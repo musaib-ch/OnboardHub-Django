@@ -5,8 +5,8 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
             <h1><i class="bi bi-envelope"></i> Email Settings</h1>
-            <p class="text-muted mb-0">Configure the mail server used for password resets and notifications.
-                Status: {% if configured %}<span class="badge bg-success">Configured</span>{% else %}<span class="badge bg-secondary">Not configured</span>{% endif %}</p>
+            <p class="text-muted mb-0">Configure the mail transport used for password resets and notifications.
+                Legacy SMTP: {% if configured %}<span class="badge bg-success">Configured</span>{% else %}<span class="badge bg-secondary">Not configured</span>{% endif %}</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'admin_gmail_settings' %}" class="btn btn-primary"><i class="bi bi-google me-1"></i>Gmail API</a>
@@ -16,7 +16,7 @@
 </div>
 
 <div class="alert alert-info">
-    <strong>Using Render Free?</strong> Gmail API is the recommended option because it sends through HTTPS instead of SMTP ports 25, 465 and 587.
+    <strong>Using Render Free?</strong> Connect Gmail API. Once connected, the main portal automatically sends through Gmail over HTTPS instead of SMTP ports 25, 465 and 587.
 </div>
 
 <div class="row g-4">
@@ -75,9 +75,9 @@
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="test">
-                    <button type="submit" class="btn btn-outline-primary w-100" {% if not configured %}disabled{% endif %}><i class="bi bi-send me-1"></i>Send Test</button>
+                    <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-send me-1"></i>Send Test</button>
                 </form>
-                {% if not configured %}<div class="form-text mt-2">Save SMTP host or connect Gmail API first.</div>{% endif %}
+                <div class="form-text mt-2">For Render Free, connect Gmail API before testing.</div>
             </div>
         </div>
     </div>
