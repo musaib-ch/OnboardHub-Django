@@ -4,18 +4,25 @@
 <div class="page-header animate-fadeIn">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-            <h1><i class="bi bi-envelope"></i> Email / SMTP Settings</h1>
+            <h1><i class="bi bi-envelope"></i> Email Settings</h1>
             <p class="text-muted mb-0">Configure the mail server used for password resets and notifications.
                 Status: {% if configured %}<span class="badge bg-success">Configured</span>{% else %}<span class="badge bg-secondary">Not configured</span>{% endif %}</p>
         </div>
-        <a href="{% url 'admin_system_logs' %}" class="btn btn-outline-primary"><i class="bi bi-journal-text me-1"></i>System Logs</a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_gmail_settings' %}" class="btn btn-primary"><i class="bi bi-google me-1"></i>Gmail API</a>
+            <a href="{% url 'admin_system_logs' %}" class="btn btn-outline-primary"><i class="bi bi-journal-text me-1"></i>System Logs</a>
+        </div>
     </div>
+</div>
+
+<div class="alert alert-info">
+    <strong>Using Render Free?</strong> Gmail API is the recommended option because it sends through HTTPS instead of SMTP ports 25, 465 and 587.
 </div>
 
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="glass-card">
-            <div class="card-header"><h5 class="mb-0">SMTP Server</h5></div>
+            <div class="card-header"><h5 class="mb-0">SMTP Server (legacy fallback)</h5></div>
             <div class="card-body">
                 <form method="POST">
                     {% csrf_token %}
@@ -55,7 +62,7 @@
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i>Save Settings</button>
+                    <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i>Save SMTP Settings</button>
                 </form>
             </div>
         </div>
@@ -64,13 +71,13 @@
         <div class="glass-card">
             <div class="card-header"><h5 class="mb-0">Send Test Email</h5></div>
             <div class="card-body">
-                <p class="text-muted small">Sends a test message to your address ({{ user.email }}) using the saved settings.</p>
+                <p class="text-muted small">Sends a test message to your address ({{ user.email }}). If Gmail API is connected, the test uses Gmail API automatically.</p>
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="test">
                     <button type="submit" class="btn btn-outline-primary w-100" {% if not configured %}disabled{% endif %}><i class="bi bi-send me-1"></i>Send Test</button>
                 </form>
-                {% if not configured %}<div class="form-text mt-2">Save SMTP host first to enable testing.</div>{% endif %}
+                {% if not configured %}<div class="form-text mt-2">Save SMTP host or connect Gmail API first.</div>{% endif %}
             </div>
         </div>
     </div>
