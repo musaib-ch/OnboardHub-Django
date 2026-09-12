@@ -9,15 +9,12 @@
                 Legacy SMTP: {% if configured %}<span class="badge bg-success">Configured</span>{% else %}<span class="badge bg-secondary">Not configured</span>{% endif %}</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{% url 'admin_gmail_settings' %}" class="btn btn-primary"><i class="bi bi-google me-1"></i>Gmail API</a>
             <a href="{% url 'admin_system_logs' %}" class="btn btn-outline-primary"><i class="bi bi-journal-text me-1"></i>System Logs</a>
         </div>
     </div>
 </div>
 
-<div class="alert alert-info">
-    <strong>Using Render Free?</strong> Connect Gmail API. Once connected, the main portal automatically sends through Gmail over HTTPS instead of SMTP ports 25, 465 and 587.
-</div>
+
 
 <div class="row g-4">
     <div class="col-lg-8">
@@ -71,13 +68,13 @@
         <div class="glass-card">
             <div class="card-header"><h5 class="mb-0">Send Test Email</h5></div>
             <div class="card-body">
-                <p class="text-muted small">Sends a test message to your address ({{ user.email }}). If Gmail API is connected, the test uses Gmail API automatically.</p>
+                <p class="text-muted small">Sends a test message to your address ({{ user.email }}).</p>
                 <form method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="test">
                     <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-send me-1"></i>Send Test</button>
                 </form>
-                <div class="form-text mt-2">For Render Free, connect Gmail API before testing.</div>
+
             </div>
         </div>
     </div>

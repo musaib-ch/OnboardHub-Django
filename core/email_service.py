@@ -16,30 +16,16 @@ from .models import AppSetting
 
 def email_provider():
     """Return the active main-portal email transport."""
-    try:
-        from .gmail_service import configured as gmail_configured
-        if gmail_configured():
-            return "gmail_api"
-    except Exception:
-        pass
     return "smtp"
 
 
 def smtp_configured():
-    """Return True when the legacy SMTP host is configured."""
+    """Return True when the SMTP host is configured."""
     return bool((AppSetting.get("smtp_host") or "").strip())
 
 
-def gmail_configured():
-    try:
-        from .gmail_service import configured as _configured
-        return bool(_configured())
-    except Exception:
-        return False
-
-
 def email_configured():
-    return gmail_configured() or smtp_configured()
+    return smtp_configured()
 
 
 def _clean(value):
@@ -47,14 +33,6 @@ def _clean(value):
 
 
 def from_address():
-    if gmail_configured():
-        try:
-            from .gmail_service import account_email, sender_name
-            email = _clean(account_email())
-            if email:
-                return f"{sender_name()} <{email}>"
-        except Exception:
-            pass
     name = _clean(AppSetting.get("smtp_from_name") or "OnboardHub")
     email = _clean(AppSetting.get("smtp_from_email") or AppSetting.get("smtp_user") or "noreply@onboardhub.local")
     return f"{name} <{email}>"
@@ -256,24 +234,13 @@ def render_email(key, context):
 
 
 def send_email(to, subject, body, html=None):
-    """Send synchronously through Gmail API or the legacy SMTP fallback."""
+    """Send synchronously through SMTP."""
     recipients = [to] if isinstance(to, str) else list(to)
     if not recipients:
         return False, "No email recipients were supplied."
 
-    if gmail_configured():
-        try:
-            from .gmail_service import send_email as gmail_send
-            ok, error, message_id = gmail_send(recipients, subject, body, html)
-            _audit_email(recipients, subject, ok, error=error, provider="gmail_api", message_id=message_id)
-            return ok, error
-        except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            _audit_email(recipients, subject, False, error=error, provider="gmail_api")
-            return False, error
-
     if not smtp_configured():
-        return False, "Email is not configured. Connect a Gmail account or configure SMTP."
+        return False, "Email is not configured. Please configure SMTP."
 
     try:
         msg = EmailMultiAlternatives(
