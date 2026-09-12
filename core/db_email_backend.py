@@ -3,6 +3,7 @@
 import os
 import re
 import smtplib
+import requests
 
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 
@@ -10,7 +11,7 @@ from .models import AppSetting
 
 
 class AppSettingEmailBackend(SMTPEmailBackend):
-    """SMTP backend whose connection settings come from AppSetting."""
+    """SMTP backend whose connection settings come from AppSetting. Supports Resend API fallback."""
 
     @staticmethod
     def _audit_email(email_message, ok, error=None):
@@ -18,7 +19,7 @@ class AppSettingEmailBackend(SMTPEmailBackend):
             from .services import log_activity
             recipients = email_message.recipients()
             detail = (
-                f"SMTP {'accepted' if ok else 'failed'} email; "
+                f"Email {'accepted' if ok else 'failed'}; "
                 f"from={email_message.from_email}; "
                 f"to={', '.join(recipients)}; subject={email_message.subject!r}"
             )
@@ -32,11 +33,55 @@ class AppSettingEmailBackend(SMTPEmailBackend):
         except Exception:
             pass
 
+    def _send_via_resend(self, email_message, api_key):
+        try:
+            recipients = [addr for addr in email_message.recipients()]
+            payload = {
+                "from": email_message.from_email,
+                "to": recipients,
+                "subject": email_message.subject,
+            }
+            html_content = next((alt[0] for alt in getattr(email_message, "alternatives", []) if alt[1] == "text/html"), None)
+            if html_content:
+                payload["html"] = html_content
+                # Always good to provide text fallback
+                if getattr(email_message, "body", None):
+                    payload["text"] = email_message.body
+            else:
+                payload["text"] = email_message.body or " "
+
+            headers = {
+                "Authorization": f"Bearer {api_key.strip()}",
+                "Content-Type": "application/json"
+            }
+            
+            resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=15)
+            if resp.status_code in (200, 201):
+                self._audit_email(email_message, True)
+                return True
+            else:
+                error = f"Resend API error {resp.status_code}: {resp.text}"
+                self._audit_email(email_message, False, error)
+                if not self.fail_silently:
+                    raise Exception(error)
+                return False
+        except Exception as exc:
+            self._audit_email(email_message, False, str(exc))
+            if not self.fail_silently:
+                raise
+            return False
+
     def _send(self, email_message):
         if not email_message.recipients():
             self._audit_email(email_message, False, "No recipients")
             return False
         
+        # Check if Resend API key is configured
+        resend_api_key = AppSetting.get("resend_api_key")
+        if resend_api_key and resend_api_key.strip():
+            return self._send_via_resend(email_message, resend_api_key)
+
+        # Fallback to SMTP
         try:
             sent = super()._send(email_message)
             if sent:

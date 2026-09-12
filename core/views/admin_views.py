@@ -2142,10 +2142,14 @@ def email_settings(request):
             return redirect("admin_email_settings")
         for key in SMTP_KEYS:
             AppSetting.set(key, (request.POST.get(key) or "").strip(), user=request.user)
-        # Password: only overwrite when a new value is provided.
+        # Passwords: only overwrite when a new value is provided.
         new_pw = request.POST.get("smtp_password")
         if new_pw:
             AppSetting.set("smtp_password", new_pw, user=request.user)
+        
+        new_resend = request.POST.get("resend_api_key")
+        if new_resend:
+            AppSetting.set("resend_api_key", new_resend, user=request.user)
         for flag in SMTP_FLAGS:
             AppSetting.set(flag, "true" if request.POST.get(flag) else "false", user=request.user)
         log_activity(request, action="update_smtp_settings", entity_type="settings",
@@ -2157,6 +2161,7 @@ def email_settings(request):
     smtp["smtp_use_tls"] = (AppSetting.get("smtp_use_tls", "true") or "true").lower() == "true"
     smtp["smtp_use_ssl"] = (AppSetting.get("smtp_use_ssl", "false") or "false").lower() == "true"
     smtp["has_password"] = bool(AppSetting.get("smtp_password"))
+    smtp["has_resend_api_key"] = bool(AppSetting.get("resend_api_key"))
     return render(request, "admin/email_settings.html", {
         "smtp": smtp, "configured": smtp_configured(),
     })
