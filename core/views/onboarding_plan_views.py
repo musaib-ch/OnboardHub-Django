@@ -54,8 +54,7 @@ def my_onboarding_plan(request):
         return render(request, "403.html", status=403)
     engagement = OnboardingPlanService.get_plan_record(user)
     if not engagement:
-        messages.warning(request, "No onboarding success plan has been assigned to you yet.")
-        return redirect("employee_home")
+        return render(request, "onboarding_plan/employee_plan_empty.html")
     ctx = OnboardingPlanService.get_plan_context(user)
     return render(request, "onboarding_plan/employee_plan.html", ctx)
 

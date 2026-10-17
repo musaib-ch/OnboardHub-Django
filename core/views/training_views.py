@@ -556,9 +556,8 @@ def my_learning(request):
         card = _path_card(user, e.content, e)
         (completed if e.status == "completed" else assigned).append(card)
 
-    # Self-serve catalog: active paths the user isn't enrolled in.
-    catalog = [_path_card(user, p) for p in Content.objects.filter(
-        kind="learning_path", is_active=True).exclude(id__in=enrolled_ids).order_by("title")]
+    # Security: only show assigned learning paths. Hide self-serve catalog.
+    catalog = []
     return render(request, "employee/my_learning.html", {
         "assigned": assigned, "completed": completed, "catalog": catalog,
     })
@@ -571,7 +570,14 @@ def learning_path_detail(request, pk):
     user = request.user
     enrollment = Engagement.objects.filter(user=user, kind="enrollment", content=path).first()
 
+    if user.role == "employee" and not enrollment:
+        messages.error(request, "This learning path has not been assigned to you.")
+        return redirect("my_learning")
+
     if request.method == "POST" and request.POST.get("action") == "enroll":
+        if user.role == "employee":
+            messages.error(request, "Self-enrollment is disabled. Learning paths must be assigned.")
+            return redirect("my_learning")
         enrollment = assign_path_to_user(user, path, due_days=(path.meta or {}).get("due_days"),
                                          actor=user)
         messages.success(request, f"You’re enrolled in “{path.title}”.")

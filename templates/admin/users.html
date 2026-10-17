@@ -48,6 +48,8 @@
                     {% if 'email' in visible_columns %}<th><a href="?sort=email&dir={% if sort == 'email' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Email{% if sort == 'email' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
                     {% if 'role' in visible_columns %}<th><a href="?sort=role&dir={% if sort == 'role' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Role{% if sort == 'role' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
                     {% if 'status' in visible_columns %}<th><a href="?sort=status&dir={% if sort == 'status' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Status{% if sort == 'status' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'department' in visible_columns %}<th><a href="?sort=department&dir={% if sort == 'department' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Department / Scope{% if sort == 'department' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
+                    {% if 'location' in visible_columns %}<th><a href="?sort=location&dir={% if sort == 'location' and dir == 'asc' %}desc{% else %}asc{% endif %}&cols={{ visible_columns|join:',' }}" class="text-decoration-none text-dark">Location / Scope{% if sort == 'location' %}<i class="bi bi-arrow-{% if dir == 'asc' %}up{% else %}down{% endif %} ms-1"></i>{% endif %}</a></th>{% endif %}
                     <th></th>
                 </tr>
             </thead>
@@ -65,6 +67,32 @@
                         <span class="badge bg-secondary">Inactive</span>
                         {% endif %}
                     </td>{% endif %}
+                    {% if 'department' in visible_columns %}
+                    <td>
+                        {% if u.role == 'hrbp' %}
+                            {% if u.resolved_scope_departments %}
+                                <span class="badge bg-light text-dark border" title="Assigned Departments">Scope: {{ u.resolved_scope_departments|join:", " }}</span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border">Scope: All</span>
+                            {% endif %}
+                        {% else %}
+                            {{ u.department.name|default:"—" }}
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    {% if 'location' in visible_columns %}
+                    <td>
+                        {% if u.role == 'medical_approver' %}
+                            {% if u.scope.locations %}
+                                <span class="badge bg-light text-dark border" title="Assigned Locations">Scope: {{ u.scope.locations|join:", " }}</span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border">Scope: All</span>
+                            {% endif %}
+                        {% else %}
+                            {{ u.location_code|default:"—" }}
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td class="d-flex gap-1" onclick="event.stopPropagation()">
                         <a href="{% url 'admin_edit_user' u.id %}?next={% url 'admin_users' %}" class="btn btn-xs btn-outline-secondary">Edit</a>
                         {% if u.id != user.id %}
@@ -75,7 +103,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No users yet.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">No users yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

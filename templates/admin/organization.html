@@ -4,12 +4,16 @@
 {% block content %}
 <div class="page-header animate-fadeIn">
     <h1><i class="bi bi-sliders me-2"></i>Organization Setup</h1>
-    <p class="text-muted mb-0">Manage organizational structure: departments, grades, locations, payroll, employee types, designations</p>
+    <p class="text-muted mb-0">Manage company identity, offer placeholders, and organizational structure.</p>
 </div>
 
-<!-- Type Tabs -->
+<!-- Organization tabs -->
 <div class="glass-card mb-4 animate-fadeIn delay-1">
     <div class="nav nav-tabs flex-wrap" role="tablist">
+        {% if can_manage_offer_placeholders %}
+        <button class="nav-link {% if active_tab == 'company_profile' %}active{% endif %}" id="tab-company-profile" data-bs-toggle="tab" data-bs-target="#content-company-profile" type="button" role="tab">Company Profile</button>
+        <button class="nav-link {% if active_tab == 'placeholders' %}active{% endif %}" id="tab-placeholders" data-bs-toggle="tab" data-bs-target="#content-placeholders" type="button" role="tab">Shared Placeholders <span class="badge bg-secondary ms-2">{{ offer_placeholders|length }}</span></button>
+        {% endif %}
         {% for kind, label in kinds %}
         <button class="nav-link {% if active_tab == kind or not active_tab and forloop.first %}active{% endif %}" id="tab-{{ kind }}" data-bs-toggle="tab" data-bs-target="#content-{{ kind }}" type="button" role="tab">
             {{ label }}
@@ -21,6 +25,55 @@
 
 <!-- Tab Content -->
 <div class="tab-content">
+    {% if can_manage_offer_placeholders %}
+    <div class="tab-pane fade {% if active_tab == 'company_profile' %}show active{% endif %}" id="content-company-profile" role="tabpanel" aria-labelledby="tab-company-profile">
+        <section class="glass-card p-4">
+            <h5 class="mb-1">Company Profile</h5>
+            <p class="text-muted small">The company name is available to every template as <code>&#123;&#123; company_name &#125;&#125;</code> and <code>&#123;&#123; company &#125;&#125;</code>.</p>
+            <form method="POST" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_company_name">
+                <div class="col-md-8"><label for="companyName" class="form-label fw-semibold">Company name</label><input id="companyName" name="company_name" class="form-control" value="{{ company_name }}" required></div>
+                <div class="col-md-4"><button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save company name</button></div>
+            </form>
+        </section>
+    </div>
+    <div class="tab-pane fade {% if active_tab == 'placeholders' %}show active{% endif %}" id="content-placeholders" role="tabpanel" aria-labelledby="tab-placeholders">
+        <section class="glass-card">
+            <div class="p-4 border-bottom"><h5 class="mb-1">Shared Placeholders</h5><p class="text-muted small mb-0">Available in offer letters, offer emails, and portal notification emails. Offer-specific values can override a default.</p></div>
+            <form method="POST" class="p-4 border-bottom">
+                {% csrf_token %}<input type="hidden" name="action" value="add_offer_placeholder">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3"><label for="placeholderName" class="form-label">Label</label><input id="placeholderName" name="placeholder_name" class="form-control" placeholder="e.g. Company address" required></div>
+                    <div class="col-md-3"><label for="placeholderKey" class="form-label">Key</label><input id="placeholderKey" name="placeholder_key" class="form-control" placeholder="e.g. company_address" pattern="[A-Za-z][A-Za-z0-9_]*"></div>
+                    <div class="col-md-2"><label for="placeholderType" class="form-label">Type</label><select id="placeholderType" name="field_type" class="form-select"><option value="string">Text</option><option value="decimal">Number</option><option value="date">Date</option><option value="richtext">Long text</option></select></div>
+                    <div class="col-md-3"><label for="placeholderValue" class="form-label">Default value</label><input id="placeholderValue" name="default_value" class="form-control" placeholder="Used unless a template context overrides it"></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>Add</button></div>
+                    <div class="col-12 form-check ms-2"><input class="form-check-input" type="checkbox" id="placeholderRequired" name="required" value="1"><label class="form-check-label" for="placeholderRequired">Require a value when sending an offer</label></div>
+                </div>
+            </form>
+            {% if offer_placeholders %}
+            <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Label</th><th>Token</th><th>Default value</th><th>Offer value</th><th></th></tr></thead><tbody>
+                {% for field in offer_placeholders %}
+                <tr><td colspan="5"><div class="row g-2 align-items-center">
+                    <form method="POST" class="col">{% csrf_token %}<input type="hidden" name="action" value="update_offer_placeholder"><input type="hidden" name="field_id" value="{{ field.id }}">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3"><input name="placeholder_name" class="form-control form-control-sm" value="{{ field.name }}" aria-label="Placeholder label" required></div>
+                            <div class="col-md-2"><code>&#123;&#123;{{ field.key }}&#125;&#125;</code></div>
+                            <div class="col-md-3"><input name="default_value" class="form-control form-control-sm" value="{{ field.meta.default_value|default:'' }}" aria-label="Default value"></div>
+                            <div class="col-md-2"><select name="field_type" class="form-select form-select-sm" aria-label="Placeholder type"><option value="string" {% if field.field_type == 'string' %}selected{% endif %}>Text</option><option value="decimal" {% if field.field_type == 'decimal' %}selected{% endif %}>Number</option><option value="date" {% if field.field_type == 'date' %}selected{% endif %}>Date</option><option value="richtext" {% if field.field_type == 'richtext' %}selected{% endif %}>Long text</option></select></div>
+                            <div class="col-md-1 form-check"><input class="form-check-input" type="checkbox" name="required" value="1" aria-label="Required on offer" {% if field.required %}checked{% endif %}><label class="form-check-label small">Offer required</label></div>
+                            <div class="col-md-2"><button type="submit" class="btn btn-sm btn-outline-primary w-100">Save</button></div>
+                        </div>
+                    </form>
+                    <form method="POST" class="col-auto">{% csrf_token %}<input type="hidden" name="action" value="delete_offer_placeholder"><input type="hidden" name="field_id" value="{{ field.id }}"><button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Delete {{ field.name }}" onclick="return confirm('Delete this placeholder?')"><i class="bi bi-trash"></i></button></form>
+                </div></td></tr>
+                {% endfor %}
+            </tbody></table></div>
+            {% else %}<p class="p-4 mb-0 text-muted">No shared placeholders defined yet.</p>{% endif %}
+        </section>
+    </div>
+    {% endif %}
     {% for kind, label in kinds %}
     <div class="tab-pane fade {% if active_tab == kind or not active_tab and forloop.first %}show active{% endif %}" id="content-{{ kind }}" role="tabpanel">
         <div class="glass-card animate-fadeIn delay-2">

@@ -9,9 +9,12 @@ urlpatterns = [
     # ── Public / dispatch ───────────────────────────────────────────────
     path("", common_views.index, name="index"),
     path("portal/", common_views.portal, name="portal"),
+    path("employee/directory/", common_views.employee_directory, name="employee_directory"),
+    path("employee/resources/", common_views.employee_resources, name="employee_resources"),
 
     # ── Auth ────────────────────────────────────────────────────────────
     path("login/", auth_views.login_view, name="login"),
+    path("login/staff/", auth_views.staff_login_view, name="staff_login"),
     path("logout/", auth_views.logout_view, name="logout"),
     path("forgot-password/", auth_views.forgot_password, name="forgot_password"),
     path("reset-password/<str:token>/", auth_views.reset_password, name="reset_password"),
@@ -58,6 +61,7 @@ urlpatterns = [
     path("admin/users/<int:user_id>/delete/", admin_views.delete_user, name="admin_delete_user"),
     path("admin/offers/", admin_views.offers, name="admin_offers"),
     path("admin/offers/send/", admin_views.send_offer, name="admin_send_offer"),
+    path("admin/offers/<int:offer_id>/resend/", admin_views.resend_offer, name="admin_resend_offer"),
     path("admin/offers/analytics/", offer_api_views.offer_analytics, name="admin_offers_analytics"),
     path("admin/offers/analytics/view/", admin_views.offers_analytics_page, name="admin_offers_analytics_page"),
     path("admin/offers/export/", offer_api_views.export_offers_csv, name="admin_offers_export"),
@@ -102,6 +106,7 @@ urlpatterns = [
     path("admin/roles/", admin_views.roles, name="admin_roles"),
     path("admin/medical/review/", admin_views.medical_review, name="admin_medical_review"),
     path("admin/medical/review/export/", admin_views.export_medical_documents, name="admin_export_medical"),
+    path("admin/medical/review/export-csv/", admin_views.export_medical_stats_csv, name="admin_export_medical_stats_csv"),
     path("admin/settings/email/", admin_views.email_settings, name="admin_email_settings"),
     path("admin/settings/email-templates/", admin_views.email_templates, name="admin_email_templates"),
     path("admin/settings/email-logs/", admin_views.email_logs, name="admin_email_logs"),

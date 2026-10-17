@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Team Directory | {{ site_settings.site_title|default:"OnboardHub" }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+  <h1><i class="bi bi-people me-2"></i>Team Directory</h1>
+  <p class="text-muted mb-0">Find teammates in your organization.</p>
+</div>
+<section class="glass-card">
+  {% if people %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Work email</th></tr></thead>
+      <tbody>
+        {% for person in people %}
+        <tr>
+          <td class="fw-semibold">{{ person.full_name|default:person.email }}</td>
+          <td>{{ person.position_title|default:"Team member" }}</td>
+          <td>{{ person.department.name|default:"—" }}</td>
+          <td><a href="mailto:{{ person.email }}">{{ person.email }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="p-5 text-center text-muted">No employee directory entries are available for your organization yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

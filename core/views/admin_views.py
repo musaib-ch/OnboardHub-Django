@@ -19,7 +19,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.text import get_valid_filename
+from django.utils.text import get_valid_filename, slugify
 from django.views.decorators.http import require_http_methods
 from openpyxl import Workbook, load_workbook
 
@@ -31,7 +31,10 @@ from ..models import (
     ReviewMessage, Content, Engagement, Notification, AuditLog, StageDefinition,
     StageTemplate, EmployeeStagePath, OfferWorkflow, STATUS_CHOICES,
 )
-from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer, OfferFieldValue
+from ..models_offers import (
+    OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer, OfferFieldValue,
+    SYSTEM_OFFER_PLACEHOLDER_KEYS,
+)
 
 from ..services import log_activity, notify, onboarding_progress_percent
 from ..services.stage_service import advance_employee_to_stage, set_stage_due_date_override, get_stage_progress
@@ -133,10 +136,18 @@ def scoped_employee_qs(viewer, qs):
     scope_type = role_scope_type(viewer.role)
     if scope_type == "department":
         depts = (viewer.scope or {}).get("departments") or []
-        return qs.filter(department_id__in=depts) if depts else qs.none()
-    if scope_type == "location":
+        qs = qs.filter(department_id__in=depts) if depts else qs.none()
+    elif scope_type == "location":
         locs = (viewer.scope or {}).get("locations") or []
-        return qs.filter(location_code__in=locs) if locs else qs.none()
+        qs = qs.filter(location_code__in=locs) if locs else qs.none()
+
+    if viewer.role == "medical_approver":
+        from ..models import OfferWorkflow
+        from ..models_offers import Offer
+        accepted_emp_ids = list(OfferWorkflow.objects.filter(status="accepted").values_list("employee_id", flat=True))
+        accepted_emp_ids += list(Offer.objects.filter(status="accepted").values_list("candidate_user_id", flat=True))
+        qs = qs.filter(id__in=accepted_emp_ids)
+
     return qs
 
 
@@ -470,7 +481,13 @@ def reset_user_password(request, user_id):
             description=f"Administrator reset the password for {user.email}",
         )
         messages.success(request, f"Temporary password for {user.full_name}: {temp_password}")
-    return redirect("admin_employee_detail", user_id=user.id)
+    next_url = request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER")
+    if not next_url:
+        if user.role == "employee":
+            next_url = reverse("admin_employee_detail", args=[user.id])
+        else:
+            next_url = reverse("admin_users")
+    return redirect(next_url)
 
 
 @permission_required("send_offer")
@@ -479,6 +496,7 @@ def offers(request):
     offer_templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
     email_templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
     offer_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
+    offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
     offers_qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
 
     scoped_users = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys()).exclude(status="deleted"))
@@ -533,7 +551,13 @@ def offer_templates_manage(request):
         return redirect("admin_offer_templates")
 
     templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
-    return render(request, "admin/offer_templates.html", {"templates": templates.order_by("name")})
+    offer_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
+    offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
+    return render(request, "admin/offer_templates.html", {
+        "templates": templates.order_by("name"),
+        "offer_fields": offer_fields,
+        "company_name": request.user.tenant.name if request.user.tenant else "",
+    })
 
 
 @permission_required("manage_templates")
@@ -580,7 +604,14 @@ def offer_email_templates_manage(request):
         return redirect("admin_offer_email_templates")
 
     templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
-    return render(request, "admin/offer_email_templates.html", {"templates": templates.order_by("name")})
+    offer_fields = (OfferFieldDefinition.objects.filter(tenant=request.user.tenant)
+                    if request.user.tenant else OfferFieldDefinition.objects.all())
+    offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
+    return render(request, "admin/offer_email_templates.html", {
+        "templates": templates.order_by("name"),
+        "offer_fields": offer_fields,
+        "company_name": request.user.tenant.name if request.user.tenant else "",
+    })
 
 
 @permission_required("manage_email_templates")
@@ -616,6 +647,18 @@ def send_offer(request):
     if not salary or not start_date:
         messages.error(request, "Salary and proposed start date are required.")
         return redirect("admin_offers")
+
+    custom_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant).exclude(
+        key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS
+    ) if request.user.tenant else OfferFieldDefinition.objects.none()
+    custom_values = []
+    for field in custom_fields:
+        value = (request.POST.get(f"offer_custom_{field.key}") or "").strip()
+        if field.required and not value:
+            messages.error(request, f'Enter a value for {field.name}.')
+            return redirect("admin_offers")
+        if value:
+            custom_values.append((field, value))
 
     email_template_id = request.POST.get("email_template_id")
     offer_template_id = request.POST.get("offer_template_id")
@@ -676,12 +719,130 @@ def send_offer(request):
                value=str(value),
            )
 
+    for field, value in custom_values:
+        OfferFieldValue.objects.create(offer=offer, field_definition=field, value=value)
+
     from ..views.offer_api_views import _perform_offer_send
     tokens = _perform_offer_send(offer, acting_user=request.user, request=request)
     salary_display = f"{currency} {salary}"
     notify(employee, "Your offer is ready", f"Offer {offer_number} for {position_title}: {salary_display}. Review it before {expiry_date:%d %b %Y}.", link="/employee/offers/", category="info")
     log_activity(request, action="send_offer", entity_type="offer", entity_id=offer.id, description=f"Sent {offer_number} to {employee.email}")
     messages.success(request, f"Offer {offer_number} was sent to {employee.full_name}.")
+    return redirect("admin_offers")
+
+
+@permission_required("send_offer")
+@require_http_methods(["POST"])
+def resend_offer(request, offer_id):
+    """Resend a previously rejected offer with updated values/terms."""
+    from ..models_offers import Offer, OfferFieldValue, OfferFieldDefinition, OfferEmailTemplate, OfferTemplate
+    
+    offer = get_object_or_404(Offer, id=offer_id)
+    if offer.status != 'rejected':
+        messages.error(request, "Only rejected offers can be edited and resent.")
+        return redirect("admin_offers")
+
+    position_title = (request.POST.get("position_title") or "").strip()
+    salary = (request.POST.get("salary") or "").strip()
+    currency = (request.POST.get("currency") or "PKR").strip().upper()
+    start_date = (request.POST.get("start_date") or "").strip()
+    expiry_raw = (request.POST.get("expiry_date") or "").strip()
+    
+    try:
+        expiry_date = timezone.make_aware(timezone.datetime.fromisoformat(expiry_raw))
+    except ValueError:
+        messages.error(request, "Enter a valid offer expiry date and time.")
+        return redirect("admin_offers")
+        
+    if not salary or not start_date:
+        messages.error(request, "Salary and proposed start date are required.")
+        return redirect("admin_offers")
+
+    email_template_id = request.POST.get("email_template_id")
+    offer_template_id = request.POST.get("offer_template_id")
+    
+    email_template = None
+    if email_template_id:
+        email_template = OfferEmailTemplate.objects.filter(id=email_template_id).first()
+    template = None
+    if offer_template_id:
+        template = OfferTemplate.objects.filter(id=offer_template_id).first()
+    if template is None and request.user.tenant:
+        template = OfferTemplate.objects.filter(tenant=request.user.tenant, is_default=True).first()
+    if template is None:
+        template = OfferTemplate.objects.filter(is_default=True).first()
+
+    # Reset statuses to trigger proper re-send and timeline updates
+    offer.status = "draft"
+    offer.template = template
+    offer.email_template = email_template
+    offer.rejected_at = None
+    offer.accepted_at = None
+    offer.sent_at = None
+    
+    offer_info = dict(offer.metadata or {})
+    offer_info.update({
+        "position_title": position_title,
+        "salary": salary,
+        "currency": currency,
+        "employment_type": (request.POST.get("employment_type") or "").strip(),
+        "start_date": start_date,
+        "benefits": (request.POST.get("benefits") or "").strip(),
+        "note": (request.POST.get("note") or "").strip(),
+        "expiry_date": expiry_date.isoformat(),
+    })
+    if email_template_id:
+        offer_info["email_template_id"] = email_template_id
+    elif "email_template_id" in offer_info:
+        del offer_info["email_template_id"]
+        
+    if offer_template_id:
+        offer_info["offer_template_id"] = offer_template_id
+    elif "offer_template_id" in offer_info:
+        del offer_info["offer_template_id"]
+
+    offer.metadata = offer_info
+    offer.save()
+
+    # Recreate OfferFieldValues
+    OfferFieldValue.objects.filter(offer=offer).delete()
+    for key, value in {
+        "position_title": position_title,
+        "salary": salary,
+        "currency": currency,
+        "start_date": start_date,
+        "employment_type": offer_info["employment_type"],
+        "benefits": offer_info["benefits"],
+        "note": offer_info["note"],
+        "expiry_date": expiry_date.isoformat(),
+    }.items():
+        if value is not None and value != "":
+            OfferFieldValue.objects.create(
+                offer=offer,
+                field_definition=OfferFieldDefinition.objects.filter(tenant=request.user.tenant, key=key).first(),
+                value=str(value),
+            )
+
+    # Re-fetch offer to avoid cached relation/prefetched caches
+    offer = Offer.objects.get(id=offer.id)
+    
+    from ..views.offer_api_views import _perform_offer_send
+    tokens = _perform_offer_send(offer, acting_user=request.user, request=request)
+    
+    employee = offer.candidate_user
+    if employee:
+        employee.status = "offer"
+        employee.save(update_fields=["status"])
+        
+        salary_display = f"{currency} {salary}"
+        notify(employee, "Your offer has been updated", 
+               f"Offer {offer.offer_number} for {position_title} has been updated. Review it before {expiry_date:%d %b %Y}.", 
+               link="/employee/offers/", category="info")
+
+    log_activity(request, action="resend_offer", entity_type="offer", entity_id=offer.id, 
+                 description=f"Resent updated offer {offer.offer_number} to {offer.candidate_email}")
+                 
+    messages.success(request, f"Offer {offer.offer_number} was successfully updated and resent to {offer.candidate_name}.")
     return redirect("admin_offers")
 
 
@@ -765,7 +926,7 @@ def dashboard(request):
     dashboard_review_title = "Medical Submissions Awaiting Review" if can_medical_review else "Awaiting Your Review"
     dashboard_review_queue = _attach_current_stage_info(list(dashboard_review_queue)) if dashboard_review_queue else []
 
-    return render(request, "admin/dashboard.html", {
+    response = render(request, "admin/dashboard.html", {
         "stats": stats, "recent": recent, "review_queue": review_queue,
         "learning_stats": learning_stats,
         "can_approve_medical": request.user.has_perm_key("approve_medical"),
@@ -782,6 +943,9 @@ def dashboard(request):
         "is_super_admin": is_super_admin,
         "is_admin": is_admin,
     })
+    if request.GET.get("branding_preview") == "1":
+        response["X-Frame-Options"] = "SAMEORIGIN"
+    return response
 
 
 @staff_required
@@ -888,6 +1052,8 @@ def employee_detail(request, user_id):
     review_stage = pipeline.stage_of_status(emp.status)
     convo_stage = pipeline.current_stage(emp) or review_stage
     thread = ReviewMessage.objects.filter(employee=emp).select_related("author").order_by("created_at")
+    if request.user.role not in ("medical_approver", "super_admin"):
+        thread = thread.exclude(stage="medical")
     # Email/message templates, pre-resolved with this employee's real values so the
     # admin can drop one into the conversation box (see Phase 4 — sendable templates).
     from ..email_service import all_email_templates, render_email, employee_email_context
@@ -931,12 +1097,21 @@ def employee_detail(request, user_id):
     unified_stages = get_employee_all_stages(emp)
     all_stages_qs = StageDefinition.objects.filter(is_enabled=True).order_by("order")
 
+    is_med_approved = pipeline.stage_state(emp, "medical") in ("completed", "approved")
+    pct = onboarding_progress_percent(emp.status, emp)
+    if request.user.role == "medical_approver":
+        unified_stages = [s for s in unified_stages if s['key'] == 'medical']
+        if is_med_approved:
+            stage_progress['stage_name'] = "Medical Approved"
+            stage_progress['status'] = "completed"
+            pct = 100
+
     return render(request, "admin/employee_detail.html", {
         "emp": emp,
         "msg_templates": msg_templates,
         "responses": responses,
         "medical": medical,
-        "pct": onboarding_progress_percent(emp.status, emp),
+        "pct": pct,
         "statuses": EMPLOYEE_STATUSES,
         "review_actions": actions,
         "review_stage_label": pipeline.STAGE_LABELS.get(review_stage, ""),
@@ -945,6 +1120,7 @@ def employee_detail(request, user_id):
         "can_bypass": request.user.has_perm_key("bypass_stages"),
         "stages": stages,
         "stage_progress": stage_progress,
+        "offer_status": pipeline.stage_state(emp, "offer") if "offer" in employee_stage_path else "disabled",
         "medical_status": pipeline.stage_state(emp, "medical") if "medical" in employee_stage_path else "disabled",
         "pre_onboarding_status": pipeline.stage_state(emp, "pre_onboarding") if "pre_onboarding" in employee_stage_path else "disabled",
         "onboarding_status": pipeline.stage_state(emp, "onboarding") if "onboarding" in employee_stage_path else "disabled",
@@ -966,6 +1142,7 @@ def employee_detail(request, user_id):
         "unified_stages": unified_stages,  # All stages with activities
         "is_super_admin": request.user.role == 'super_admin',
         "can_manage_users": request.user.has_perm_key("manage_users"),
+        "is_med_approved": is_med_approved,
     })
 
 
@@ -1110,13 +1287,41 @@ def medical_review(request):
                              description=f"Rejected '{rec.requirement_name}' for {selected.email}")
                 messages.success(request, f"Rejected '{rec.requirement_name}'.")
 
+            elif action == "reconsider_record":
+                rec.status = "under_review" if rec.file else "pending"
+                rec.reviewed_by = None
+                rec.reviewed_at = None
+                rec.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+                
+                # Sync employee status back to medical if they were already advanced
+                pipeline.get_employee_stage_path(selected)
+                
+                log_activity(request, action="reconsider_medical_record", entity_type="employee", entity_id=selected.id,
+                             description=f"Reconsidered medical record '{rec.requirement_name}' for {selected.email}")
+                messages.success(request, f"Reconsidered '{rec.requirement_name}' — status reset.")
+
         query = [f"user_id={selected.id}"]
         if keep_filter:
             query.insert(0, "has_submissions=1")
         return redirect(f"{request.path}?{'&'.join(query)}")
 
+    employees_list = list(qs)
+    for emp in employees_list:
+        med_state = pipeline.stage_state(emp, "medical")
+        if med_state in ("completed", "approved"):
+            emp.medical_display_status = "Medical Approved"
+        else:
+            emp.medical_display_status = pipeline.STAGE_LABELS.get(pipeline.stage_of_status(emp.status), emp.status.replace("_", " ").title())
+
+    if selected:
+        med_state = pipeline.stage_state(selected, "medical")
+        if med_state in ("completed", "approved"):
+            selected.medical_display_status = "Medical Approved"
+        else:
+            selected.medical_display_status = pipeline.STAGE_LABELS.get(pipeline.stage_of_status(selected.status), selected.status.replace("_", " ").title())
+
     return render(request, "admin/medical_review.html", {
-        "employees": qs,
+        "employees": employees_list,
         "selected": selected,
         "records": records,
     })
@@ -1169,6 +1374,63 @@ def export_medical_documents(request):
     return response
 
 
+@permission_required("approve_medical")
+@require_http_methods(["GET"])
+def export_medical_stats_csv(request):
+    """Export medical review statistics for all employees in scope as a CSV."""
+    from ..exporters import csv_response
+    
+    # Get all employees within scope
+    qs = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys())).exclude(status="deleted").order_by("full_name")
+    
+    header = [
+        "Employee ID", "Full Name", "Email", "Department", "Location", 
+        "Overall Medical Status", "Total Requirements", "Submitted", 
+        "Approved", "Rejected", "Pending", "Last Updated"
+    ]
+    
+    rows = []
+    for emp in qs:
+        # Fetch medical records for the employee
+        records = MedicalRecord.objects.filter(employee=emp, is_catalog=False)
+        total = records.count()
+        submitted = records.filter(status="submitted").count()
+        approved = records.filter(status="approved").count()
+        rejected = records.filter(status="rejected").count()
+        pending = records.filter(status="pending").count()
+        
+        # Calculate last updated
+        last_rec = records.order_by("-reviewed_at").first()
+        last_updated = last_rec.reviewed_at.strftime("%Y-%m-%d %H:%M") if (last_rec and last_rec.reviewed_at) else "N/A"
+        
+        # Determine overall medical status
+        med_state = pipeline.stage_state(emp, "medical")
+        if med_state in ("completed", "approved"):
+            overall_status = "Medical Approved"
+        else:
+            overall_status = med_state.replace("_", " ").title()
+            
+        rows.append([
+            emp.employee_id or "N/A",
+            emp.full_name,
+            emp.email,
+            emp.department.name if emp.department else "N/A",
+            emp.location_code or "N/A",
+            overall_status,
+            total,
+            submitted,
+            approved,
+            rejected,
+            pending,
+            last_updated
+        ])
+        
+    log_activity(request, action="export_medical_stats", entity_type="employee",
+                 description=f"Exported medical stats for {qs.count()} employees")
+                 
+    return csv_response("medical_onboarding_stats.csv", header, rows)
+
+
 @permission_required("on_behalf_documents")
 @require_http_methods(["POST"])
 def upload_on_behalf(request, user_id):
@@ -1209,6 +1471,9 @@ def message_employee(request, user_id):
     emp = _get_employee(user_id)
     text = (request.POST.get("message") or "").strip()
     stage = pipeline.current_stage(emp) or pipeline.stage_of_status(emp.status) or "general"
+    if stage == "medical" and request.user.role not in ("medical_approver", "super_admin"):
+        messages.error(request, "You do not have permission to post medical messages.")
+        return redirect("admin_employee_detail", user_id=emp.id)
     if not text:
         messages.error(request, "Message can't be empty.")
         return redirect("admin_employee_detail", user_id=emp.id)
@@ -1298,22 +1563,39 @@ def review_employee(request, user_id):
 def users(request):
     sort = (request.GET.get("sort") or "name").strip()
     direction = (request.GET.get("dir") or "asc").strip().lower()
-    visible_cols = request.GET.getlist("cols") or ["name", "email", "role", "status"]
+    raw_cols = request.GET.getlist("cols")
+    visible_cols = []
+    for c in raw_cols:
+        if "," in c:
+            visible_cols.extend(c.split(","))
+        else:
+            visible_cols.append(c)
+    if not visible_cols:
+        visible_cols = ["name", "email", "role", "status", "department", "location"]
+
     sort_map = {
         "name": "full_name",
         "email": "email",
         "role": "role",
         "status": "is_active",
+        "department": "department__name",
+        "location": "location_code",
     }
 
-    qs = User.objects.filter(role__in=_staff_role_keys()).exclude(status="deleted")
+    qs = User.objects.filter(role__in=_staff_role_keys()).exclude(status="deleted").select_related("department")
     order_field = sort_map.get(sort, "full_name")
     if direction == "desc":
         qs = qs.order_by(f"-{order_field}")
     else:
         qs = qs.order_by(order_field)
 
-    staff = qs
+    from ..models import OrgUnit
+    depts_map = {d.id: d.name for d in OrgUnit.objects.filter(kind="department")}
+    staff = list(qs)
+    for u in staff:
+        scope_dept_ids = (u.scope or {}).get("departments") or []
+        u.resolved_scope_departments = [depts_map.get(dept_id, f"Dept #{dept_id}") for dept_id in scope_dept_ids]
+
     return render(request, "admin/users.html", {
         "users": staff,
         "roles": [(r["key"], r["label"]) for r in all_roles()],
@@ -1325,6 +1607,8 @@ def users(request):
             ("email", "Email"),
             ("role", "Role"),
             ("status", "Status"),
+            ("department", "Department / Scope"),
+            ("location", "Location / Scope"),
         ],
     })
 
@@ -1707,6 +1991,7 @@ CMS_KINDS = [
     ("management_message", "Management Messages"),
     ("event", "Upcoming Events"),
     ("news", "Latest News"),
+    ("portal_resource", "Resources & Perks"),
     ("portal_gallery", "Gallery"),
     ("portal_video", "Videos"),
 ]
@@ -1715,25 +2000,67 @@ CMS_KINDS = [
 @permission_required("manage_landing_page")
 @require_http_methods(["GET", "POST"])
 def portal_cms(request):
-    """Manage the landing-page content: sliders, management messages, gallery, videos."""
+    """Manage tenant-scoped content displayed on the employee landing and resources pages."""
     valid = {k for k, _ in CMS_KINDS}
+
+    def scoped_content():
+        query = Content.objects.filter(kind__in=valid)
+        if request.user.tenant_id:
+            query = query.filter(Q(tenant_id=request.user.tenant_id) | Q(tenant__isnull=True))
+        return query
+
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "delete":
-            Content.objects.filter(id=request.POST.get("item_id"),
-                                   kind__in=valid).delete()
-            messages.success(request, "Item removed.")
+            deleted, _ = scoped_content().filter(id=request.POST.get("item_id")).delete()
+            messages.success(request, "Item removed." if deleted else "Content item not found.")
         elif action == "toggle":
-            c = Content.objects.filter(id=request.POST.get("item_id"), kind__in=valid).first()
+            c = scoped_content().filter(id=request.POST.get("item_id")).first()
             if c:
                 c.is_active = not c.is_active
                 c.save(update_fields=["is_active"])
+        elif action == "edit":
+            c = scoped_content().filter(id=request.POST.get("item_id")).first()
+            if not c:
+                messages.error(request, "Content item not found.")
+            else:
+                c.title = (request.POST.get("title") or "").strip()
+                c.body = (request.POST.get("body") or "").strip()
+                c.category = (request.POST.get("category") or "").strip()
+                try:
+                    c.display_order = int(request.POST.get("display_order") or 0)
+                except ValueError:
+                    c.display_order = 0
+                meta = c.meta if isinstance(c.meta, dict) else {}
+                for key in ("video_url", "link", "author", "role_title", "date", "month", "day"):
+                    meta.pop(key, None)
+                for key in ("video_url", "link", "author", "role_title"):
+                    value = (request.POST.get(key) or "").strip()
+                    if value:
+                        meta[key] = value
+                event_date = (request.POST.get("event_date") or "").strip()
+                if event_date:
+                    from datetime import datetime
+                    try:
+                        event_day = datetime.strptime(event_date, "%Y-%m-%d")
+                        meta.update({"date": event_date, "month": event_day.strftime("%b").upper(), "day": event_day.strftime("%d")})
+                    except ValueError:
+                        messages.error(request, "Enter a valid event date.")
+                c.meta = meta
+                if request.FILES.get("file"):
+                    c.file = request.FILES["file"]
+                c.save()
+                messages.success(request, "Content updated.")
         else:  # add
             kind = request.POST.get("kind")
             if kind not in valid:
                 messages.error(request, "Unknown content type.")
                 return redirect("admin_portal_cms")
             meta = {}
+            if request.POST.get("category"):
+                category = request.POST.get("category").strip()
+            else:
+                category = ""
             if request.POST.get("video_url"):
                 meta["video_url"] = request.POST.get("video_url").strip()
             if request.POST.get("link"):
@@ -1759,6 +2086,7 @@ def portal_cms(request):
             c = Content(
                 kind=kind, tenant=request.user.tenant,
                 title=(request.POST.get("title") or "").strip(),
+                category=category,
                 body=(request.POST.get("body") or "").strip(),
                 meta=meta, display_order=order, is_active=True,
                 created_by=request.user,
@@ -1769,9 +2097,16 @@ def portal_cms(request):
             messages.success(request, "Added to the landing page.")
         return redirect("admin_portal_cms")
 
-    grouped = {k: list(Content.objects.filter(kind=k).order_by("display_order", "-created_at"))
+    query = Content.objects.all()
+    if request.user.tenant_id:
+        query = query.filter(Q(tenant_id=request.user.tenant_id) | Q(tenant__isnull=True))
+    grouped = {k: list(query.filter(kind=k).order_by("display_order", "-created_at"))
                for k, _ in CMS_KINDS}
-    return render(request, "admin/portal_cms.html", {"kinds": CMS_KINDS, "grouped": grouped})
+    return render(request, "admin/portal_cms.html", {
+        "kinds": CMS_KINDS,
+        "grouped": grouped,
+        "resources_count": len(grouped.get("portal_resource", [])),
+    })
 
 
 @permission_required("manage_organization")
@@ -1783,7 +2118,74 @@ def organization(request):
         action = request.POST.get("action")
         kind = request.POST.get("kind") or "department"
         tab = kind if kind in valid_kinds else "department"
-        if action == "import_options":
+        if action == "save_company_name":
+            tab = "company_profile"
+        elif action in {"add_offer_placeholder", "update_offer_placeholder", "delete_offer_placeholder"}:
+            tab = "placeholders"
+        if action in {"save_company_name", "add_offer_placeholder", "update_offer_placeholder", "delete_offer_placeholder"}:
+            if request.user.role != "super_admin":
+                return HttpResponse("Only super admins can change company and offer placeholder settings.", status=403)
+            if not request.user.tenant:
+                messages.error(request, "Assign this super admin to a tenant before changing organization settings.")
+            elif action == "save_company_name":
+                company_name = (request.POST.get("company_name") or "").strip()
+                if not company_name:
+                    messages.error(request, "Company name cannot be empty.")
+                else:
+                    request.user.tenant.name = company_name
+                    request.user.tenant.save(update_fields=["name"])
+                    messages.success(request, "Company name saved.")
+            elif action == "add_offer_placeholder":
+                name = (request.POST.get("placeholder_name") or "").strip()
+                raw_key = (request.POST.get("placeholder_key") or name).strip()
+                key = slugify(raw_key).replace("-", "_")
+                valid_key = key.isascii() and key and key[0].isalpha() and all(char.isalnum() or char == "_" for char in key)
+                if not name or not valid_key:
+                    messages.error(request, "Enter a label and a valid key using letters, numbers, and underscores.")
+                elif key in SYSTEM_OFFER_PLACEHOLDER_KEYS:
+                    messages.error(request, f'"{key}" is a built-in placeholder and cannot be redefined.')
+                elif OfferFieldDefinition.objects.filter(tenant=request.user.tenant, key=key).exists():
+                    messages.error(request, f'Placeholder key "{key}" already exists.')
+                else:
+                    OfferFieldDefinition.objects.create(
+                        tenant=request.user.tenant,
+                        name=name,
+                        key=key,
+                        field_type=request.POST.get("field_type") or "string",
+                        required=request.POST.get("required") == "1",
+                        meta={"default_value": (request.POST.get("default_value") or "").strip()},
+                    )
+                    messages.success(request, f'Placeholder "{key}" created.')
+            elif action == "update_offer_placeholder":
+                field = get_object_or_404(
+                    OfferFieldDefinition,
+                    id=request.POST.get("field_id"),
+                    tenant=request.user.tenant,
+                )
+                name = (request.POST.get("placeholder_name") or "").strip()
+                if not name:
+                    messages.error(request, "Placeholder label cannot be empty.")
+                else:
+                    field.name = name
+                    field.field_type = request.POST.get("field_type") or field.field_type
+                    field.required = request.POST.get("required") == "1"
+                    meta = field.meta if isinstance(field.meta, dict) else {}
+                    meta["default_value"] = (request.POST.get("default_value") or "").strip()
+                    field.meta = meta
+                    field.save(update_fields=["name", "field_type", "required", "meta", "updated_at"])
+                    messages.success(request, f'Placeholder "{field.key}" updated.')
+            elif action == "delete_offer_placeholder":
+                field = get_object_or_404(
+                    OfferFieldDefinition,
+                    id=request.POST.get("field_id"),
+                    tenant=request.user.tenant,
+                )
+                if OfferFieldValue.objects.filter(field_definition=field).exists():
+                    messages.error(request, "This placeholder is used by saved offers and cannot be deleted.")
+                else:
+                    field.delete()
+                    messages.success(request, "Placeholder deleted.")
+        elif action == "import_options":
             uploaded_file = request.FILES.get("import_file")
             if not uploaded_file:
                 messages.error(request, "Choose a file to import.")
@@ -1862,10 +2264,14 @@ def organization(request):
         return redirect(f"{reverse('admin_organization')}?tab={tab}")
 
     tab = request.GET.get("tab") or "department"
+    tenant = request.user.tenant
     return render(request, "admin/organization.html", {
         "kinds": ORG_KINDS,
         "options": _org_options(),
         "active_tab": tab,
+        "company_name": tenant.name if tenant else "",
+        "offer_placeholders": OfferFieldDefinition.objects.filter(tenant=tenant).order_by("order", "name") if tenant else [],
+        "can_manage_offer_placeholders": request.user.role == "super_admin",
     })
 
 
@@ -1928,17 +2334,34 @@ BRANDING_SELECT_KEYS = ["font_family", "radius_scale", "density", "button_style"
 @require_http_methods(["GET", "POST"])
 def branding(request):
     import os
+    import json
     from django.conf import settings as dj_settings
+    from .auth_views import LOGIN_SCREEN_DEFAULTS
+    
     if request.method == "POST":
         if request.POST.get("action") == "reset":
             AppSetting.objects.filter(
-                key__in=list(BRANDING_DEFAULTS) + ["site_logo"]
+                key__in=list(BRANDING_DEFAULTS) + ["site_logo", "login_screen_settings"]
             ).delete()
             messages.success(request, "Branding reset to defaults.")
             return redirect("admin_branding")
+            
         AppSetting.set("site_title", (request.POST.get("site_title") or "").strip(), user=request.user)
         for k in BRANDING_COLOR_KEYS + BRANDING_SELECT_KEYS:
             AppSetting.set(k, (request.POST.get(k) or "").strip(), user=request.user)
+            
+        # Capture Login Screen Settings
+        login_settings = {
+            "sync_portal_colors": request.POST.get("login_sync_portal_colors") == "1",
+            "background_style": request.POST.get("login_bg_style", "gradient"),
+            "primary_color": request.POST.get("login_primary_color", "#1d2b4f"),
+            "accent_color": request.POST.get("login_accent_color", "#324b8a"),
+            "welcome_title": (request.POST.get("login_welcome_title") or "").strip(),
+            "welcome_subtitle": (request.POST.get("login_welcome_subtitle") or "").strip(),
+            "show_logo": request.POST.get("login_show_logo") == "1",
+        }
+        AppSetting.set("login_screen_settings", json.dumps(login_settings), user=request.user)
+        
         if request.POST.get("remove_logo"):
             AppSetting.set("site_logo", "", user=request.user)
         logo = request.FILES.get("logo")
@@ -1951,14 +2374,29 @@ def branding(request):
                 for chunk in logo.chunks():
                     fh.write(chunk)
             AppSetting.set("site_logo", f"media/branding/{fname}", user=request.user)
+            
         log_activity(request, action="update_branding", entity_type="settings",
                      description="Updated branding/appearance")
         messages.success(request, "Branding saved - the whole portal now reflects your changes.")
         return redirect("admin_branding")
 
     current = {k: (AppSetting.get(k) or BRANDING_DEFAULTS[k]) for k in BRANDING_DEFAULTS}
+    
+    # Load custom login settings
+    login_settings_raw = AppSetting.get("login_screen_settings")
+    login_settings = {}
+    if login_settings_raw:
+        try:
+            login_settings = json.loads(login_settings_raw)
+        except Exception:
+            pass
+            
+    for k, v in LOGIN_SCREEN_DEFAULTS.items():
+        login_settings.setdefault(k, v)
+
     return render(request, "admin/branding.html", {
         "b": current,
+        "login_settings": login_settings,
         "logo": AppSetting.get("site_logo", ""),
         "fonts": ["Inter", "Plus Jakarta Sans", "Roboto", "Poppins"],
         "radius_scales": ["sharp", "rounded", "pill"],
@@ -2062,9 +2500,19 @@ def email_templates(request):
             messages.success(request, "Email templates saved.")
         return redirect("admin_email_templates")
 
+    email_tags = dict(EMAIL_TAGS)
+    if request.user.tenant:
+        email_tags["company"] = ("Company / tenant name", request.user.tenant.name)
+        email_tags["company_name"] = ("Company / tenant name", request.user.tenant.name)
+    offer_fields = (OfferFieldDefinition.objects.filter(tenant=request.user.tenant)
+                    if request.user.tenant else OfferFieldDefinition.objects.none())
+    for field in offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS):
+        meta = field.meta if isinstance(field.meta, dict) else {}
+        email_tags[field.key] = (field.name, meta.get("default_value") or f"Sample {field.name}")
+
     return render(request, "admin/email_templates.html", {
         "templates": all_email_templates(),
-        "email_tags": [{"tag": k, "desc": v[0], "sample": v[1]} for k, v in EMAIL_TAGS.items()],
+        "email_tags": [{"tag": k, "desc": v[0], "sample": v[1]} for k, v in email_tags.items()],
     })
 
 
@@ -2420,6 +2868,67 @@ STAGE_CHOICES = ["pre_onboarding", "onboarding", "post_onboarding", "general"]
 
 @permission_required("manage_forms")
 def forms_list(request):
+    if not Form.objects.filter(stage="pre_onboarding").exists():
+        # Auto-seed a comprehensive Universal Workflow Form
+        Form.objects.create(
+            tenant=request.user.tenant,
+            name="Universal Pre-Onboarding & Document Sign-Off Package",
+            description="Combined Personal Information, Company Code of Conduct Policy E-Signature, and Direct Deposit Setup.",
+            stage="pre_onboarding",
+            form_kind="form",
+            is_active=True,
+            display_order=1,
+            schema={
+                "sections": [
+                    {
+                        "id": "sec_personal",
+                        "title": "1. Personal & Emergency Details",
+                        "description": "Please verify your personal contact details.",
+                        "fields": [
+                            {"id": "f_name", "field_name": "full_name", "label": "Full Legal Name", "field_type": "text", "is_required": True},
+                            {"id": "f_phone", "field_name": "phone_number", "label": "Mobile Phone Number", "field_type": "phone", "is_required": True},
+                            {"id": "f_dob", "field_name": "date_of_birth", "label": "Date of Birth", "field_type": "date", "is_required": True},
+                            {"id": "f_addr", "field_name": "home_address", "label": "Current Residential Address", "field_type": "textarea", "is_required": True},
+                            {"id": "f_emg", "field_name": "emergency_contact", "label": "Emergency Contact Name & Phone", "field_type": "text", "is_required": True}
+                        ]
+                    },
+                    {
+                        "id": "sec_policy",
+                        "title": "2. Code of Conduct & NDA Policy E-Signature",
+                        "description": "Please read the policy terms below and sign electronically.",
+                        "fields": [
+                            {
+                                "id": "f_policy",
+                                "field_name": "code_of_conduct_policy",
+                                "label": "Enterprise Code of Conduct & Non-Disclosure Agreement (NDA)",
+                                "field_type": "policy_sign",
+                                "is_required": True,
+                                "policy_html": "<h4>Code of Conduct & Confidentiality Agreement</h4><p>As an employee of OnboardHub, you agree to maintain the highest standards of integrity, professional conduct, and confidentiality. All proprietary source code, business strategies, and customer data remain strictly confidential.</p><p>By signing below, you acknowledge and agree to abide by these enterprise policies.</p>"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "sec_banking",
+                        "title": "3. Direct Deposit & Bank Details",
+                        "description": "Provide your direct deposit bank details for payroll processing.",
+                        "fields": [
+                            {"id": "f_bname", "field_name": "bank_name", "label": "Bank Name", "field_type": "text", "is_required": True},
+                            {"id": "f_routing", "field_name": "routing_number", "label": "Routing Number / IBAN Code", "field_type": "text", "is_required": True},
+                            {"id": "f_acct", "field_name": "account_number", "label": "Account Number", "field_type": "text", "is_required": True},
+                            {"id": "f_voided", "field_name": "bank_proof_file", "label": "Upload Voided Check / Bank Authorization Letter", "field_type": "file", "is_required": False},
+                            {
+                                "id": "f_bank_sign",
+                                "field_name": "direct_deposit_esignature",
+                                "label": "Direct Deposit Authorization Digital E-Signature",
+                                "field_type": "policy_sign",
+                                "is_required": True,
+                                "policy_html": "<p>I authorize OnboardHub to credit direct deposit payroll payments into the bank account specified above.</p>"
+                            }
+                        ]
+                    }
+                ]
+            }
+        )
     forms = Form.objects.all().order_by("stage", "display_order", "id")
     return render(request, "admin/forms.html", {"forms": forms, "stages": STAGE_CHOICES})
 
@@ -2482,26 +2991,38 @@ def _save_form_from_post(request, form):
         schema = {"sections": []}
 
     # Attach enterprise settings to schema
-    settings_dict = schema.get("settings", {})
-    if request.POST.get("passing_score"):
-        try:
-            settings_dict["passing_score"] = float(request.POST.get("passing_score"))
-        except ValueError:
-            settings_dict["passing_score"] = 80.0
-    if request.POST.get("max_attempts"):
-        try:
-            settings_dict["max_attempts"] = int(request.POST.get("max_attempts"))
-        except ValueError:
-            settings_dict["max_attempts"] = 1
-    if request.POST.get("time_limit_minutes"):
-        try:
-            settings_dict["time_limit_minutes"] = int(request.POST.get("time_limit_minutes"))
-        except ValueError:
-            settings_dict["time_limit_minutes"] = 0
+    settings_dict = schema.setdefault("settings", {})
+    try:
+        settings_dict["passing_score"] = float(request.POST.get("passing_score") or 80.0)
+    except ValueError:
+        settings_dict["passing_score"] = 80.0
+
+    try:
+        settings_dict["max_attempts"] = int(request.POST.get("max_attempts") or 0)
+    except ValueError:
+        settings_dict["max_attempts"] = 0
+
+    try:
+        settings_dict["time_limit_minutes"] = int(request.POST.get("time_limit_minutes") or 0)
+    except ValueError:
+        settings_dict["time_limit_minutes"] = 0
+
+    assigned_roles = request.POST.getlist("assigned_roles")
+    settings_dict["assigned_roles"] = [r.strip() for r in assigned_roles if r.strip()]
     
-    settings_dict["target_departments"] = request.POST.getlist("target_departments")
-    settings_dict["target_roles"] = request.POST.getlist("target_roles")
-    schema["settings"] = settings_dict
+    # Process attached document uploads for signable document items (pdf_sign, doc_sign, ppt_view)
+    if request.FILES:
+        from django.core.files.storage import default_storage
+        for key, uploaded_file in request.FILES.items():
+            if key.startswith("doc_file_"):
+                field_id = key.replace("doc_file_", "")
+                saved_path = default_storage.save(f"forms/documents/{uploaded_file.name}", uploaded_file)
+                # Find field in schema and attach file_url
+                for sec in schema.get("sections", []):
+                    for f in sec.get("fields", []):
+                        if str(f.get("id")) == str(field_id):
+                            f["file_url"] = f"/{saved_path}"
+
     form.schema = schema
 
     if form.is_anonymous or request.POST.get("generate_share") or not form.share_token:
@@ -2952,12 +3473,18 @@ def offers_bulk_zip_export_view(request):
     offers = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
     
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for offer in offers:
-            html = offer.rendered_html or f"<h1>Offer {offer.offer_number}</h1><p>Candidate: {offer.candidate_name}</p>"
-            pdf_bytes = render_html_to_pdf(html)
-            filename = f"Offer_{offer.offer_number}_{offer.candidate_name.replace(' ', '_')}.pdf"
-            zf.writestr(filename, pdf_bytes)
+    try:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for offer in offers:
+                html = offer.rendered_html or f"<h1>Offer {offer.offer_number}</h1><p>Candidate: {offer.candidate_name}</p>"
+                pdf_bytes = render_html_to_pdf(html)
+                filename = f"Offer_{offer.offer_number}_{offer.candidate_name.replace(' ', '_')}.pdf"
+                zf.writestr(filename, pdf_bytes)
+    except Exception as exc:
+        from ..services.pdf_service import PDFGenerationError
+        if isinstance(exc, PDFGenerationError):
+            return HttpResponse(str(exc), status=503, content_type="text/plain; charset=utf-8")
+        raise
 
     zip_buffer.seek(0)
     filename = f"Offers_Export_{timezone.now():%Y%m%d_%H%M%S}.zip"

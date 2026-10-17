@@ -19,11 +19,21 @@
 {% block content %}
 <div class="edit-user-page">
 <div class="page-header animate-fadeIn">
-    <div class="d-flex align-items-center">
-        <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary me-3 js-back-link"><i class="bi bi-arrow-left"></i></a>
+    <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'admin_users' %}" class="btn btn-outline-secondary me-3 js-back-link"><i class="bi bi-arrow-left"></i></a>
+            <div>
+                <h1 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit User</h1>
+                <p class="text-muted mb-0">{{ edit_user.email }}</p>
+            </div>
+        </div>
         <div>
-            <h1 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit User</h1>
-            <p class="text-muted mb-0">{{ edit_user.email }}</p>
+            <form method="post" action="{% url 'admin_reset_user_password' edit_user.id %}" onsubmit="return confirm('Generate a new temporary password for this user and send them an email?');" class="mb-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning fw-semibold shadow-sm">
+                    <i class="bi bi-shield-lock me-1"></i> Reset Password
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -48,7 +58,7 @@
                         {% for value, label, base, scope_type in roles %}<option value="{{ value }}" data-base="{{ base }}" data-scope-type="{{ scope_type|default:'' }}" {% if value == edit_user.role %}selected{% endif %}>{{ label }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4" id="statusDiv">
                     <label class="form-label fw-medium">Status</label>
                     <select name="status" class="form-select">
                         {% for s in statuses %}<option value="{{ s }}" {% if s == edit_user.status %}selected{% endif %}>{{ s|humanize_status }}</option>{% endfor %}
@@ -195,6 +205,7 @@
         var base = opt ? opt.dataset.base : '';
         var scope = opt ? opt.dataset.scopeType : '';
         document.getElementById('empTypeDiv').style.display = (base === 'employee') ? 'block' : 'none';
+        document.getElementById('statusDiv').style.display = (base === 'employee') ? 'block' : 'none';
         document.getElementById('quizAccessDiv').style.display = (base === 'employee') ? 'block' : 'none';
         document.getElementById('hrbpScopeDiv').style.display = (scope === 'department') ? 'block' : 'none';
         document.getElementById('medScopeDiv').style.display = (scope === 'location') ? 'block' : 'none';

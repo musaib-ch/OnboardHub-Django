@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header animate-fadeIn">
     <h1><i class="bi bi-easel me-2"></i>Landing Page Content</h1>
-    <p class="text-muted mb-0">Manage what new hires see on their welcome screen: sliders, messages from management, gallery images and videos.</p>
+    <p class="text-muted mb-0">Manage welcome messages, events, news, resources, gallery images, and videos shown in the employee portal. Use resource categories <strong>Toolkit</strong> and <strong>Principle</strong> to replace the landing page’s quick links and working-together cards.</p>
 </div>
 
 <div class="row g-4">
@@ -32,8 +32,15 @@
                     <input type="date" name="event_date" class="form-control form-control-sm mb-2">
                     {% elif kind == 'news' %}
                     <textarea name="body" class="form-control form-control-sm mb-2" rows="2" placeholder="News summary"></textarea>
+                    <input type="text" name="category" class="form-control form-control-sm mb-2" placeholder="Category (optional)">
                     <label class="form-label small mb-1">Image (optional)</label>
                     <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*">
+                    {% elif kind == 'portal_resource' %}
+                    <input type="text" name="category" class="form-control form-control-sm mb-2" placeholder="Category (e.g. Benefits, Privacy, Security)">
+                    <textarea name="body" class="form-control form-control-sm mb-2" rows="3" placeholder="Resource details or guidance"></textarea>
+                    <input type="url" name="link" class="form-control form-control-sm mb-2" placeholder="External resource URL (optional)">
+                    <label class="form-label small mb-1">Attachment (optional)</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2">
                     {% elif kind == 'portal_video' %}
                     <input type="url" name="video_url" class="form-control form-control-sm mb-2" placeholder="Embed URL (e.g. https://www.youtube.com/embed/XXXX)">
                     <label class="form-label small mb-1">…or upload a video file</label>
@@ -57,9 +64,34 @@
                         {% if kind == 'portal_video' %}<i class="bi bi-play-btn fs-4 text-muted"></i>{% endif %}
                         <div class="flex-grow-1 min-w-0">
                             <div class="fw-medium small text-truncate">{{ item.title|default:"(untitled)" }}</div>
+                            {% if item.category %}<div class="text-primary" style="font-size:.72rem;">{{ item.category }}</div>{% endif %}
                             {% if item.meta.author %}<div class="text-muted" style="font-size:.72rem;">— {{ item.meta.author }}</div>{% endif %}
                             {% if item.body %}<div class="text-muted text-truncate" style="font-size:.72rem;">{{ item.body }}</div>{% endif %}
                         </div>
+                        <details class="position-relative">
+                            <summary class="btn btn-xs btn-outline-primary" role="button" title="Edit this content"><i class="bi bi-pencil"></i></summary>
+                            <form method="POST" enctype="multipart/form-data" class="bg-white border rounded shadow p-3 mt-2" style="position:absolute;right:0;top:100%;z-index:10;width:min(360px, calc(100vw - 48px));">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <label class="form-label small">Title</label>
+                                <input type="text" name="title" class="form-control form-control-sm mb-2" value="{{ item.title }}" required>
+                                <label class="form-label small">Category</label>
+                                <input type="text" name="category" class="form-control form-control-sm mb-2" value="{{ item.category|default:'' }}">
+                                <label class="form-label small">Description / body</label>
+                                <textarea name="body" class="form-control form-control-sm mb-2" rows="3">{{ item.body|default:'' }}</textarea>
+                                <input type="url" name="link" class="form-control form-control-sm mb-2" value="{{ item.meta.link|default:'' }}" placeholder="Link (optional)">
+                                <input type="url" name="video_url" class="form-control form-control-sm mb-2" value="{{ item.meta.video_url|default:'' }}" placeholder="Video embed URL (optional)">
+                                <input type="text" name="author" class="form-control form-control-sm mb-2" value="{{ item.meta.author|default:'' }}" placeholder="Author (optional)">
+                                <input type="text" name="role_title" class="form-control form-control-sm mb-2" value="{{ item.meta.role_title|default:'' }}" placeholder="Author role (optional)">
+                                {% if kind == 'event' %}<label class="form-label small">Event date</label><input type="date" name="event_date" class="form-control form-control-sm mb-2" value="{{ item.meta.date|default:'' }}">{% endif %}
+                                <label class="form-label small">Replace attachment (optional)</label>
+                                <input type="file" name="file" class="form-control form-control-sm mb-2">
+                                <label class="form-label small">Display order</label>
+                                <input type="number" name="display_order" class="form-control form-control-sm mb-2" value="{{ item.display_order }}">
+                                <button class="btn btn-sm btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+                            </form>
+                        </details>
                         <form method="POST" class="mb-0"><input type="hidden" name="action" value="toggle"><input type="hidden" name="item_id" value="{{ item.id }}">{% csrf_token %}
                             <button class="btn btn-xs btn-outline-secondary" title="Show/Hide"><i class="bi {% if item.is_active %}bi-eye{% else %}bi-eye-slash{% endif %}"></i></button></form>
                         <form method="POST" class="mb-0"><input type="hidden" name="action" value="delete"><input type="hidden" name="item_id" value="{{ item.id }}">{% csrf_token %}

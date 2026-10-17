@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Company Resources | {{ site_settings.site_title|default:"OnboardHub" }}{% endblock %}
+{% block content %}
+<div class="page-header animate-fadeIn">
+  <h1><i class="bi bi-journal-bookmark me-2"></i>Company Resources</h1>
+  <p class="text-muted mb-0">Resources, announcements, and orientation information published by your organization.</p>
+</div>
+
+<section id="resources" class="glass-card mb-4">
+  <div class="p-4 border-bottom"><h2 class="h5 mb-1">Resources &amp; Perks</h2><p class="text-muted small mb-0">Company resources maintained by your portal administrators.</p></div>
+  <div class="list-group list-group-flush">
+    {% for item in resources %}
+    <article id="resource-{{ item.id }}" class="list-group-item p-4">
+      <h3 class="h6 fw-semibold">{{ item.title }}</h3>
+      {% if item.category %}<div class="small text-primary mb-2">{{ item.category }}</div>{% endif %}
+      {% if item.body %}<div class="text-muted">{{ item.body|striptags|linebreaksbr }}</div>{% endif %}
+      {% if item.meta.link %}<a class="btn btn-sm btn-outline-primary mt-3 me-2" href="{{ item.meta.link }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Visit resource</a>{% endif %}
+      {% if item.file %}<a class="btn btn-sm btn-outline-primary mt-3" href="{{ item.file.url }}" target="_blank" rel="noopener"><i class="bi bi-download me-1"></i>Open resource</a>{% endif %}
+    </article>
+    {% empty %}<p class="p-4 mb-0 text-muted">No company resources have been published yet.</p>{% endfor %}
+  </div>
+</section>
+
+<section id="announcements" class="glass-card mb-4">
+  <div class="p-4 border-bottom"><h2 class="h5 mb-1">Company News</h2><p class="text-muted small mb-0">Recent updates from your organization.</p></div>
+  <div class="list-group list-group-flush">
+    {% for item in news %}
+    <article class="list-group-item p-4"><h3 class="h6 fw-semibold">{{ item.title }}</h3><p class="text-muted mb-0">{{ item.body|striptags|linebreaksbr }}</p></article>
+    {% empty %}<p class="p-4 mb-0 text-muted">No announcements have been published yet.</p>{% endfor %}
+  </div>
+</section>
+
+<section id="agenda" class="glass-card mb-4">
+  <div class="p-4 border-bottom"><h2 class="h5 mb-1">Agenda &amp; Orientation</h2><p class="text-muted small mb-0">Upcoming orientation events published by your organization.</p></div>
+  <div class="list-group list-group-flush">
+    {% for item in events %}<article class="list-group-item p-4"><h3 class="h6 fw-semibold">{{ item.title }}</h3><p class="text-muted mb-0">{{ item.body|striptags|linebreaksbr }}</p></article>
+    {% empty %}<p class="p-4 mb-0 text-muted">No orientation agenda has been published yet.</p>{% endfor %}
+  </div>
+</section>
+
+<div class="row g-4">
+  <div class="col-md-6"><section id="privacy" class="glass-card h-100"><div class="p-4 border-bottom"><h2 class="h5 mb-0">Privacy Guidelines</h2></div><div class="p-4">{% for item in privacy_resources %}<article class="mb-3"><h3 class="h6">{{ item.title }}</h3><div class="text-muted">{{ item.body|striptags|linebreaksbr }}</div>{% if item.file %}<a href="{{ item.file.url }}">Open document</a>{% endif %}</article>{% empty %}<p class="text-muted mb-0">Privacy guidance will appear here when published.</p>{% endfor %}</div></section></div>
+  <div class="col-md-6"><section id="security" class="glass-card h-100"><div class="p-4 border-bottom"><h2 class="h5 mb-0">IT Security Protocol</h2></div><div class="p-4">{% for item in security_resources %}<article class="mb-3"><h3 class="h6">{{ item.title }}</h3><div class="text-muted">{{ item.body|striptags|linebreaksbr }}</div>{% if item.file %}<a href="{{ item.file.url }}">Open document</a>{% endif %}</article>{% empty %}<p class="text-muted mb-0">Security guidance will appear here when published.</p>{% endfor %}</div></section></div>
+</div>
+
+<div class="mt-4 text-muted small">People Operations: <a href="mailto:{{ support_email }}">{{ support_email }}</a> · <a href="{% url 'messages_list' %}">Open Help Desk</a></div>
+{% endblock %}

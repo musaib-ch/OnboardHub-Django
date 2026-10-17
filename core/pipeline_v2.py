@@ -56,36 +56,101 @@ def _enabled_portal_stage_keys() -> List[str]:
     return enabled
 
 
+def _offer_stage_state(user):
+    """Derive offer status from the candidate's offer records."""
+    try:
+        from .models_offers import Offer
+        from django.db.models import Q
+        offers = list(Offer.objects.filter(Q(candidate_user=user) | Q(candidate_email__iexact=user.email)))
+        if not offers:
+            return "completed"  # No offer created/assigned for this user
+        if any(o.status in ("accepted", "signed") for o in offers):
+            return "completed"
+        if any(o.status == "rejected" for o in offers):
+            return "rejected"
+        return "active"
+    except Exception:
+        return "completed"
+
+
 def _sync_current_stage_status(user, path: List[str]) -> None:
     """Keep the stored user.status aligned with the live workflow path."""
     if not path or not user.status or user.status in ("completed", "deleted", "on_hold"):
         return
 
-    if "medical" not in path:
+    # Find the first stage in the path that is NOT completed
+    current_incomplete = None
+    for stage in path:
+        if stage in ("offer", "offer_acceptance"):
+            if _offer_stage_state(user) != "completed":
+                current_incomplete = stage
+                break
+        elif stage == "medical":
+            if _medical_stage_state(user) != "completed":
+                current_incomplete = stage
+                break
+        elif stage == "pre_onboarding":
+            if user.status not in ("pre_onboarding_submitted", "onboarding", "onboarding_submitted", "post_onboarding", "post_onboarding_submitted", "completed"):
+                current_incomplete = stage
+                break
+        elif stage == "onboarding":
+            if user.status not in ("onboarding_submitted", "post_onboarding", "post_onboarding_submitted", "completed"):
+                current_incomplete = stage
+                break
+        elif stage == "post_onboarding":
+            if user.status != "completed":
+                current_incomplete = stage
+                break
+
+    if not current_incomplete:
+        # Everything is completed!
+        if user.status != "completed":
+            user.status = "completed"
+            user.save(update_fields=["status"])
         return
 
-    medical_state = _medical_stage_state(user)
-    if medical_state == "completed":
-        return
+    # If the user's status is in a stage that is already completed, advance them!
+    current_status_stage = STATUS_TO_STAGE.get(user.status) or (
+        "offer" if user.status in ("offer", "offer_acceptance") else (
+            "medical" if user.status.startswith("medical") else None
+        )
+    )
 
-    desired_status = {
-        "active": "medical_upload",
-        "submitted": "medical_under_review",
-        "info_requested": "medical_info_requested",
-        "rejected": "medical_rejected",
-    }.get(medical_state, "medical_upload")
+    if current_status_stage and current_status_stage != current_incomplete:
+        try:
+            old_idx = path.index(current_status_stage)
+            new_idx = path.index(current_incomplete)
+            if old_idx < new_idx:
+                new_status = ENTRY_STATUS.get(current_incomplete, current_incomplete)
+                user.status = new_status
+                user.stage_entered_at = timezone.now()
+                stage_def = get_stage_definition(current_incomplete)
+                if stage_def:
+                    user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
+                user.stage_due_date_override = None
+                user.save(update_fields=["status", "stage_entered_at", "stage_due_date", "stage_due_date_override"])
+        except ValueError:
+            pass
 
-    if user.status == desired_status:
-        return
+    # Also keep the specific medical status synced if they are currently on medical stage
+    elif current_incomplete == "medical":
+        medical_state = _medical_stage_state(user)
+        desired_status = {
+            "active": "medical_upload",
+            "submitted": "medical_under_review",
+            "info_requested": "medical_info_requested",
+            "rejected": "medical_rejected",
+        }.get(medical_state, "medical_upload")
 
-    user.status = desired_status
-    if not user.stage_entered_at:
-        user.stage_entered_at = timezone.now()
-    stage_def = get_stage_definition("medical")
-    if stage_def:
-        user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
-    user.stage_due_date_override = None
-    user.save(update_fields=["status", "stage_entered_at", "stage_due_date", "stage_due_date_override"])
+        if user.status != desired_status:
+            user.status = desired_status
+            if not user.stage_entered_at:
+                user.stage_entered_at = timezone.now()
+            stage_def = get_stage_definition("medical")
+            if stage_def:
+                user.stage_due_date = timezone.now() + timedelta(days=stage_def.default_due_date_days)
+            user.stage_due_date_override = None
+            user.save(update_fields=["status", "stage_entered_at", "stage_due_date", "stage_due_date_override"])
 
 def get_stage_definitions(enabled_only=True):
     """Fetch all stage definitions, optionally filtered to enabled only.
@@ -317,6 +382,10 @@ def current_stage_for_user(user):
     path = get_employee_stage_path(user)
     if not path:
         return None
+
+    offer_key = "offer" if "offer" in path else ("offer_acceptance" if "offer_acceptance" in path else None)
+    if offer_key and _offer_stage_state(user) != "completed":
+        return offer_key
 
     if "medical" in path and _medical_stage_state(user) != "completed":
         return "medical"

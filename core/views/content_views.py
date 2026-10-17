@@ -55,17 +55,26 @@ def _is_content_visible_to_user(user, item):
 
 
 CONTENT_KINDS = {
-    "knowledge":   {"label": "Knowledge Hub",  "icon": "bi-journal-bookmark", "completable": False, "noun": "article"},
-    "training":    {"label": "Training",       "icon": "bi-mortarboard",      "completable": True,  "noun": "module"},
-    "orientation": {"label": "Orientation",    "icon": "bi-compass",          "completable": True,  "noun": "session"},
-    "presentation":{"label": "Presentations",  "icon": "bi-easel2",           "completable": False, "noun": "presentation"},
+    "knowledge":     {"label": "Knowledge Hub",  "icon": "bi-journal-bookmark", "completable": False, "noun": "article"},
+    "training":      {"label": "Training",       "icon": "bi-mortarboard",      "completable": True,  "noun": "module"},
+    "orientation":   {"label": "Orientation",    "icon": "bi-compass",          "completable": True,  "noun": "session"},
+    "presentation":  {"label": "Presentations",  "icon": "bi-easel2",           "completable": False, "noun": "presentation"},
+    "learning_path": {"label": "Learning Paths", "icon": "bi-signpost-split",   "completable": True,  "noun": "path"},
+}
+
+KIND_ALIASES = {
+    "learning_paths": "learning_path",
+    "learning-paths": "learning_path",
+    "learningpath": "learning_path",
+    "learning": "training",
 }
 
 
 def _cfg(kind):
-    cfg = CONTENT_KINDS.get(kind)
+    target_kind = KIND_ALIASES.get(kind, kind)
+    cfg = CONTENT_KINDS.get(target_kind)
     if not cfg:
-        raise Http404("Unknown content type")
+        raise Http404(f"Unknown content type '{kind}'")
     return cfg
 
 
@@ -78,6 +87,9 @@ def manage(request, kind):
 
     if request.method == "POST":
         action = request.POST.get("action")
+        if action != "reorder" and request.user.role == "hrbp":
+            messages.error(request, "You do not have permission to modify library items.")
+            return redirect("content_manage", kind=kind)
         if action == "delete":
             item_id = request.POST.get("item_id")
             c = Content.objects.filter(id=item_id, kind=kind).first()

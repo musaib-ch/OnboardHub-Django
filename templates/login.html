@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OnboardHub - Sign In</title>
+  <title>{{ portal_name|default:"OnboardHub" }} - Sign In</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
   <style>
@@ -17,12 +17,12 @@
     }
 
     :root {
-      --navy-dark: #071628;
-      --navy-mid: #0d2444;
-      --navy-light: #0f3060;
-      --teal: #00c9a7;
-      --teal-light: #38f0d4;
-      --teal-glow: rgba(0, 201, 167, 0.15);
+      --navy-dark: {{ login_settings.primary_color|default:"#1d2b4f" }};
+      --navy-mid: {{ login_settings.primary_color|default:"#1d2b4f" }};
+      --navy-light: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal-light: {{ login_settings.accent_color|default:"#324b8a" }};
+      --teal-glow: rgba(50, 75, 138, 0.2);
       --white: #ffffff;
       --off-white: #f4f8fb;
       --text-dark: #0d1f3c;
@@ -68,12 +68,21 @@
     ══════════════════════════════ */
     .left {
       position: relative;
-      background: linear-gradient(148deg, var(--navy-dark) 0%, var(--navy-mid) 50%, var(--navy-light) 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
       padding: 60px 64px;
       overflow: hidden;
+      background: linear-gradient(148deg, var(--navy-dark) 0%, var(--navy-mid) 50%, var(--navy-light) 100%);
+    }
+    .left.bg-style-dark {
+      background: var(--navy-dark) !important;
+    }
+    .left.bg-style-sleek {
+      background: radial-gradient(ellipse at 20% 20%, var(--navy-light) 0%, var(--navy-dark) 75%) !important;
+    }
+    .left.bg-style-gradient {
+      background: linear-gradient(148deg, var(--navy-dark) 0%, var(--navy-mid) 50%, var(--navy-light) 100%) !important;
     }
     .bi-chat-dots.fs-5 {
       color: #FFC107 !important;
@@ -594,7 +603,7 @@
     <div class="page">
 
       <!-- ════ LEFT ════ -->
-      <div class="left" id="panel-overview">
+      <div class="left bg-style-{{ login_settings.background_style|default:'gradient' }}" id="panel-overview">
       <div class="pills">
         <div class="pill p1"></div>
         <div class="pill p2"></div>
@@ -607,25 +616,28 @@
         <div class="pill p9"></div>
       </div>
 
+      {% if login_settings.show_logo != False %}
       <div class="left-logo">
+        {% if portal_logo %}
+        <img src="/{{ portal_logo }}" alt="{{ portal_name|default:'OnboardHub' }}" style="height:38px; border-radius:10px; object-fit:contain;">
+        {% else %}
         <div class="logo-badge">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6l-8-4zm-1 13l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z" />
           </svg>
         </div>
-        <div class="logo-wordmark">Onboard<span>Hub</span></div>
+        {% endif %}
+        <div class="logo-wordmark">{{ portal_name|default:"OnboardHub" }}</div>
       </div>
+      {% endif %}
 
       <h1 class="left-headline">
-        Your complete<br>
-        employee <em>onboarding</em><br>
-        platform.
+        {{ login_settings.welcome_title|default:"Welcome Back" }}
       </h1>
 
       <p class="left-body">
-        From employee <em>onboarding</em> to <em> orientation</em> - streamline every step of your new hire journey in one
-        place.
+        {{ login_settings.welcome_subtitle|default:"Your complete employee onboarding platform." }}
       </p>
 
 
@@ -634,7 +646,7 @@
       <div class="right" id="panel-signin">
       <div class="form-box">
 
-        <div class="form-eyebrow">Onboarding Portal</div>
+        <div class="form-eyebrow">{{ portal_name|default:"Onboarding Portal" }}</div>
         <h2 class="form-title">Welcome</h2>
         <p class="form-sub">Sign in with your credentials.</p>
 
@@ -678,7 +690,10 @@
         </form>
 
         <div class="form-note">
-          <a href="{% url 'forgot_password' %}" style="color: inherit; font-weight: 600;">Forgot password?</a>
+          <div style="margin-bottom: 8px;">
+            <a href="{% url 'forgot_password' %}" style="color: inherit; font-weight: 600;">Forgot password?</a> &bull; 
+            <a href="{% url 'staff_login' %}" style="color: inherit; font-weight: 600;">Staff &amp; Admin Sign In &rarr;</a>
+          </div>
           Access issues? Contact your HR Service Delivery.
         </div>
 

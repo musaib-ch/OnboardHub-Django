@@ -430,6 +430,13 @@ class Form(models.Model):
     def required_field_names(self):
         return [f["field_name"] for f in self.get_all_fields() if f.get("is_required")]
 
+    def get_signable_fields(self):
+        signable_types = {"pdf_sign", "doc_sign", "policy_sign", "ppt_view"}
+        return [f for f in self.get_all_fields() if f.get("field_type") in signable_types or f.get("requires_signature")]
+
+    def has_documents(self):
+        return bool(self.get_signable_fields())
+
     def generate_share_token(self):
         if not self.share_token:
             self.share_token = secrets.token_urlsafe(16)[:32]

@@ -13,6 +13,13 @@ from .onboarding_plan_service import get_plan, get_progress_stats
 
 # Stage definitions with their data sources - ordered by logical onboarding journey
 UNIFIED_STAGES = {
+    'offer': {
+        'label': 'Offer Acceptance',
+        'icon': 'bi-file-earmark-check',
+        'color': 'primary',
+        'description': 'Offer document review and acceptance',
+        'activities_source': 'offer_records',
+    },
     'medical': {
         'label': 'Medical Upload',
         'icon': 'bi-heart-pulse',
@@ -76,7 +83,9 @@ def get_employee_stage_activities(employee: User, stage: str) -> Dict:
     if not activities_source:
         return {'activities': [], 'status': 'unknown'}
 
-    if activities_source == 'medical_records':
+    if activities_source == 'offer_records':
+        return _get_offer_activities(employee, stage)
+    elif activities_source == 'medical_records':
         return _get_medical_activities(employee, stage)
     elif activities_source == 'forms_engagement':
         return _get_forms_activities(employee, stage)
@@ -88,6 +97,45 @@ def get_employee_stage_activities(employee: User, stage: str) -> Dict:
         return _get_onboarding_plan_activities(employee, stage)
 
     return {'activities': [], 'status': 'unknown'}
+
+
+def _get_offer_activities(employee: User, stage: str) -> Dict:
+    """Get offer records for an employee as activities."""
+    try:
+        from ..models_offers import Offer
+        from django.db.models import Q
+
+        offers = Offer.objects.filter(
+            Q(candidate_user=employee) | Q(candidate_email__iexact=employee.email)
+        ).order_by('-created_at')
+
+        activities = [
+            {
+                'id': o.id,
+                'type': 'offer_letter',
+                'title': f"Offer #{o.id}",
+                'status': o.status,
+                'description': f"Status: {o.get_status_display()}",
+                'created_at': o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in offers
+        ]
+
+        completed = sum(1 for a in activities if a['status'] in ['accepted', 'signed'])
+        total = len(activities)
+
+        return {
+            'activities': activities,
+            'status': 'completed' if completed > 0 else ('pending' if activities else 'unassigned'),
+            'progress': {
+                'completed': completed,
+                'total': total,
+                'percentage': int((completed / total * 100) if total > 0 else 0),
+            }
+        }
+    except Exception:
+        return {'activities': [], 'status': 'unknown'}
+
 
 
 def _get_medical_activities(employee: User, stage: str) -> Dict:
@@ -304,14 +352,18 @@ def get_employee_all_stages(employee: User) -> List[Dict]:
     stages = []
 
     # Stages that are always assigned/mandatory
-    mandatory_stages = {'medical', 'pre_onboarding', 'onboarding', 'post_onboarding'}
+    mandatory_stages = {'offer', 'medical', 'pre_onboarding', 'onboarding', 'post_onboarding'}
 
     # Track which stages are completed for lock/unlock logic
     completed_stages = set()
 
     # Parse employee's current status to determine which stages are done
-    # Status format: "pending" | "medical" | "pre_onboarding" | "onboarding" | "post_onboarding" | "completed"
-    employee_status = employee.status.lower() if employee.status else 'pending'
+    # Status format: "pending" | "offer" | "medical" | "pre_onboarding" | "onboarding" | "post_onboarding" | "completed"
+    raw_status = employee.status.lower() if employee.status else 'pending'
+    from ..pipeline import stage_of_status
+    employee_status = stage_of_status(raw_status) or raw_status
+    if employee_status == '__done__':
+        employee_status = 'completed'
 
     for stage_key, stage_config in UNIFIED_STAGES.items():
         activities_data = get_employee_stage_activities(employee, stage_key)
@@ -330,10 +382,8 @@ def get_employee_all_stages(employee: User) -> List[Dict]:
                 # This stage is before the current stage - it's completed
                 display_status = 'completed'
                 completed_stages.add(stage_key)
-            elif is_current_stage or (employee_status == 'pending' and stage_key == 'medical'):
-                # This is the employee's current stage OR first stage (medical) when pending
+            elif is_current_stage or (employee_status in ('pending', 'offer') and stage_key == 'offer'):
                 if has_activities:
-                    # Check activity status to see if submitted/in progress
                     if _any_activity_approved(activities):
                         display_status = 'completed'
                         completed_stages.add(stage_key)
@@ -380,7 +430,8 @@ def _is_stage_locked(stage_key: str, completed_stages: set) -> bool:
     """Determine if a stage should be locked based on prerequisites."""
     # Define stage dependencies - which stages must be completed before this one unlocks
     stage_dependencies = {
-        'medical': set(),  # Medical has no prerequisites
+        'offer': set(),  # Offer has no prerequisites
+        'medical': set(),  # Medical has no strict prerequisite
         'pre_onboarding': {'medical'},  # Pre-onboarding requires medical to be completed
         'onboarding': {'pre_onboarding'},  # Onboarding requires pre-onboarding to be completed
         'post_onboarding': {'onboarding'},  # Post-onboarding requires onboarding to be completed
@@ -399,7 +450,7 @@ def _is_stage_locked(stage_key: str, completed_stages: set) -> bool:
 def _is_stage_before_current(stage_key: str, employee_status: str) -> bool:
     """Check if a stage comes before the employee's current stage in the workflow."""
     # Define the mandatory workflow order
-    workflow_order = ['medical', 'pre_onboarding', 'onboarding', 'post_onboarding']
+    workflow_order = ['offer', 'medical', 'pre_onboarding', 'onboarding', 'post_onboarding']
 
     try:
         stage_index = workflow_order.index(stage_key)

@@ -1,9 +1,10 @@
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from ..models import Notification
+from ..models import Content, Notification, User
 from ..decorators import login_required
 from ..permissions import is_employee_role
 
@@ -12,17 +13,11 @@ from ..permissions import is_employee_role
 def index(request):
     """Post-login dispatcher (mirrors Flask `index`)."""
     user = request.user
-    # First-time users get the welcome (CMS) landing once.
-    if not user.has_seen_welcome:
-        return redirect("portal")
     if is_employee_role(user.role):
         if not user.date_of_joining and user.status not in ("pending", "on_hold"):
             return redirect("employee_set_joining_date")
-        # Employees land on the consolidated portal (journey + company content).
-        return redirect("portal")
-    if user.role == "medical_approver":
-        return redirect("admin_medical_requirements")
-    return redirect("admin_dashboard")
+    # All users land on portal first
+    return redirect("portal")
 
 
 @login_required
@@ -42,26 +37,32 @@ def portal(request):
     greeting = ("Good morning" if hour < 12 else
                 "Good afternoon" if hour < 17 else "Good evening")
 
-    from ..models import Content
-
     def active(kind):
-        return list(Content.objects.filter(kind=kind, is_active=True).order_by("display_order", "-created_at"))
+        return _visible_portal_content(user, [kind])
 
     cms = {
         "sliders": active("portal_slider"),
         "messages": active("management_message"),
         "gallery": active("portal_gallery"),
         "videos": active("portal_video"),
+        "resources": active("portal_resource"),
         "news": active("news"),
         "events": active("event"),
     }
+    cms["toolkit_resources"] = [
+        item for item in cms["resources"]
+        if (item.category or "").strip().lower() in {"toolkit", "quick link", "quick links"}
+    ]
+    cms["principles"] = [
+        item for item in cms["resources"]
+        if (item.category or "").strip().lower() in {"principle", "principles", "working together"}
+    ]
     cms["has_any"] = any(v for k, v in cms.items() if k != "has_any")
 
-    # First login → CMS welcome only. Subsequent logins → consolidated:
-    # employees also see their onboarding journey; staff see a launchpad.
+    # Employees always see their onboarding journey; staff always see the launchpad.
     is_employee = is_employee_role(user.role)
-    show_journey = is_employee and not first_visit
-    show_launchpad = (not is_employee) and not first_visit
+    show_journey = is_employee
+    show_launchpad = not is_employee
 
     ctx = {
         "first_visit": first_visit, "greeting": greeting, "cms": cms,
@@ -114,6 +115,72 @@ def portal(request):
             "stage_path": stage_path,
         })
     return render(request, "portal/landing.html", ctx)
+
+
+@login_required
+def employee_directory(request):
+    """Read-only directory limited to the current tenant's active employees."""
+    people = User.objects.none()
+    if request.user.tenant_id:
+        people = (User.objects.filter(
+            tenant_id=request.user.tenant_id,
+            role="employee",
+            is_active=True,
+        ).exclude(status="deleted").select_related("department").order_by("full_name", "email"))
+    return render(request, "portal/employee_directory.html", {"people": people})
+
+
+def _visible_portal_content(user, kinds):
+    query = Content.objects.filter(kind__in=kinds, is_active=True)
+    if user.tenant_id:
+        query = query.filter(Q(tenant_id=user.tenant_id) | Q(tenant__isnull=True))
+    else:
+        query = query.filter(tenant__isnull=True)
+
+    from .content_views import _is_content_visible_to_user
+    visible = []
+    for item in query.order_by("display_order", "-created_at"):
+        roles = item.target_roles or []
+        departments = [str(value) for value in (item.target_departments or [])]
+        if roles and user.role not in roles:
+            continue
+        if departments and str(user.department_id or "") not in departments:
+            continue
+        if _is_content_visible_to_user(user, item):
+            visible.append(item)
+    return visible
+
+
+@login_required
+def employee_resources(request):
+    """Show tenant CMS resources, announcements, and orientation events."""
+    all_resources = _visible_portal_content(request.user, ["portal_resource"])
+    privacy_resources = [
+        item for item in all_resources
+        if "privacy" in (item.category or "").lower()
+        or "privacy" in item.title.lower()
+        or (item.meta or {}).get("section") == "privacy"
+    ]
+    security_resources = [
+        item for item in all_resources
+        if "security" in (item.category or "").lower()
+        or "security" in item.title.lower()
+        or (item.meta or {}).get("section") == "security"
+    ]
+    resources = [
+        item for item in all_resources
+        if (item.category or "").strip().lower() not in {
+            "toolkit", "quick link", "quick links", "principle", "principles", "working together",
+        }
+    ]
+    return render(request, "portal/employee_resources.html", {
+        "resources": resources,
+        "privacy_resources": privacy_resources,
+        "security_resources": security_resources,
+        "news": _visible_portal_content(request.user, ["news"]),
+        "events": _visible_portal_content(request.user, ["event"]),
+        "support_email": "support@onboardhub.local",
+    })
 
 
 @login_required

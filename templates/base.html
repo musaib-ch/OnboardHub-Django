@@ -86,14 +86,17 @@
             padding: 10px 18px !important;
             min-height: 42px !important;
         }
+
         .portal-themed-alert .alert-icon {
             color: var(--primary, #4f46e5);
             font-size: 1rem !important;
         }
+
         .portal-themed-alert .alert-content {
             font-size: 0.875rem !important;
             font-weight: 500 !important;
         }
+
         .portal-themed-alert .btn-close {
             position: static !important;
             padding: 0.25rem !important;
@@ -104,6 +107,7 @@
             width: 0.875rem;
             height: 0.875rem;
         }
+
         .portal-themed-alert .btn-close:hover {
             opacity: 1;
             transform: scale(1.1);
@@ -1098,6 +1102,32 @@
             color: #6c757d;
         }
 
+        /* ══════════════════════════════════════════════════════════════════
+           CLEAN SINGLE STAGE BADGES
+        ══════════════════════════════════════════════════════════════════ */
+        .stage-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            line-height: 1.3;
+        }
+        .stage-badge-offer { background: rgba(99, 102, 241, 0.12); color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.22); }
+        .stage-badge-medical { background: rgba(14, 165, 233, 0.12); color: #0369a1; border: 1px solid rgba(14, 165, 233, 0.22); }
+        .stage-badge-pre { background: rgba(168, 85, 247, 0.12); color: #6b21a8; border: 1px solid rgba(168, 85, 247, 0.22); }
+        .stage-badge-onboarding { background: rgba(16, 185, 129, 0.12); color: #047857; border: 1px solid rgba(16, 185, 129, 0.22); }
+        .stage-badge-post { background: rgba(20, 184, 166, 0.12); color: #0f766e; border: 1px solid rgba(20, 184, 166, 0.22); }
+        .stage-badge-completed { background: rgba(16, 185, 129, 0.15); color: #047857; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .stage-badge-locked { background: rgba(148, 163, 184, 0.14); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.25); }
+        .stage-badge-submitted { background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.28); }
+        .stage-badge-info_requested { background: rgba(239, 68, 68, 0.14); color: #b91c1c; border: 1px solid rgba(239, 68, 68, 0.28); }
+        .stage-badge-on_hold { background: rgba(100, 116, 139, 0.16); color: #334155; border: 1px solid rgba(100, 116, 139, 0.28); }
+        .stage-badge-default { background: rgba(100, 116, 139, 0.12); color: #475569; border: 1px solid rgba(100, 116, 139, 0.22); }
+
         .role-badge {
             font-size: 0.7rem;
             padding: 4px 10px;
@@ -1637,18 +1667,25 @@
             background-color: rgba(var(--primary-rgb), 0.1);
         }
 
-        /* Ensure clicks on buttons/links don't trigger row click */
-        table tbody tr[onclick] a,
-        table tbody tr[onclick] button,
-        table tbody tr[onclick] form {
-            pointer-events: auto;
+        /* Global Loading Bar */
+        .submit-loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #10b981 0%, var(--primary) 100%);
+            z-index: 999999;
+            transition: width 0.4s ease-out;
+            display: none;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
         }
     </style>
 </head>
 
-<body class="{{ site_settings.body_theme_class }}">
-    {% if user.is_authenticated %}
+<body class="{{ site_settings.body_theme_class }}" style="--glass-sidebar: {{ site_settings.sidebar_bg }};">
     {% with ep=request.resolver_match.url_name role=user.role %}
+    {% if user.is_authenticated %}
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()" aria-hidden="true"></div>
     <div class="sidebar" id="sidebar">
         <div class="brand sidebar-meta">
@@ -1677,8 +1714,7 @@
                             <i class="bi bi-bell fs-5"></i>
                             <span id="notifBadge"
                                 class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                                style="font-size:0.6rem;{% if not unread_notif_count %}display:none;{% endif %}">{{
-                                unread_notif_count }}</span>
+                                style="font-size:0.6rem;{% if not unread_notif_count %}display:none;{% endif %}">{{ unread_notif_count }}</span>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end notification-dropdown shadow border-0 p-0"
                             aria-labelledby="notifBell" style="width:min(340px, calc(100vw - 16px)); overflow:hidden;">
@@ -1726,31 +1762,36 @@
             {% if is_employee_role %}
             <a href="{% url 'employee_home' %}" class="nav-link {% if ep == 'employee_home' %}active{% endif %}"><i
                     class="bi bi-house"></i> Dashboard</a>
+            {% if "offer" in employee_stage_path and unlocked_stages.offer %}
             <a href="{% url 'my_offers' %}" class="nav-link {% if ep == 'my_offers' %}active{% endif %}"><i
                     class="bi bi-envelope-paper-heart"></i> My Offers</a>
-            {% if stage_settings.medical_enabled and "medical" in employee_stage_path %}
+            {% endif %}
+            {% if stage_settings.medical_enabled and "medical" in employee_stage_path and unlocked_stages.medical %}
             <a href="{% url 'employee_medical' %}"
                 class="nav-link {% if ep == 'employee_medical' %}active{% endif %}"><i class="bi bi-heart-pulse"></i>
                 Medical Clearance</a>
             {% endif %}
-            {% if stage_settings.pre_onboarding_enabled %}
+            {% if stage_settings.pre_onboarding_enabled and "pre_onboarding" in employee_stage_path and unlocked_stages.pre_onboarding %}
             <a href="{% url 'employee_pre_onboarding' %}"
                 class="nav-link {% if ep == 'employee_pre_onboarding' %}active{% endif %}"><i
                     class="bi bi-file-earmark-text"></i> Pre-Onboarding</a>
             {% endif %}
-            {% if stage_settings.onboarding_enabled %}
+            {% if stage_settings.onboarding_enabled and "onboarding" in employee_stage_path and unlocked_stages.onboarding %}
             <a href="{% url 'employee_onboarding' %}"
                 class="nav-link {% if ep == 'employee_onboarding' %}active{% endif %}"><i
                     class="bi bi-folder-check"></i> Onboarding Docs</a>
             {% endif %}
-            {% if stage_settings.post_onboarding_enabled %}
+            {% if stage_settings.post_onboarding_enabled and "post_onboarding" in employee_stage_path and unlocked_stages.post_onboarding %}
             <a href="{% url 'employee_post_onboarding' %}"
                 class="nav-link {% if ep == 'employee_post_onboarding' %}active{% endif %}"><i
                     class="bi bi-check2-square"></i> Post-Onboarding</a>
             {% endif %}
             <a href="{% url 'content_list' 'knowledge' %}"
-                class="nav-link {% if ep == 'content_list' or ep == 'content_read' %}active{% endif %}"><i
+                class="nav-link {% if ep == 'content_list' and kind == 'knowledge' %}active{% endif %}"><i
                     class="bi bi-journal-bookmark"></i> Knowledge</a>
+            <a href="{% url 'content_list' 'orientation' %}"
+                class="nav-link {% if ep == 'content_list' and kind == 'orientation' %}active{% endif %}"><i
+                    class="bi bi-compass"></i> Orientation</a>
             {% if stage_settings.learning_enabled and has_learning_paths %}
             <a href="{% url 'my_learning' %}"
                 class="nav-link {% if ep == 'my_learning' or ep == 'learning_path_detail' or ep == 'learning_certificate' %}active{% endif %}"><i
@@ -1766,9 +1807,11 @@
                 class="nav-link {% if ep == 'my_onboarding_plan' or ep == 'manage_onboarding_plans' or ep == 'employee_plan_detail' %}active{% endif %}"><i
                     class="bi bi-signpost-2"></i> Success Plan</a>
             {% endif %}
+            {% if has_buddy %}
             <a href="{% url 'employee_buddy_dashboard' %}"
                 class="nav-link {% if ep == 'employee_buddy_dashboard' %}active{% endif %}"><i class="bi bi-people"></i>
                 Onboarding Buddy</a>
+            {% endif %}
             {% elif is_staff_role %}
             <a href="{% url 'admin_dashboard' %}" class="nav-link {% if ep == 'admin_dashboard' %}active{% endif %}"><i
                     class="bi bi-speedometer2"></i> Dashboard</a>
@@ -1807,24 +1850,19 @@
                     Onboarding</button>
                 <ul class="dropdown-menu nav-menu">
                     <li class="dropdown-header">Onboarding operations</li>
-                    {% if nav_perms.manage_offers or nav_perms.send_offer %}<li><a
-                            class="dropdown-item {% if ep == 'admin_offers' %}active{% endif %}"
-                            href="{% url 'admin_offers' %}"><i class="bi bi-send-check"></i> 1. Offers</a></li>{% endif %}
                     {% if nav_perms.medical_review or nav_perms.approve_medical %}<li><a
                             class="dropdown-item {% if ep == 'admin_medical_review' %}active{% endif %}"
-                            href="{% url 'admin_medical_review' %}"><i class="bi bi-heart-pulse"></i> 2. Medical Review</a>
+                            href="{% url 'admin_medical_review' %}"><i class="bi bi-heart-pulse"></i> Medical Review</a>
                     </li>{% endif %}
                     {% if nav_perms.manage_medical_requirements %}<li><a
                             class="dropdown-item {% if ep == 'admin_medical_requirements' %}active{% endif %}"
-                            href="{% url 'admin_medical_requirements' %}"><i class="bi bi-clipboard2-pulse"></i> Medical
-                            Requirements</a></li>{% endif %}
+                            href="{% url 'admin_medical_requirements' %}"><i class="bi bi-clipboard2-pulse"></i> Medical Requirements</a></li>{% endif %}
                     {% if nav_perms.manage_forms %}<li><a class="dropdown-item {% if 'form' in ep %}active{% endif %}"
-                            href="{% url 'admin_forms' %}"><i class="bi bi-ui-checks-grid"></i> 3. Pre-Onboarding Forms</a>
+                            href="{% url 'admin_forms' %}"><i class="bi bi-ui-checks-grid"></i> Pre-Onboarding Forms</a>
                     </li>{% endif %}
                     {% if nav_perms.manage_documents %}<li><a
                             class="dropdown-item {% if ep == 'admin_onboarding_documents' %}active{% endif %}"
-                            href="{% url 'admin_onboarding_documents' %}"><i class="bi bi-folder2-open"></i>
-                            4. Onboarding Documents</a></li>{% endif %}
+                            href="{% url 'admin_onboarding_documents' %}"><i class="bi bi-folder2-open"></i> Onboarding Documents</a></li>{% endif %}
                 </ul>
             </div>
             {% endif %}
@@ -1842,7 +1880,9 @@
                             href="{% url 'admin_learning_paths' %}"><i class="bi bi-signpost-split"></i> Learning
                             Paths</a></li>
                     <li><a class="dropdown-item" href="{% url 'content_manage' 'training' %}"><i
-                                class="bi bi-collection-play"></i> Training Library</a></li>{% endif %}
+                                class="bi bi-collection-play"></i> Training Library</a></li>
+                    <li><a class="dropdown-item" href="{% url 'content_manage' 'orientation' %}"><i
+                                class="bi bi-compass"></i> Orientation Studio</a></li>{% endif %}
                     {% if nav_perms.assign_training %}<li><a
                             class="dropdown-item {% if ep == 'admin_training_assignments' %}active{% endif %}"
                             href="{% url 'admin_training_assignments' %}"><i class="bi bi-person-plus"></i>
@@ -1933,8 +1973,8 @@
                 </ul>
             </div>
             {% endif %}
-
             {% endif %}
+
         </div>
     </div>
 
@@ -1960,7 +2000,8 @@
 
         {% if messages %}
         {% for message in messages %}
-        <div class="alert alert-dismissible fade show animate-fadeIn js-flash-alert portal-themed-alert d-flex align-items-center justify-content-between" role="alert">
+        <div class="alert alert-dismissible fade show animate-fadeIn js-flash-alert portal-themed-alert d-flex align-items-center justify-content-between"
+            role="alert">
             <div class="d-flex align-items-center gap-2">
                 <i class="bi bi-check-circle-fill alert-icon"></i>
                 <span class="alert-content text-dark">{{ message }}</span>
@@ -1977,7 +2018,6 @@
             </div>
         </div>
     </div>
-    {% endwith %}
     {% else %}
     <div class="main-content" style="margin-left:0;">
         <div class="container-fluid page-container">
@@ -1988,6 +2028,7 @@
         </div>
     </div>
     {% endif %}
+    {% endwith %}
 
     <div class="modal fade" id="globalConfirmModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -2188,15 +2229,47 @@
                     link.innerHTML.includes('arrow-left')) {
                     link.addEventListener('click', function (e) {
                         e.preventDefault();
-                        // Use browser history if available (came from within this site)
-                        if (document.referrer && document.referrer.includes(window.location.hostname)) {
+                        let referrerPathname = "";
+                        try {
+                            referrerPathname = document.referrer ? new URL(document.referrer).pathname : "";
+                        } catch (err) {}
+                        const currentPathname = window.location.pathname;
+                        // Use browser history only if the referrer is from this site and NOT the same page
+                        if (document.referrer && 
+                            document.referrer.includes(window.location.hostname) && 
+                            referrerPathname && 
+                            referrerPathname !== currentPathname) {
                             window.history.back();
                         } else {
-                            // Fallback to href if no referrer
+                            // Fallback to href if no referrer or referrer is the same page
                             window.location.href = this.href;
                         }
                     });
                 }
+            });
+        });
+
+        // Global Loading Bar trigger
+        document.addEventListener('DOMContentLoaded', function() {
+            const bar = document.createElement('div');
+            bar.className = 'submit-loading-bar';
+            document.body.appendChild(bar);
+
+            document.addEventListener('submit', function(e) {
+                // Ignore hash/anchors or dynamic forms that don't reload page
+                if (e.target && e.target.getAttribute('action') && e.target.getAttribute('action').startsWith('#')) {
+                    return;
+                }
+                bar.style.display = 'block';
+                bar.style.width = '0%';
+                setTimeout(() => { bar.style.width = '30%'; }, 10);
+                setTimeout(() => { bar.style.width = '65%'; }, 250);
+                setTimeout(() => { bar.style.width = '85%'; }, 700);
+            });
+
+            window.addEventListener('beforeunload', function() {
+                bar.style.display = 'block';
+                bar.style.width = '100%';
             });
         });
     </script>

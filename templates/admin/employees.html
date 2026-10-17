@@ -76,8 +76,7 @@
                     {% if 'email' in visible_columns %}<td>{{ e.email }}</td>{% endif %}
                     {% if 'department' in visible_columns %}<td>{{ e.department.name|default:"—" }}</td>{% endif %}
                     {% if 'stage' in visible_columns %}<td>
-                        <div class="fw-medium">{{ e.current_stage_label|default:"Not started" }}</div>
-                        <small class="text-muted">{{ e.current_stage_state|default:e.status|humanize_status }}</small>
+                        {{ e|render_stage_badge }}
                     </td>{% endif %}
                     {% if 'date_of_joining' in visible_columns %}<td>{{ e.date_of_joining|date:"d M Y"|default:"—" }}</td>{% endif %}
                     <td onclick="event.stopPropagation()"><a href="{% url 'admin_employee_detail' e.id %}" class="btn btn-xs btn-outline-secondary">Open</a></td>

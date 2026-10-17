@@ -91,7 +91,7 @@
                             <small class="text-info d-block"><i class="bi bi-funnel me-1"></i>{% if c.meta.gender %}{{ c.meta.gender|capfirst }}{% endif %}{% if c.meta.gender and c.meta.min_age %}, {% endif %}{% if c.meta.min_age %}age {{ c.meta.min_age }}+{% endif %}</small>
                             {% endif %}
                         </span>
-                        <div class="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0 justify-content-end">
                             {% if c.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
                             {% if c.is_required %}<span class="badge bg-primary">Required</span>{% else %}<span class="badge bg-secondary">Optional</span>{% endif %}
                             <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editReq{{ c.id }}" aria-expanded="false" aria-controls="editReq{{ c.id }}" title="Edit"><i class="bi bi-pencil"></i></button>

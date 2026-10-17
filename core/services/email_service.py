@@ -406,8 +406,17 @@ class EmailService:
             # Get SMTP config
             from_email = from_email or AppSetting.get('smtp_from_email', settings.DEFAULT_FROM_EMAIL)
 
+            template_context = context if isinstance(context, dict) else {}
+            recipient_email = (template_context.get('employee_email')
+                               or template_context.get('email') or to_email)
+            recipient = User.objects.filter(email__iexact=recipient_email).select_related('tenant').first()
+            tenant = recipient.tenant if recipient and recipient.tenant_id else (user.tenant if user and user.tenant_id else None)
+            from ..services.template_context import tenant_template_context
+            render_context = tenant_template_context(tenant)
+            render_context.update(template_context)
+
             # Render template
-            subject, title, body = EmailService.render_template(template_key, context)
+            subject, title, body = EmailService.render_template(template_key, render_context)
             
             # Wrap into HTML
             html_message = EmailService._wrap(title, body)
@@ -567,6 +576,8 @@ EMAIL_TAGS = {
     'time_until': ('Time Until Session', 'in 24 hours'),
     'rejection_reason': ('Rejection Reason', 'Requires further review'),
     'approval_deadline': ('Approval Deadline', '2026-06-25'),
+    'company_name': ('Company / tenant name', 'Demo Company'),
+    'current_date': ('Current date', '15 Oct 2026'),
 }
 
 EMAIL_TEMPLATE_DEFAULTS = set(DEFAULT_TEMPLATES.keys())

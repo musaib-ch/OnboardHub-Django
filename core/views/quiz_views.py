@@ -255,6 +255,12 @@ def take_quiz(request, quiz_id):
     """Employee: take a quiz."""
     quiz = get_object_or_404(Form, id=quiz_id, form_kind="quiz", is_active=True)
 
+    # Security: Ensure quiz is assigned to user's role
+    roles = _quiz_meta(quiz).get("assigned_roles", [])
+    if request.user.role not in roles and request.user.role != "super_admin":
+        messages.error(request, "This quiz has not been assigned to you.")
+        return redirect("my_quizzes")
+
     if not _can_attempt(quiz, request.user):
         max_att = _max_attempts(quiz)
         messages.warning(

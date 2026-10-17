@@ -103,12 +103,17 @@ def site_settings(request):
         staff_role = is_staff_role(user.role)
         current_role_label = role_label(user.role)
         employee_stage_path = pipeline.get_employee_stage_path(user) if employee_role else []
+        unlocked_stages = {}
+        if employee_role:
+            for s in employee_stage_path:
+                unlocked_stages[s] = pipeline.stage_state(user, s) != 'locked'
     else:
         employee_role = False
         staff_role = False
         current_role_label = ""
         nav_perms = {}
         employee_stage_path = []
+        unlocked_stages = {}
 
     return {
         "site_settings": settings,
@@ -121,11 +126,13 @@ def site_settings(request):
         "is_staff_role": staff_role,
         "current_role_label": current_role_label,
         "employee_stage_path": employee_stage_path,
+        "unlocked_stages": unlocked_stages,
         "role": getattr(user, "role", "") if user is not None and user.is_authenticated else "",
         # Employee assignment visibility flags — only computed for employees
         "has_learning_paths": _has_learning_paths(user) if employee_role else False,
         "has_quizzes": _has_quizzes(user) if employee_role else False,
         "has_success_plan": _has_success_plan(user) if employee_role else False,
+        "has_buddy": _has_buddy(user) if employee_role else False,
     }
 
 
@@ -144,7 +151,8 @@ def _has_quizzes(user):
         form_kind="quiz", is_active=True,
     )
     for q in all_quizzes:
-        roles = (q.schema or {}).get("quiz_meta", {}).get("assigned_roles", [])
+        schema = q.schema or {}
+        roles = schema.get("quiz_meta", {}).get("assigned_roles") or schema.get("settings", {}).get("assigned_roles") or []
         if user.role in roles or user.role == "super_admin":
             return True
     return False
@@ -156,3 +164,11 @@ def _has_success_plan(user):
     return Engagement.objects.filter(
         user=user, kind="onboarding_plan",
     ).exists()
+
+
+def _has_buddy(user):
+    """True if this user has an assigned buddy or is acting as a buddy/mentor to someone."""
+    from .models import Engagement
+    has_paired_buddy = Engagement.objects.filter(kind="mentorship", user=user, status="active").exists()
+    is_mentor_to_someone = Engagement.objects.filter(kind="mentorship", counterparty=user, status="active").exists()
+    return has_paired_buddy or is_mentor_to_someone

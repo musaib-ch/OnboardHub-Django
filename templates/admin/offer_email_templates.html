@@ -97,8 +97,14 @@
                   <span class="var-chip" onclick="window.insertOfferVariable('start_date', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>start_date</span>
                   <span class="var-chip" onclick="window.insertOfferVariable('expiry_date', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>expiry_date</span>
                   <span class="var-chip" onclick="window.insertOfferVariable('company_name', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>company_name</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('offer_number', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>offer_number</span>
+                  <span class="var-chip" onclick="window.insertOfferVariable('current_date', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>current_date</span>
                   <span class="var-chip" onclick="window.insertOfferVariable('offer_link', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>offer_link</span>
                 </div>
+                {% if offer_fields %}
+                <small class="text-muted d-block mt-2 mb-2 fw-semibold text-uppercase" style="font-size:0.7rem; letter-spacing:0.5px;">Shared Placeholders</small>
+                <div>{% for field in offer_fields %}<span class="var-chip" onclick="window.insertOfferVariable('{{ field.key|escapejs }}', 'id_html_body_template')"><i class="bi bi-plus me-1"></i>{{ field.name }}</span>{% endfor %}</div>
+                {% endif %}
               </div>
             </div>
 
@@ -197,15 +203,23 @@
     currency: 'USD',
     start_date: 'September 1, 2026',
     expiry_date: 'August 20, 2026',
-    company_name: 'Acme Technologies Inc.',
+    company_name: '{{ company_name|escapejs }}',
+    offer_number: 'OFF-PREVIEW',
+    current_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     offer_link: '<a href="#" class="btn btn-primary btn-sm my-2">View & Accept Your Offer</a>'
+  };
+  var customSampleData = {
+    {% for field in offer_fields %}
+    '{{ field.key|escapejs }}': '{{ field.meta.default_value|default:field.name|escapejs }}'{% if not forloop.last %},{% endif %}
+    {% endfor %}
   };
 
   function substituteVariables(text) {
     var output = text || '';
-    Object.keys(sampleData).forEach(function(key) {
+    var previewData = Object.assign({}, sampleData, customSampleData);
+    Object.keys(previewData).forEach(function(key) {
       var regex = new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'g');
-      output = output.replace(regex, sampleData[key]);
+      output = output.replace(regex, previewData[key]);
     });
     return output;
   }

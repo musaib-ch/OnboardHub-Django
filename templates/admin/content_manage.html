@@ -78,15 +78,18 @@
         </div>
         <h1 class="h3 font-bold text-dark mb-0"><i class="bi {{ cfg.icon }} me-2 text-primary"></i>{{ cfg.label }} Studio</h1>
     </div>
+    {% if user.role != 'hrbp' %}
     <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetStudioForm()">
             <i class="bi bi-plus-lg me-1"></i>Create New {{ cfg.noun|title }}
         </button>
     </div>
+    {% endif %}
 </div>
 
 {{ items_json|json_script:"items-data" }}
 
+{% if user.role != 'hrbp' %}
 <div class="row g-4 mb-5">
     <!-- ── LEFT: Studio Form Editor (col-lg-7) ────────────────────────────── -->
     <div class="col-lg-7">
@@ -333,6 +336,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- ── PUBLISHED ITEMS TABLE STUDIO ───────────────────────────────────────── -->
 <div class="studio-card p-4">
@@ -375,12 +379,16 @@
                         {% else %}<span class="badge bg-secondary-subtle text-secondary border">Draft</span>{% endif %}
                     </td>
                     <td class="text-end">
+                        {% if user.role != 'hrbp' %}
                         <button type="button" class="btn btn-xs btn-outline-primary js-edit" data-id="{{ it.id }}"><i class="bi bi-pencil me-1"></i>Edit</button>
                         <form method="POST" class="d-inline mb-0">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="item_id" value="{{ it.id }}">
                             <button class="btn btn-xs btn-outline-secondary" title="{% if it.is_active %}Unpublish{% else %}Publish{% endif %}"><i class="bi {% if it.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i></button></form>
+                        {% endif %}
                         <a href="{% url 'content_read' it.id %}" class="btn btn-xs btn-outline-secondary" title="View"><i class="bi bi-box-arrow-up-right"></i></a>
+                        {% if user.role != 'hrbp' %}
                         <form method="POST" class="d-inline mb-0">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="item_id" value="{{ it.id }}">
                             <button class="btn btn-xs btn-outline-danger" data-confirm="Delete '{{ it.title }}'?"><i class="bi bi-trash"></i></button></form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
@@ -403,140 +411,144 @@
     const f = id => document.getElementById(id);
     const cancelBtn = f("cancelEdit"), publishLabel = f("publishLabel");
 
-    function updatePreview() {
-        const titleVal = f("f_title").value.trim();
-        f("pvTitle").textContent = titleVal || "Untitled {{ cfg.noun|title }}";
-        f("pvCategory").textContent = f("f_category").value.trim() || "General";
-        f("pvBody").innerHTML = f("f_body").value.trim() || "Content description will appear here as you type...";
-        
-        const pres = f("f_presenter") ? f("f_presenter").value.trim() : "";
-        const timeVal = f("f_event_datetime") ? f("f_event_datetime").value : "";
-        const sessionBox = f("pvSessionInfo");
-        if (sessionBox) {
-            if (pres || timeVal) {
-                sessionBox.classList.remove("d-none");
-                if (f("pvHost")) f("pvHost").textContent = "Host: " + (pres || "TBD");
-                if (f("pvTime")) f("pvTime").innerHTML = '<i class="bi bi-calendar-event me-1"></i> Time: ' + (timeVal ? timeVal.replace("T", " ") : "TBD");
-            } else {
-                sessionBox.classList.add("d-none");
-            }
-        }
-
-        // Preview modules
-        const modTitles = document.querySelectorAll('input[name="module_titles"]');
-        const modBox = f("pvModules"), modList = f("pvModulesList"), modBadge = f("modCountBadge"), pvCount = f("pvModCount");
-        if (modBox && modList) {
-            let count = 0;
-            modList.innerHTML = "";
-            modTitles.forEach((inp, idx) => {
-                const val = inp.value.trim();
-                if (val) {
-                    count++;
-                    const div = document.createElement("div");
-                    div.className = "module-item-card small fw-medium text-dark d-flex align-items-center gap-2";
-                    div.innerHTML = `<span class="badge bg-primary rounded-circle" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;">${count}</span> ${val}`;
-                    modList.appendChild(div);
+    if (form) {
+        function updatePreview() {
+            const titleVal = f("f_title").value.trim();
+            f("pvTitle").textContent = titleVal || "Untitled {{ cfg.noun|title }}";
+            f("pvCategory").textContent = f("f_category").value.trim() || "General";
+            f("pvBody").innerHTML = f("f_body").value.trim() || "Content description will appear here as you type...";
+            
+            const pres = f("f_presenter") ? f("f_presenter").value.trim() : "";
+            const timeVal = f("f_event_datetime") ? f("f_event_datetime").value : "";
+            const sessionBox = f("pvSessionInfo");
+            if (sessionBox) {
+                if (pres || timeVal) {
+                    sessionBox.classList.remove("d-none");
+                    if (f("pvHost")) f("pvHost").textContent = "Host: " + (pres || "TBD");
+                    if (f("pvTime")) f("pvTime").innerHTML = '<i class="bi bi-calendar-event me-1"></i> Time: ' + (timeVal ? timeVal.replace("T", " ") : "TBD");
+                } else {
+                    sessionBox.classList.add("d-none");
                 }
-            });
-            if (count > 0) {
-                modBox.classList.remove("d-none");
-                if (modBadge) modBadge.textContent = count;
-                if (pvCount) pvCount.textContent = count;
-            } else {
-                modBox.classList.add("d-none");
-                if (modBadge) modBadge.textContent = "0";
+            }
+
+            // Preview modules
+            const modTitles = document.querySelectorAll('input[name="module_titles"]');
+            const modBox = f("pvModules"), modList = f("pvModulesList"), modBadge = f("modCountBadge"), pvCount = f("pvModCount");
+            if (modBox && modList) {
+                let count = 0;
+                modList.innerHTML = "";
+                modTitles.forEach((inp, idx) => {
+                    const val = inp.value.trim();
+                    if (val) {
+                        count++;
+                        const div = document.createElement("div");
+                        div.className = "module-item-card small fw-medium text-dark d-flex align-items-center gap-2";
+                        div.innerHTML = `<span class="badge bg-primary rounded-circle" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;">${count}</span> ${val}`;
+                        modList.appendChild(div);
+                    }
+                });
+                if (count > 0) {
+                    modBox.classList.remove("d-none");
+                    if (modBadge) modBadge.textContent = count;
+                    if (pvCount) pvCount.textContent = count;
+                } else {
+                    modBox.classList.add("d-none");
+                    if (modBadge) modBadge.textContent = "0";
+                }
             }
         }
-    }
 
-    ["f_title", "f_category", "f_body", "f_video", "f_presenter", "f_event_datetime"].forEach(id => {
-        if (f(id)) f(id).addEventListener("input", updatePreview);
-    });
-
-    window.addModuleRow = function(title = "", desc = "") {
-        const builder = document.getElementById("modulesBuilder");
-        if (!builder) return;
-        const row = document.createElement("div");
-        row.className = "module-row bg-light p-2 rounded border mb-2 position-relative";
-        row.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="fw-bold text-dark small"><i class="bi bi-grip-vertical text-muted me-1"></i>Module Step</span>
-                <button type="button" class="btn btn-xs text-danger border-0 p-0" onclick="this.closest('.module-row').remove(); updatePreview();"><i class="bi bi-trash"></i></button>
-            </div>
-            <input type="text" name="module_titles" class="form-control form-control-sm mb-1" placeholder="Module Title (e.g. Chapter 1: Introduction)" value="${title}" oninput="updatePreview()">
-            <input type="text" name="module_descriptions" class="form-control form-control-sm" placeholder="Short description / key takeaways..." value="${desc}">
-        `;
-        builder.appendChild(row);
-        updatePreview();
-    };
-
-    window.handleFileSelected = function(input) {
-        if (input.files && input.files[0]) {
-            const box = f("currentFile");
-            box.classList.remove("d-none");
-            f("currentFileName").textContent = input.files[0].name;
-        }
-    };
-
-    window.resetStudioForm = function() {
-        form.reset();
-        f("f_item_id").value = ""; f("f_order").value = "0";
-        if (publishLabel) publishLabel.textContent = "Publish {{ cfg.noun|title }}";
-        if (cancelBtn) cancelBtn.classList.add("d-none");
-        if (f("currentFile")) f("currentFile").classList.add("d-none");
-        const builder = document.getElementById("modulesBuilder");
-        if (builder) builder.innerHTML = "";
-        document.querySelectorAll('input[name="attach_to"]').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.dept-check').forEach(cb => cb.checked = false);
-        updatePreview();
-        document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-    if (cancelBtn) cancelBtn.addEventListener("click", resetStudioForm);
-
-    function startEdit(id) {
-        const d = byId[id]; if (!d) return;
-        f("f_item_id").value = d.id;
-        f("f_title").value = d.title; f("f_category").value = d.category;
-        f("f_body").value = d.body; f("f_video").value = d.video_url;
-        if (f("f_presenter")) f("f_presenter").value = d.presenter_name || "";
-        if (f("f_meeting_url")) f("f_meeting_url").value = d.meeting_url || "";
-        if (f("f_event_datetime")) f("f_event_datetime").value = d.event_datetime || "";
-        if (f("f_location")) f("f_location").value = d.location || "";
-        
-        if (publishLabel) publishLabel.textContent = d.is_active ? "Update {{ cfg.noun|title }}" : "Publish {{ cfg.noun|title }}";
-        if (cancelBtn) cancelBtn.classList.remove("d-none");
-        
-        if (d.file_name) {
-            f("currentFile").classList.remove("d-none");
-            f("currentFileName").textContent = d.file_name;
-        } else { if (f("currentFile")) f("currentFile").classList.add("d-none"); }
-        
-        // Modules
-        const builder = document.getElementById("modulesBuilder");
-        if (builder) {
-            builder.innerHTML = "";
-            (d.modules || []).forEach(m => addModuleRow(m.title, m.desc));
-        }
-
-        // Populate attach_to
-        const attachTo = d.attach_to || [];
-        document.querySelectorAll('input[name="attach_to"]').forEach(cb => {
-            cb.checked = attachTo.includes(cb.value);
+        ["f_title", "f_category", "f_body", "f_video", "f_presenter", "f_event_datetime"].forEach(id => {
+            if (f(id)) f(id).addEventListener("input", updatePreview);
         });
 
-        // Populate target_departments
-        if (d.target_departments) {
-            const targetDepts = d.target_departments.map(id => String(id));
-            document.querySelectorAll('.dept-check').forEach(cb => {
-                cb.checked = targetDepts.includes(String(cb.value));
+        window.addModuleRow = function(title = "", desc = "") {
+            const builder = document.getElementById("modulesBuilder");
+            if (!builder) return;
+            const row = document.createElement("div");
+            row.className = "module-row bg-light p-2 rounded border mb-2 position-relative";
+            row.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold text-dark small"><i class="bi bi-grip-vertical text-muted me-1"></i>Module Step</span>
+                    <button type="button" class="btn btn-xs text-danger border-0 p-0" onclick="this.closest('.module-row').remove(); updatePreview();"><i class="bi bi-trash"></i></button>
+                </div>
+                <input type="text" name="module_titles" class="form-control form-control-sm mb-1" placeholder="Module Title (e.g. Chapter 1: Introduction)" value="${title}" oninput="updatePreview()">
+                <input type="text" name="module_descriptions" class="form-control form-control-sm" placeholder="Short description / key takeaways..." value="${desc}">
+            `;
+            builder.appendChild(row);
+            updatePreview();
+        };
+
+        window.handleFileSelected = function(input) {
+            if (input.files && input.files[0]) {
+                const box = f("currentFile");
+                box.classList.remove("d-none");
+                f("currentFileName").textContent = input.files[0].name;
+            }
+        };
+
+        window.resetStudioForm = function() {
+            form.reset();
+            f("f_item_id").value = ""; f("f_order").value = "0";
+            if (publishLabel) publishLabel.textContent = "Publish {{ cfg.noun|title }}";
+            if (cancelBtn) cancelBtn.classList.add("d-none");
+            if (f("currentFile")) f("currentFile").classList.add("d-none");
+            const builder = document.getElementById("modulesBuilder");
+            if (builder) builder.innerHTML = "";
+            document.querySelectorAll('input[name="attach_to"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.dept-check').forEach(cb => cb.checked = false);
+            updatePreview();
+            document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+        if (cancelBtn) cancelBtn.addEventListener("click", resetStudioForm);
+
+        function startEdit(id) {
+            const d = byId[id]; if (!d) return;
+            f("f_item_id").value = d.id;
+            f("f_title").value = d.title; f("f_category").value = d.category;
+            f("f_body").value = d.body; f("f_video").value = d.video_url;
+            if (f("f_presenter")) f("f_presenter").value = d.presenter_name || "";
+            if (f("f_meeting_url")) f("f_meeting_url").value = d.meeting_url || "";
+            if (f("f_event_datetime")) f("f_event_datetime").value = d.event_datetime || "";
+            if (f("f_location")) f("f_location").value = d.location || "";
+            
+            if (publishLabel) publishLabel.textContent = d.is_active ? "Update {{ cfg.noun|title }}" : "Publish {{ cfg.noun|title }}";
+            if (cancelBtn) cancelBtn.classList.remove("d-none");
+            
+            if (d.file_name) {
+                f("currentFile").classList.remove("d-none");
+                f("currentFileName").textContent = d.file_name;
+            } else { if (f("currentFile")) f("currentFile").classList.add("d-none"); }
+            
+            // Modules
+            const builder = document.getElementById("modulesBuilder");
+            if (builder) {
+                builder.innerHTML = "";
+                (d.modules || []).forEach(m => addModuleRow(m.title, m.desc));
+            }
+
+            // Populate attach_to
+            const attachTo = d.attach_to || [];
+            document.querySelectorAll('input[name="attach_to"]').forEach(cb => {
+                cb.checked = attachTo.includes(cb.value);
             });
+
+            // Populate target_departments
+            if (d.target_departments) {
+                const targetDepts = d.target_departments.map(id => String(id));
+                document.querySelectorAll('.dept-check').forEach(cb => {
+                    cb.checked = targetDepts.includes(String(cb.value));
+                });
+            }
+            
+            updatePreview();
+            document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
         }
-        
+        document.querySelectorAll(".js-edit").forEach(b =>
+            b.addEventListener("click", () => startEdit(b.getAttribute("data-id"))));
+
         updatePreview();
-        document.getElementById("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    document.querySelectorAll(".js-edit").forEach(b =>
-        b.addEventListener("click", () => startEdit(b.getAttribute("data-id"))));
 
     // Drag-to-reorder
     const tbody = document.getElementById("itemRows");
@@ -568,8 +580,6 @@
                           setTimeout(() => status.textContent = "", 2000); })
             .catch(() => { status.innerHTML = '<span class="text-danger">Save failed</span>'; });
     }
-
-    updatePreview();
 })();
 </script>
 {% endblock %}

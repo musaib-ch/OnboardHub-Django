@@ -20,9 +20,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--admin-email", default="admin@onboardhub.local")
-        parser.add_argument("--admin-password", default="Admin@12345")
+        parser.add_argument("--admin-password", default="qwerty1234")
         parser.add_argument("--employee-email", default="employee@onboardhub.local")
-        parser.add_argument("--employee-password", default="Employee@123")
+        parser.add_argument("--employee-password", default="qwerty1234")
 
     def handle(self, *args, **opts):
         tenant, _ = Tenant.objects.get_or_create(

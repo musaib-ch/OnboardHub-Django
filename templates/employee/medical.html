@@ -63,13 +63,13 @@
                     {% if r.description %}<small class="text-muted d-block">{{ r.description }}</small>{% endif %}
                     {% if r.applicability_note %}<small class="text-info"><i class="bi bi-info-circle me-1"></i>{{ r.applicability_note }}</small>{% endif %}
                 </div>
-                <span class="badge badge-status-{{ r.status }}">{{ r.status|humanize_status }}</span>
-                {% if editable %}
+                <span class="badge badge-status-{{ r.status|status_class }}">{{ r.status|humanize_status }}</span>
+                {% if editable and r.status != 'approved' %}
                 <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center mb-0">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="upload">
                     <input type="hidden" name="record_id" value="{{ r.id }}">
-                    <input type="file" name="file" class="form-control form-control-sm" style="width:220px;" required>
+                    <input type="file" name="file" class="form-control form-control-sm" style="width:220px;" required onchange="this.form.submit()">
                     <button class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-upload me-1"></i>{% if r.file %}Replace{% else %}Upload{% endif %}</button>
                 </form>
                 {% endif %}

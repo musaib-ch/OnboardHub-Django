@@ -24,9 +24,22 @@ PRE_JOIN_STATUSES = {
 }
 
 
+LOGIN_SCREEN_DEFAULTS = {
+    "sync_portal_colors": True,
+    "background_style": "gradient",
+    "preset_theme": "classic_blue",
+    "primary_color": "#1d2b4f",
+    "accent_color": "#324b8a",
+    "welcome_title": "Welcome Back",
+    "welcome_subtitle": "Your onboarding journey begins here.",
+    "show_logo": True,
+}
+
+
 @require_http_methods(["GET", "POST"])
 def login_view(request):
-    if request.user.is_authenticated:
+    branding_preview = request.GET.get("branding_preview") == "1"
+    if request.user.is_authenticated and not branding_preview:
         return redirect("index")
 
     email = ""
@@ -41,6 +54,9 @@ def login_view(request):
             if user.status == "on_hold":
                 messages.error(request, "Your account is on hold. Please contact HR.")
                 return redirect("login")
+            if user.role != "employee":
+                messages.error(request, "This page is for employees only. Please use the Staff Login page.")
+                return redirect("staff_login")
             login(request, user)
             request.session.set_expiry(0)
             log_activity(request, user=user, action="login", entity_type="user",
@@ -53,7 +69,128 @@ def login_view(request):
             return redirect("index")
         messages.error(request, "Invalid email or password. Please try again.")
 
-    return render(request, "login.html", {"email": email})
+def _get_login_settings():
+    from ..models import AppSetting
+    import json
+    login_settings_raw = AppSetting.get("login_screen_settings")
+    login_settings = {}
+    if login_settings_raw:
+        try:
+            login_settings = json.loads(login_settings_raw)
+        except Exception:
+            pass
+            
+    for k, v in LOGIN_SCREEN_DEFAULTS.items():
+        login_settings.setdefault(k, v)
+        
+    theme_colors = {
+        "classic_blue": ("#1d2b4f", "#324b8a"),
+        "emerald": ("#047857", "#10b981"),
+        "indigo": ("#312e81", "#6366f1"),
+        "midnight": ("#0f172a", "#0ea5e9"),
+        "rose": ("#881337", "#fb7185"),
+    }
+        
+    if login_settings.get("sync_portal_colors"):
+        login_settings["primary_color"] = AppSetting.get("primary_color") or "#1d2b4f"
+        login_settings["accent_color"] = AppSetting.get("accent_color") or "#324b8a"
+    else:
+        preset = login_settings.get("preset_theme", "classic_blue")
+        if preset in theme_colors:
+            p_col, a_col = theme_colors[preset]
+            if not login_settings.get("primary_color") or login_settings.get("primary_color") == LOGIN_SCREEN_DEFAULTS["primary_color"]:
+                login_settings["primary_color"] = p_col
+            if not login_settings.get("accent_color") or login_settings.get("accent_color") == LOGIN_SCREEN_DEFAULTS["accent_color"]:
+                login_settings["accent_color"] = a_col
+
+    return login_settings
+
+
+@require_http_methods(["GET", "POST"])
+def login_view(request):
+    branding_preview = request.GET.get("branding_preview") == "1"
+    if request.user.is_authenticated and not branding_preview:
+        return redirect("index")
+
+    email = ""
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        password = request.POST.get("password") or ""
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            if user.status == "deleted":
+                messages.error(request, "This account is no longer available.")
+                return redirect("login")
+            if user.status == "on_hold":
+                messages.error(request, "Your account is on hold. Please contact HR.")
+                return redirect("login")
+            if user.role != "employee":
+                messages.error(request, "This page is for employees only. Please use the Staff Login page.")
+                return redirect("staff_login")
+            login(request, user)
+            request.session.set_expiry(0)
+            log_activity(request, user=user, action="login", entity_type="user",
+                         entity_id=user.id, description=f"User {user.email} logged in")
+            if user.must_change_password:
+                return redirect("change_password")
+            if (is_employee_role(user.role) and not user.date_of_joining
+                    and user.status in PRE_JOIN_STATUSES):
+                return redirect("employee_set_joining_date")
+            return redirect("index")
+        messages.error(request, "Invalid email or password. Please try again.")
+
+    from ..models import AppSetting
+    login_settings = _get_login_settings()
+
+    response = render(request, "login.html", {
+        "email": email,
+        "login_settings": login_settings,
+        "portal_name": AppSetting.get("site_title") or "OnboardHub",
+        "portal_logo": AppSetting.get("site_logo") or "",
+    })
+    if branding_preview:
+        response["X-Frame-Options"] = "SAMEORIGIN"
+    return response
+
+
+@require_http_methods(["GET", "POST"])
+def staff_login_view(request):
+    if request.user.is_authenticated:
+        return redirect("index")
+
+    email = ""
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        password = request.POST.get("password") or ""
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            if user.status == "deleted":
+                messages.error(request, "This account is no longer available.")
+                return redirect("staff_login")
+            if user.status == "on_hold":
+                messages.error(request, "Your account is on hold. Please contact HR.")
+                return redirect("staff_login")
+            if user.role == "employee":
+                messages.error(request, "This page is for staff only. Please use the Employee Login page.")
+                return redirect("login")
+            login(request, user)
+            request.session.set_expiry(0)
+            log_activity(request, user=user, action="login", entity_type="user",
+                         entity_id=user.id, description=f"Staff user {user.email} logged in")
+            if user.must_change_password:
+                return redirect("change_password")
+            return redirect("index")
+        messages.error(request, "Invalid email or password. Please try again.")
+
+    from ..models import AppSetting
+    login_settings = _get_login_settings()
+
+    return render(request, "staff_login.html", {
+        "email": email,
+        "login_settings": login_settings,
+        "portal_name": AppSetting.get("site_title") or "OnboardHub",
+        "portal_logo": AppSetting.get("site_logo") or "",
+    })
 
 
 @login_required

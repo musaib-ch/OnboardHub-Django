@@ -98,6 +98,8 @@ EMAIL_TAGS = {
     "status": ("Onboarding status", "Pre Onboarding"),
     "joining_date": ("Date of joining", "01 Jul 2026"),
     "company": ("Company / tenant name", "Demo Company"),
+    "company_name": ("Company / tenant name", "Demo Company"),
+    "current_date": ("Current date", "15 Oct 2026"),
     "link": ("Portal link", "https://portal.example.com/"),
     "title": ("Notification title", "Reminder"),
     "message": ("Free-text message body", "Your message here"),
@@ -184,7 +186,9 @@ def delete_custom_template(key, user=None):
 
 def employee_email_context(emp, link="/employee/home/", message="", title=""):
     """Build the tag→value map for a specific employee (for sendable templates)."""
-    return {
+    from .services.template_context import tenant_template_context
+    context = tenant_template_context(emp.tenant if emp.tenant_id else None)
+    context.update({
         "full_name": emp.full_name or "",
         "email": emp.email or "",
         "employee_id": emp.employee_id or "",
@@ -195,7 +199,8 @@ def employee_email_context(emp, link="/employee/home/", message="", title=""):
         "joining_date": emp.date_of_joining.strftime("%d %b %Y") if emp.date_of_joining else "",
         "company": emp.tenant.name if emp.tenant_id else "",
         "link": link, "message": message, "title": title,
-    }
+    })
+    return context
 
 
 def render_email(key, context):
@@ -209,9 +214,10 @@ def render_email(key, context):
     subject = (overrides.get("subject") or custom.get("subject") or default.get("subject") or "").strip()
     body = overrides.get("body") or custom.get("body") or default.get("body") or ""
     for k, v in (context or {}).items():
-        ph = "{" + k + "}"
-        subject = subject.replace(ph, str(v))
-        body = body.replace(ph, str(v))
+        value = str(v)
+        for ph in ("{{" + k + "}}", "{{ " + k + " }}", "{" + k + "}"):
+            subject = subject.replace(ph, value)
+            body = body.replace(ph, value)
     return subject, body
 
 

@@ -1,0 +1,23 @@
+@font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("fonts/inter-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Plus Jakarta Sans";
+    font-style: normal;
+    font-weight: 600 700;
+    font-display: swap;
+    src: url("fonts/plus-jakarta-sans-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Material Symbols Outlined";
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: block;
+    src: url("fonts/material-symbols-outlined.woff2") format("woff2");
+}

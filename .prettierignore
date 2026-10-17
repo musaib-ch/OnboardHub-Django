@@ -1,0 +1,3 @@
+# Ignore Django HTML templates to prevent Prettier line-wrapping from breaking template tags
+templates/**/*.html
+*.html

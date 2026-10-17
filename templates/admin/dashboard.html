@@ -148,8 +148,7 @@
                     <td class="fw-medium">{{ e.full_name }}</td>
                     <td>{{ e.email }}</td>
                     <td>
-                        <div class="fw-medium">{{ e.current_stage_label|default:"Not started" }}</div>
-                        <small class="text-muted">{{ e.current_stage_state|default:e.status|humanize_status }}</small>
+                        {{ e|render_stage_badge }}
                     </td>
                     <td>{{ e.date_of_joining|date:"d M Y"|default:"—" }}</td>
                     <td onclick="event.stopPropagation()">
