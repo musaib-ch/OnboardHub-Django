@@ -1,0 +1,72 @@
+name: Android and iOS app builds
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  security:
+    uses: ./.github/workflows/security.yml
+  android:
+    needs: security
+    runs-on: ubuntu-latest
+    env:
+      ONBOARDHUB_URL: ${{ vars.PORTAL_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Validate portal
+        run: test -n "$ONBOARDHUB_URL" && [[ "$ONBOARDHUB_URL" == https://* ]]
+      - run: npm install --prefix mobile --no-audit --no-fund
+      - name: Generate Android project
+        working-directory: mobile
+        run: npx cap add android
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboardhub-android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+  ios:
+    needs: security
+    runs-on: macos-latest
+    env:
+      ONBOARDHUB_URL: ${{ vars.PORTAL_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate portal
+        run: test -n "$ONBOARDHUB_URL" && [[ "$ONBOARDHUB_URL" == https://* ]]
+      - run: npm install --prefix mobile --no-audit --no-fund
+      - name: Generate iOS project
+        working-directory: mobile
+        run: npx cap add ios
+      - name: Build iOS simulator app (unsigned)
+        working-directory: mobile
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Zip simulator app
+        working-directory: mobile
+        run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Debug-iphonesimulator/App.app onboardhub-ios-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboardhub-ios-simulator
+          path: mobile/onboardhub-ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 14
