@@ -316,8 +316,13 @@ def public_offer_accept(request, token):
             return HttpResponseBadRequest('Invalid signature size')
         if signature_method == 'drawn' and not signature_blob.startswith('data:image/png;base64,'):
             return HttpResponseBadRequest('Invalid signature image')
-    except Exception:
-        pass
+    except (ValueError, UnicodeDecodeError, TypeError, AttributeError):
+        return HttpResponseBadRequest('Invalid signature submission')
+
+    if not signer_name:
+        return HttpResponseBadRequest('Signer name required')
+    if signature_method == 'drawn' and not signature_blob:
+        return HttpResponseBadRequest('Signature image required')
 
     sig = OfferSignature.objects.create(
         offer=offer,
