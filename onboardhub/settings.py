@@ -25,7 +25,7 @@ def _csv_env(name, default=""):
     return [v.strip() for v in os.environ.get(name, default).split(",") if v.strip()]
 
 
-ALLOWED_HOSTS = _csv_env("ALLOWED_HOSTS") or (["*"] if DEBUG else [])
+ALLOWED_HOSTS = _csv_env("ALLOWED_HOSTS") or (["localhost", "127.0.0.1", "testserver"] if DEBUG else [])
 CSRF_TRUSTED_ORIGINS = _csv_env("CSRF_TRUSTED_ORIGINS")
 
 # ── Apps ──────────────────────────────────────────────────────────────────────
@@ -162,9 +162,10 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
+    SECURE_REFERRER_POLICY = "same-origin"
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = bool(SECURE_HSTS_SECONDS)
     SECURE_HSTS_PRELOAD = bool(SECURE_HSTS_SECONDS)
     # Prevent browsers from detecting MIME types (clickjacking)
