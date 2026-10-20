@@ -36,6 +36,13 @@ def public_offer_view(request, token):
     reject_token_str = reject_tok.token if reject_tok else ''
 
     html_body = offer.rendered_html or offer.rendered_email_html or '<p>Offer content unavailable.</p>'
+    # Values injected into JavaScript must be encoded as JavaScript string literals.
+    # Escape HTML-significant characters to prevent script-block termination.
+    def js_string(value):
+        return json.dumps(str(value)).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+    candidate_js = js_string(offer.candidate_name)
+    accept_js = js_string(accept_token_str)
+    reject_js = js_string(reject_token_str)
     
     # Check signature status
     signature = offer.signatures.first()
@@ -166,8 +173,8 @@ def public_offer_view(request, token):
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        var acceptToken = "{accept_token_str}";
-        var rejectToken = "{reject_token_str}";
+        var acceptToken = {accept_js};
+        var rejectToken = {reject_js};
 
         var canvas = document.getElementById('sigCanvas');
         var ctx = canvas ? canvas.getContext('2d') : null;
@@ -223,10 +230,10 @@ def public_offer_view(request, token):
             if (activeTab === 'draw-tab') {{
                 payload.signature_method = 'drawn';
                 payload.signature_blob = canvas.toDataURL('image/png');
-                payload.signer_name = "{offer.candidate_name}";
+                payload.signer_name = {candidate_js};
             }} else {{
                 payload.signature_method = 'typed';
-                payload.signer_name = document.getElementById('typedNameInput').value || "{offer.candidate_name}";
+                payload.signer_name = document.getElementById('typedNameInput').value || {candidate_js};
             }}
 
             fetch('/offers/' + acceptToken + '/accept/', {{
