@@ -1,4 +1,5 @@
 import json
+from functools import wraps
 from datetime import timedelta
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponse, HttpResponseServerError
 from django.core.cache import cache
@@ -15,6 +16,27 @@ from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinit
 from django.template import engines
 from django.conf import settings
 import os
+
+
+OFFER_ACCESS_PERMISSIONS = frozenset({
+    'send_offer', 'manage_offers', 'revoke_offer', 'export_offer',
+    'approve_offer', 'manage_templates', 'manage_email_templates',
+    'manage_offer_fields',
+})
+
+
+def offer_access_required(view):
+    """Deny offer API discovery to employees and unauthorized staff."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return HttpResponseForbidden('Authentication required')
+        if request.user.role != 'super_admin' and not any(
+            request.user.has_perm_key(key) for key in OFFER_ACCESS_PERMISSIONS
+        ):
+            return HttpResponseForbidden('Insufficient permissions')
+        return view(request, *args, **kwargs)
+    return wrapper
 
 
 def _serialize_template(obj: OfferTemplate):
@@ -48,6 +70,7 @@ def _serialize_email_template(obj: OfferEmailTemplate):
     }
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_templates_list(request):
@@ -81,6 +104,7 @@ def offer_templates_list(request):
         return JsonResponse({'template': _serialize_template(tpl)}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_template_detail(request, template_id):
@@ -116,6 +140,7 @@ def offer_template_detail(request, template_id):
 
 
 # Email templates
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def email_templates_list(request):
@@ -146,6 +171,7 @@ def email_templates_list(request):
         return JsonResponse({'email_template': _serialize_email_template(tpl)}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def email_template_detail(request, template_id):
@@ -180,6 +206,7 @@ def email_template_detail(request, template_id):
 
 
 # Offer field definitions (org-configurable fields)
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_fields_list(request):
@@ -224,6 +251,7 @@ def offer_fields_list(request):
     return JsonResponse({'field': {'id': field.id, 'name': field.name, 'key': field.key}}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_field_detail(request, field_id):
@@ -258,6 +286,7 @@ def offer_field_detail(request, field_id):
 
 
 # Image upload endpoint for WYSIWYG paste uploads
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_image_upload(request):
@@ -294,6 +323,7 @@ def offer_image_upload(request):
 
 
 # Template preview endpoint: render template with provided context (or sample)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_template_preview(request, template_id):
@@ -318,6 +348,7 @@ def offer_template_preview(request, template_id):
 
 
 # Offers CRUD
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offers_list(request):
@@ -380,6 +411,7 @@ def offers_list(request):
     return JsonResponse({'offer_id': offer.id, 'status': offer.status, 'email_template_id': email_template.id if email_template else None}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_detail(request, offer_id):
@@ -442,6 +474,7 @@ def offer_detail(request, offer_id):
 
 
 # Render an offer with provided field values (without saving)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_render_preview(request, offer_id=None):
@@ -540,6 +573,7 @@ def _perform_offer_send(o, acting_user=None, request=None):
 
 
 # Email template choices endpoint for frontend
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_email_template_choices(request):
@@ -549,6 +583,7 @@ def offer_email_template_choices(request):
 
 
 # Admin analytics endpoint for offers
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_analytics(request):
@@ -575,6 +610,7 @@ def offer_analytics(request):
 
 
 # Export offers CSV for admin
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def export_offers_csv(request):
@@ -598,6 +634,7 @@ def export_offers_csv(request):
 
 
 # Snapshot/render and mark as sent (no email send performed here)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_snapshot_send(request, offer_id):
@@ -620,6 +657,7 @@ def offer_snapshot_send(request, offer_id):
 
 
 # Approvals list/create endpoints
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_approvals_list(request, offer_id):
@@ -656,6 +694,7 @@ def offer_approvals_list(request, offer_id):
     return JsonResponse({'approval': {'id': ap.id, 'approver_id': ap.approver_id, 'order': ap.order, 'status': ap.status}}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_approval_detail(request, offer_id, approval_id):
@@ -697,6 +736,7 @@ def offer_approval_detail(request, offer_id, approval_id):
 
 
 # Approver actions: approve or reject a specific OfferApproval
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def approve_offer_approval(request, offer_id, approval_id):
@@ -724,6 +764,7 @@ def approve_offer_approval(request, offer_id, approval_id):
     return JsonResponse({'offer_id': o.id, 'status': o.status, 'approved': True})
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def reject_offer_approval(request, offer_id, approval_id):
@@ -750,6 +791,7 @@ def reject_offer_approval(request, offer_id, approval_id):
     return JsonResponse({'offer_id': o.id, 'status': o.status, 'rejected': True})
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_pdf_export_api_view(request, offer_id):
