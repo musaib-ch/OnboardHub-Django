@@ -76,6 +76,10 @@ def create_signature(request):
     if not sig_image or len(sig_image) < 50:
         return JsonResponse({'error': 'Signature image too small'}, status=400)
 
+    sig_field_id = data.get('signature_field_id')
+    if sig_field_id and not any(f.get('id') == sig_field_id for f in (doc.meta or {}).get('signature_fields', [])):
+        return JsonResponse({'error': 'Unknown signature field'}, status=400)
+
     sig_id = str(uuid.uuid4())
     signature_record = {
         'id': sig_id,
@@ -98,9 +102,6 @@ def create_signature(request):
 
     doc.meta['signatures'].append(signature_record)
 
-    sig_field_id = data.get('signature_field_id')
-    if sig_field_id and not any(f.get('id') == sig_field_id for f in doc.meta.get('signature_fields', [])):
-        return JsonResponse({'error': 'Unknown signature field'}, status=400)
     if sig_field_id and 'signature_fields' in doc.meta:
         for field in doc.meta['signature_fields']:
             if field.get('id') == sig_field_id:
