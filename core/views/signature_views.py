@@ -29,7 +29,7 @@ def document_sign_page(request, doc_id):
     doc = get_object_or_404(OnboardingDocument, id=doc_id)
 
     if doc.employee and doc.employee != request.user:
-        if not request.user.has_perm_key('manage_employee_documents'):
+        if not request.user.has_perm_key('manage_documents'):
             return render(request, '403.html', status=403)
 
     sig_fields = doc.meta.get('signature_fields', [])
@@ -59,10 +59,20 @@ def create_signature(request):
     doc = get_object_or_404(OnboardingDocument, id=doc_id)
 
     if doc.employee and doc.employee != request.user:
-        if not request.user.has_perm_key('manage_employee_documents'):
+        if not request.user.has_perm_key('manage_documents'):
             return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    sig_image = data.get('signature_image', '').strip()
+    if data.get('consent_checked') is not True:
+        return JsonResponse({'error': 'Explicit signing consent is required'}, status=400)
+
+    sig_image = data.get('signature_image', '')
+    if not isinstance(sig_image, str) or len(sig_image) > 350000:
+        return JsonResponse({'error': 'Invalid signature payload'}, status=400)
+    sig_image = sig_image.strip()
+    if not sig_image.startswith('data:image/png;base64,'):
+        return JsonResponse({'error': 'PNG signature required'}, status=400)
+    if data.get('signature_type', 'digital_pad') not in {'digital_pad', 'typed', 'upload'}:
+        return JsonResponse({'error': 'Invalid signature type'}, status=400)
     if not sig_image or len(sig_image) < 50:
         return JsonResponse({'error': 'Signature image too small'}, status=400)
 
@@ -89,6 +99,8 @@ def create_signature(request):
     doc.meta['signatures'].append(signature_record)
 
     sig_field_id = data.get('signature_field_id')
+    if sig_field_id and not any(f.get('id') == sig_field_id for f in doc.meta.get('signature_fields', [])):
+        return JsonResponse({'error': 'Unknown signature field'}, status=400)
     if sig_field_id and 'signature_fields' in doc.meta:
         for field in doc.meta['signature_fields']:
             if field.get('id') == sig_field_id:
@@ -152,7 +164,7 @@ def view_signature(request, sig_id):
     doc = get_object_or_404(OnboardingDocument, id=doc_id)
 
     if doc.employee and doc.employee != request.user:
-        if not request.user.has_perm_key('view_employee_data'):
+        if not request.user.has_perm_key('view_employees'):
             return render(request, '403.html', status=403)
 
     signatures = doc.meta.get('signatures', [])
