@@ -1,4 +1,5 @@
 import json
+from functools import wraps
 from datetime import timedelta
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponse, HttpResponseServerError
 from django.core.cache import cache
@@ -15,6 +16,27 @@ from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinit
 from django.template import engines
 from django.conf import settings
 import os
+
+
+OFFER_ACCESS_PERMISSIONS = frozenset({
+    'send_offer', 'manage_offers', 'revoke_offer', 'export_offer',
+    'approve_offer', 'manage_templates', 'manage_email_templates',
+    'manage_offer_fields',
+})
+
+
+def offer_access_required(view):
+    """Deny offer API discovery to employees and unauthorized staff."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return HttpResponseForbidden('Authentication required')
+        if request.user.role != 'super_admin' and not any(
+            request.user.has_perm_key(key) for key in OFFER_ACCESS_PERMISSIONS
+        ):
+            return HttpResponseForbidden('Insufficient permissions')
+        return view(request, *args, **kwargs)
+    return wrapper
 
 
 def _serialize_template(obj: OfferTemplate):
@@ -48,12 +70,13 @@ def _serialize_email_template(obj: OfferEmailTemplate):
     }
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_templates_list(request):
     # Permission: manage_templates to create, view allowed to any logged-in staff
     if request.method == 'GET':
-        qs = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
+        qs = OfferTemplate.objects.all() if request.user.role == 'super_admin' else (OfferTemplate.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else OfferTemplate.objects.none())
         data = [_serialize_template(t) for t in qs.order_by('-is_default', 'name')]
         return JsonResponse({'templates': data})
 
@@ -81,12 +104,13 @@ def offer_templates_list(request):
         return JsonResponse({'template': _serialize_template(tpl)}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_template_detail(request, template_id):
     tpl = get_object_or_404(OfferTemplate, id=template_id)
     # Tenant isolation
-    if request.user.tenant and tpl.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or tpl.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
 
     if request.method == 'GET':
@@ -116,11 +140,12 @@ def offer_template_detail(request, template_id):
 
 
 # Email templates
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def email_templates_list(request):
     if request.method == 'GET':
-        qs = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
+        qs = OfferEmailTemplate.objects.all() if request.user.role == 'super_admin' else (OfferEmailTemplate.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else OfferEmailTemplate.objects.none())
         data = [_serialize_email_template(t) for t in qs.order_by('name')]
         return JsonResponse({'email_templates': data})
 
@@ -146,11 +171,12 @@ def email_templates_list(request):
         return JsonResponse({'email_template': _serialize_email_template(tpl)}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def email_template_detail(request, template_id):
     tpl = get_object_or_404(OfferEmailTemplate, id=template_id)
-    if request.user.tenant and tpl.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or tpl.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
 
     if request.method == 'GET':
@@ -180,11 +206,12 @@ def email_template_detail(request, template_id):
 
 
 # Offer field definitions (org-configurable fields)
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_fields_list(request):
     if request.method == 'GET':
-        qs = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
+        qs = OfferFieldDefinition.objects.all() if request.user.role == 'super_admin' else (OfferFieldDefinition.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else OfferFieldDefinition.objects.none())
         data = [
             {
                 'id': f.id,
@@ -224,11 +251,12 @@ def offer_fields_list(request):
     return JsonResponse({'field': {'id': field.id, 'name': field.name, 'key': field.key}}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_field_detail(request, field_id):
     f = get_object_or_404(OfferFieldDefinition, id=field_id)
-    if request.user.tenant and f.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or f.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
 
     if request.method == 'GET':
@@ -258,6 +286,7 @@ def offer_field_detail(request, field_id):
 
 
 # Image upload endpoint for WYSIWYG paste uploads
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_image_upload(request):
@@ -294,11 +323,12 @@ def offer_image_upload(request):
 
 
 # Template preview endpoint: render template with provided context (or sample)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_template_preview(request, template_id):
     tpl = get_object_or_404(OfferTemplate, id=template_id)
-    if request.user.tenant and tpl.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or tpl.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if not request.user.has_perm_key('manage_templates'):
         return HttpResponseForbidden('Insufficient permissions')
@@ -318,11 +348,12 @@ def offer_template_preview(request, template_id):
 
 
 # Offers CRUD
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offers_list(request):
     if request.method == 'GET':
-        qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
+        qs = Offer.objects.all() if request.user.role == 'super_admin' else (Offer.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else Offer.objects.none())
         data = []
         for o in qs.order_by('-created_at'):
             data.append({
@@ -351,14 +382,14 @@ def offers_list(request):
     template = None
     if tpl_id:
         template = OfferTemplate.objects.filter(id=tpl_id).first()
-        if template and request.user.tenant and template.tenant_id != request.user.tenant.id:
+        if template and request.user.role != 'super_admin' and (not request.user.tenant_id or template.tenant_id != request.user.tenant_id):
             template = None
     # Allow selecting an email template per-offer
     email_template_id = payload.get('email_template_id')
     email_template = None
     if email_template_id:
         email_template = OfferEmailTemplate.objects.filter(id=email_template_id).first()
-        if email_template and request.user.tenant and email_template.tenant_id != request.user.tenant.id:
+        if email_template and request.user.role != 'super_admin' and (not request.user.tenant_id or email_template.tenant_id != request.user.tenant_id):
             email_template = None
 
     offer = Offer.objects.create(
@@ -380,11 +411,12 @@ def offers_list(request):
     return JsonResponse({'offer_id': offer.id, 'status': offer.status, 'email_template_id': email_template.id if email_template else None}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_detail(request, offer_id):
     o = get_object_or_404(Offer, id=offer_id)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if request.method == 'GET':
         fields = {fv.field_definition.key if fv.field_definition else None: fv.value for fv in o.field_values.all()}
@@ -411,12 +443,12 @@ def offer_detail(request, offer_id):
             if field in payload:
                 if field == 'template':
                     tpl = OfferTemplate.objects.filter(id=payload.get('template')).first()
-                    if tpl and request.user.tenant and tpl.tenant_id != request.user.tenant.id:
+                    if tpl and request.user.role != 'super_admin' and (not request.user.tenant_id or tpl.tenant_id != request.user.tenant_id):
                         continue
                     o.template = tpl
                 elif field == 'email_template':
                     et = OfferEmailTemplate.objects.filter(id=payload.get('email_template')).first()
-                    if et and request.user.tenant and et.tenant_id != request.user.tenant.id:
+                    if et and request.user.role != 'super_admin' and (not request.user.tenant_id or et.tenant_id != request.user.tenant_id):
                         continue
                     o.email_template = et
                 else:
@@ -442,6 +474,7 @@ def offer_detail(request, offer_id):
 
 
 # Render an offer with provided field values (without saving)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_render_preview(request, offer_id=None):
@@ -540,22 +573,24 @@ def _perform_offer_send(o, acting_user=None, request=None):
 
 
 # Email template choices endpoint for frontend
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_email_template_choices(request):
-    qs = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
+    qs = OfferEmailTemplate.objects.all() if request.user.role == 'super_admin' else (OfferEmailTemplate.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else OfferEmailTemplate.objects.none())
     data = [{'id': t.id, 'name': t.name} for t in qs.order_by('name')]
     return JsonResponse({'choices': data})
 
 
 # Admin analytics endpoint for offers
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_analytics(request):
     # permission check: super_admin or explicit offer permission
     if not (request.user.role == 'super_admin' or request.user.has_perm_key('send_offer') or request.user.has_perm_key('manage_offers') or request.user.has_perm_key('view_offer_analytics')):
         return HttpResponseForbidden('Insufficient permissions')
-    qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
+    qs = Offer.objects.all() if request.user.role == 'super_admin' else (Offer.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else Offer.objects.none())
     total = qs.count()
     sent = qs.filter(status='sent').count()
     accepted = qs.filter(status='accepted').count()
@@ -575,12 +610,13 @@ def offer_analytics(request):
 
 
 # Export offers CSV for admin
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def export_offers_csv(request):
     if not (request.user.role == 'super_admin' or request.user.has_perm_key('send_offer') or request.user.has_perm_key('manage_offers') or request.user.has_perm_key('export_offer')):
         return HttpResponseForbidden('Insufficient permissions')
-    qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
+    qs = Offer.objects.all() if request.user.role == 'super_admin' else (Offer.objects.filter(tenant_id=request.user.tenant_id) if request.user.tenant_id else Offer.objects.none())
     # Optional filters
     status = request.GET.get('status')
     if status:
@@ -598,11 +634,12 @@ def export_offers_csv(request):
 
 
 # Snapshot/render and mark as sent (no email send performed here)
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def offer_snapshot_send(request, offer_id):
     o = get_object_or_404(Offer, id=offer_id)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if not request.user.has_perm_key('send_offer'):
         return HttpResponseForbidden('Insufficient permissions')
@@ -620,11 +657,12 @@ def offer_snapshot_send(request, offer_id):
 
 
 # Approvals list/create endpoints
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_approvals_list(request, offer_id):
     o = get_object_or_404(Offer, id=offer_id)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if request.method == 'GET':
         data = [
@@ -656,12 +694,13 @@ def offer_approvals_list(request, offer_id):
     return JsonResponse({'approval': {'id': ap.id, 'approver_id': ap.approver_id, 'order': ap.order, 'status': ap.status}}, status=201)
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_approval_detail(request, offer_id, approval_id):
     o = get_object_or_404(Offer, id=offer_id)
     approval = get_object_or_404(OfferApproval, id=approval_id, offer=o)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if request.method == 'GET':
         return JsonResponse({'approval': {'id': approval.id, 'approver_id': approval.approver_id, 'order': approval.order, 'status': approval.status, 'comment': approval.comment}})
@@ -697,12 +736,13 @@ def offer_approval_detail(request, offer_id, approval_id):
 
 
 # Approver actions: approve or reject a specific OfferApproval
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def approve_offer_approval(request, offer_id, approval_id):
     o = get_object_or_404(Offer, id=offer_id)
     approval = get_object_or_404(OfferApproval, id=approval_id, offer=o)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     # Permission: approver must be the assigned approver or have approve_offer permission
     if not (request.user.has_perm_key('approve_offer') or (approval.approver and approval.approver_id == request.user.id)):
@@ -724,12 +764,13 @@ def approve_offer_approval(request, offer_id, approval_id):
     return JsonResponse({'offer_id': o.id, 'status': o.status, 'approved': True})
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['POST'])
 def reject_offer_approval(request, offer_id, approval_id):
     o = get_object_or_404(Offer, id=offer_id)
     approval = get_object_or_404(OfferApproval, id=approval_id, offer=o)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     if not (request.user.has_perm_key('approve_offer') or (approval.approver and approval.approver_id == request.user.id)):
         return HttpResponseForbidden('Insufficient permissions')
@@ -750,13 +791,14 @@ def reject_offer_approval(request, offer_id, approval_id):
     return JsonResponse({'offer_id': o.id, 'status': o.status, 'rejected': True})
 
 
+@offer_access_required
 @login_required
 @require_http_methods(['GET'])
 def offer_pdf_export_api_view(request, offer_id):
     """Download offer document as high-fidelity PDF."""
     from ..services.pdf_service import generate_offer_pdf_response
     o = get_object_or_404(Offer, id=offer_id)
-    if request.user.tenant and o.tenant_id != request.user.tenant.id:
+    if request.user.role != 'super_admin' and (not request.user.tenant_id or o.tenant_id != request.user.tenant_id):
         return HttpResponseForbidden('Not found')
     return generate_offer_pdf_response(o)
 
