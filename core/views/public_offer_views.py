@@ -1,4 +1,5 @@
 import json
+from html import escape
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
@@ -52,7 +53,7 @@ def public_offer_view(request, token):
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Employment Offer - {offer.candidate_name}</title>
+    <title>Employment Offer - {escape(offer.candidate_name)}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -71,7 +72,7 @@ def public_offer_view(request, token):
             <div class="paper-header d-flex justify-content-between align-items-center">
                 <div>
                     <h3 class="mb-1 fw-bold text-white"><i class="bi bi-file-earmark-check me-2 text-primary"></i>Employment Offer Document</h3>
-                    <p class="mb-0 text-slate-300 small">Offer ID: {offer.offer_number} | Prepared for {offer.candidate_name}</p>
+                    <p class="mb-0 text-slate-300 small">Offer ID: {offer.offer_number} | Prepared for {escape(offer.candidate_name)}</p>
                 </div>
                 <div>{status_badge_html}</div>
             </div>
@@ -121,7 +122,7 @@ def public_offer_view(request, token):
                         <!-- Typed Signature Pane -->
                         <div class="tab-pane fade" id="type-pane">
                             <label class="form-label fw-semibold">Full Legal Name</label>
-                            <input type="text" id="typedNameInput" class="form-control form-control-lg" value="{offer.candidate_name}">
+                            <input type="text" id="typedNameInput" class="form-control form-control-lg" value="{escape(offer.candidate_name, quote=True)}">
                             <small class="text-muted">By typing your name, you intend to execute this offer agreement electronically.</small>
                         </div>
                     </div>
@@ -271,7 +272,11 @@ def public_offer_view(request, token):
 </body>
 </html>"""
     log_activity(request=request, user=None, action='offer_viewed_public', entity_type='offer', entity_id=offer.id, description=f'Viewed by token {tok.token_type} from {ip}')
-    return HttpResponse(page)
+    response = HttpResponse(page)
+    response['Cache-Control'] = 'no-store'
+    response['Referrer-Policy'] = 'no-referrer'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @csrf_exempt
@@ -295,9 +300,15 @@ def public_offer_accept(request, token):
 
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
-        signer_name = payload.get('signer_name') or offer.candidate_name
+        signer_name = str(payload.get('signer_name') or offer.candidate_name).strip()[:200]
         signature_method = payload.get('signature_method') or 'typed'
         signature_blob = payload.get('signature_blob') or ''
+        if signature_method not in ('typed', 'drawn'):
+            return HttpResponseBadRequest('Invalid signature method')
+        if not isinstance(signature_blob, str) or len(signature_blob) > 350000:
+            return HttpResponseBadRequest('Invalid signature size')
+        if signature_method == 'drawn' and not signature_blob.startswith('data:image/png;base64,'):
+            return HttpResponseBadRequest('Invalid signature image')
     except Exception:
         pass
 
@@ -314,15 +325,15 @@ def public_offer_accept(request, token):
     offer.accepted_at = timezone.now()
 
     # Append official signature audit trail to rendered HTML
-    sig_img_html = f'<img src="{signature_blob}" style="max-height: 80px;" alt="Signature">' if signature_blob and signature_method == 'drawn' else f'<span style="font-family: cursive; font-size: 1.5rem;">{signer_name}</span>'
+    sig_img_html = f'<img src="{escape(signature_blob, quote=True)}" style="max-height: 80px;" alt="Signature">' if signature_blob and signature_method == 'drawn' else f'<span style="font-family: cursive; font-size: 1.5rem;">{escape(signer_name)}</span>'
     audit_block = f"""
     <div style="margin-top: 40px; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
         <h4 style="margin-top: 0; color: #1e293b;">Accepted & Digitally Signed</h4>
-        <p><strong>Signer Name:</strong> {signer_name}</p>
+        <p><strong>Signer Name:</strong> {escape(signer_name)}</p>
         <p><strong>Signature:</strong></p>
         <div style="margin-bottom: 10px;">{sig_img_html}</div>
         <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 0;">
-            Signed on {sig.signed_at.strftime("%B %d, %Y at %H:%M:%S UTC")} | IP Address: {ip_addr}
+            Signed on {sig.signed_at.strftime("%B %d, %Y at %H:%M:%S UTC")} | IP Address: {escape(ip_addr)}
         </p>
     </div>
     """
