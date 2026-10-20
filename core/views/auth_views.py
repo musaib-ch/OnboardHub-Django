@@ -191,10 +191,10 @@ def forgot_password(request):
                         "big_login_cta": _big_login_cta(reset_url)
                     }
                 )
-                messages.success(request, "A password reset link has been sent to your email.")
+                messages.success(request, "If an account exists for this email, a reset link has been sent.")
             else:
                 # No SMTP configured (dev) — surface the link so the flow stays usable.
-                messages.warning(request, f"Email is not configured. Reset link: {reset_url}")
+                messages.error(request, "Password reset email is temporarily unavailable. Contact HR or your system administrator.")
         else:
             # Constant-time response to prevent email enumeration
             messages.success(request, "If an account exists for this email, a reset link has been sent.")
