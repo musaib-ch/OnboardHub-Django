@@ -17,7 +17,10 @@ db.sqlite3-journal
 .env
 .env.*
 !.env.example
+<<<<<<< HEAD
 tinytuya.json
+=======
+>>>>>>> origin/main
 *.pem
 
 # Editor / OS
@@ -26,16 +29,21 @@ tinytuya.json
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 # --- Appended by assistant: ignore bulk docs and local session artifacts ---
 # Ignore markdown documentation by default but keep README.md
 *.md
 !README.md
 
 # Local session / assistant state (do not commit)
+=======
+# Local session / assistant state
+>>>>>>> origin/main
 .copilot/
 session-state/
 *.session
 
+<<<<<<< HEAD
 # Local exports and archives
 *.zip
 *.tar.gz
@@ -43,3 +51,24 @@ session-state/
 
 # Misc generated or temporary directories
 Microsoft/
+=======
+# Generated exports
+*.xlsx
+*.tar.gz
+
+# Misc
+Microsoft/
+memory/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+>>>>>>> origin/main

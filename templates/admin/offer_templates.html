@@ -109,6 +109,7 @@
                   <span class="var-chip" onclick="window.insertOfferVariable('company_name', 'id_html_content')"><i class="bi bi-plus me-1"></i>company_name</span>
                   <span class="var-chip" onclick="window.insertOfferVariable('current_date', 'id_html_content')"><i class="bi bi-plus me-1"></i>current_date</span>
                 </div>
+<<<<<<< HEAD
                 {% if offer_fields %}
                 <small class="text-muted d-block mt-2 mb-2 fw-semibold text-uppercase" style="font-size:0.7rem; letter-spacing:0.5px;">Shared Placeholders</small>
                 <div>
@@ -117,6 +118,8 @@
                   {% endfor %}
                 </div>
                 {% endif %}
+=======
+>>>>>>> origin/main
               </div>
             </div>
 
@@ -224,6 +227,7 @@
     benefits: 'Comprehensive health & dental coverage, 401(k) 4% match, 20 days PTO.',
     note: 'We are thrilled to welcome you to the team!',
     offer_number: 'OFF-202608-8A4F',
+<<<<<<< HEAD
     company_name: '{{ company_name|escapejs }}',
     current_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   };
@@ -239,6 +243,17 @@
     Object.keys(previewData).forEach(function(key) {
       var regex = new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'g');
       output = output.replace(regex, previewData[key]);
+=======
+    company_name: 'Acme Technologies Inc.',
+    current_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  };
+
+  function substituteVariables(html) {
+    var output = html || '';
+    Object.keys(sampleData).forEach(function(key) {
+      var regex = new RegExp('\\{\\{\\s*' + key + '\\s*\\}\\}', 'g');
+      output = output.replace(regex, sampleData[key]);
+>>>>>>> origin/main
     });
     return output;
   }

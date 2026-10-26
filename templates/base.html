@@ -1683,7 +1683,11 @@
     </style>
 </head>
 
+<<<<<<< HEAD
 <body class="{{ site_settings.body_theme_class }}" style="--glass-sidebar: {{ site_settings.sidebar_bg }};">
+=======
+<body class="{{ site_settings.body_theme_class }}">
+>>>>>>> origin/main
     {% with ep=request.resolver_match.url_name role=user.role %}
     {% if user.is_authenticated %}
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()" aria-hidden="true"></div>

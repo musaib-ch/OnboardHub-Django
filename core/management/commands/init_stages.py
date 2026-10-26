@@ -4,7 +4,11 @@ Management command to initialize default onboarding stages.
 Usage: python manage.py init_stages
 """
 from django.core.management.base import BaseCommand
+<<<<<<< HEAD
 from core.models import Stage
+=======
+from core.models import StageDefinition
+>>>>>>> origin/main
 
 
 class Command(BaseCommand):
@@ -42,7 +46,11 @@ class Command(BaseCommand):
         ]
 
         for stage_data in stages:
+<<<<<<< HEAD
             stage, created = Stage.objects.get_or_create(
+=======
+            stage, created = StageDefinition.objects.get_or_create(
+>>>>>>> origin/main
                 stage_key=stage_data["stage_key"],
                 defaults=stage_data
             )

@@ -5,11 +5,14 @@ from django.utils import timezone
 import secrets
 
 # New offer-related models for Phase 1
+<<<<<<< HEAD
 SYSTEM_OFFER_PLACEHOLDER_KEYS = frozenset({
     "candidate_name", "candidate_email", "position_title", "salary", "currency",
     "employment_type", "start_date", "expiry_date", "benefits", "note",
     "offer_number", "company_name", "current_date",
 })
+=======
+>>>>>>> origin/main
 
 class OfferFieldDefinition(models.Model):
     """Organization-level offer field definitions (configurable by admins).

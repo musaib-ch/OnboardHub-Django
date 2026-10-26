@@ -1,10 +1,17 @@
+<<<<<<< HEAD
 from django.db.models import Q
+=======
+>>>>>>> origin/main
 from django.http import JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+<<<<<<< HEAD
 from ..models import Content, Notification, User
+=======
+from ..models import Notification
+>>>>>>> origin/main
 from ..decorators import login_required
 from ..permissions import is_employee_role
 
@@ -37,14 +44,22 @@ def portal(request):
     greeting = ("Good morning" if hour < 12 else
                 "Good afternoon" if hour < 17 else "Good evening")
 
+<<<<<<< HEAD
     def active(kind):
         return _visible_portal_content(user, [kind])
+=======
+    from ..models import Content
+
+    def active(kind):
+        return list(Content.objects.filter(kind=kind, is_active=True).order_by("display_order", "-created_at"))
+>>>>>>> origin/main
 
     cms = {
         "sliders": active("portal_slider"),
         "messages": active("management_message"),
         "gallery": active("portal_gallery"),
         "videos": active("portal_video"),
+<<<<<<< HEAD
         "resources": active("portal_resource"),
         "news": active("news"),
         "events": active("event"),
@@ -57,6 +72,11 @@ def portal(request):
         item for item in cms["resources"]
         if (item.category or "").strip().lower() in {"principle", "principles", "working together"}
     ]
+=======
+        "news": active("news"),
+        "events": active("event"),
+    }
+>>>>>>> origin/main
     cms["has_any"] = any(v for k, v in cms.items() if k != "has_any")
 
     # Employees always see their onboarding journey; staff always see the launchpad.
@@ -118,6 +138,7 @@ def portal(request):
 
 
 @login_required
+<<<<<<< HEAD
 def employee_directory(request):
     """Read-only directory limited to the current tenant's active employees."""
     people = User.objects.none()
@@ -184,6 +205,8 @@ def employee_resources(request):
 
 
 @login_required
+=======
+>>>>>>> origin/main
 def document_view(request, doc_id):
     """Inline viewer for an onboarding document (renders body HTML or embeds the file)."""
     from ..models import OnboardingDocument

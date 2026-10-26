@@ -13,11 +13,15 @@ def _fixed_context_copy(self):
     return duplicate
 dj_ctx.BaseContext.__copy__ = _fixed_context_copy
 
+<<<<<<< HEAD
 from .models import Content, Tenant
 from .models_offers import (
     OfferTemplate, OfferEmailTemplate, Offer, OfferApproval, OfferSendToken,
     OfferSignature, OfferFieldDefinition, OfferFieldValue,
 )
+=======
+from .models_offers import OfferTemplate, OfferEmailTemplate, Offer, OfferApproval, OfferSendToken, OfferSignature
+>>>>>>> origin/main
 import core.tasks as tasks
 
 tasks.send_email_async.delay = lambda *a, **k: None
@@ -26,6 +30,7 @@ tasks.send_raw_email_async.delay = lambda *a, **k: None
 User = get_user_model()
 
 
+<<<<<<< HEAD
 class EmployeeLandingPageTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -169,6 +174,8 @@ class PortalCmsEditingTests(TestCase):
         self.assertContains(landing, "Share context")
 
 
+=======
+>>>>>>> origin/main
 class ApprovalAutoSendTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -256,13 +263,18 @@ class PublicOfferFlowTests(TestCase):
 class OfferPDFAndExportTests(TestCase):
     def setUp(self):
         self.client = Client()
+<<<<<<< HEAD
         self.tenant = Tenant.objects.create(name='Demo Company')
         self.hr = User.objects.create(email='hr3@example.com', full_name='HR Exporter', tenant=self.tenant)
+=======
+        self.hr = User.objects.create(email='hr3@example.com', full_name='HR Exporter')
+>>>>>>> origin/main
         self.hr.set_password('pass')
         self.hr.must_change_password = False
         self.hr.role = 'super_admin'
         self.hr.save()
         self.hr.has_perm_key = lambda k: True
+<<<<<<< HEAD
         self.tpl = OfferTemplate.objects.create(tenant=self.tenant, name='Export Tpl', html_content='<h1>Offer Document</h1><p>Candidate: {{candidate_name}}</p>')
         self.offer = Offer.objects.create(tenant=self.tenant, created_by=self.hr, candidate_name='Charlie', candidate_email='charlie@example.com', template=self.tpl, rendered_html='<h1>Offer Document</h1>')
 
@@ -346,12 +358,17 @@ class OfferPDFAndExportTests(TestCase):
         _perform_offer_send(self.offer, acting_user=self.hr)
         self.offer.refresh_from_db()
         self.assertIn('Demo Company|Offer-specific office|', self.offer.rendered_html)
+=======
+        self.tpl = OfferTemplate.objects.create(name='Export Tpl', html_content='<h1>Offer Document</h1><p>Candidate: {{candidate_name}}</p>')
+        self.offer = Offer.objects.create(created_by=self.hr, candidate_name='Charlie', candidate_email='charlie@example.com', template=self.tpl, rendered_html='<h1>Offer Document</h1>')
+>>>>>>> origin/main
 
     def test_pdf_export_endpoint(self):
         self.client.force_login(self.hr)
         resp = self.client.get(f'/api/offers/{self.offer.id}/pdf/')
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.has_header('Content-Disposition'))
+<<<<<<< HEAD
         self.assertEqual(resp['Content-Type'], 'application/pdf')
         self.assertTrue(resp.content.startswith(b'%PDF-'))
 
@@ -364,6 +381,8 @@ class OfferPDFAndExportTests(TestCase):
         self.assertEqual(resp.status_code, 503)
         self.assertEqual(resp['Content-Type'], 'text/plain; charset=utf-8')
         self.assertFalse(resp.has_header('Content-Disposition'))
+=======
+>>>>>>> origin/main
 
     def test_bulk_zip_export_endpoint(self):
         self.client.force_login(self.hr)

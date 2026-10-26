@@ -19,7 +19,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+<<<<<<< HEAD
 from django.utils.text import get_valid_filename, slugify
+=======
+from django.utils.text import get_valid_filename
+>>>>>>> origin/main
 from django.views.decorators.http import require_http_methods
 from openpyxl import Workbook, load_workbook
 
@@ -31,10 +35,14 @@ from ..models import (
     ReviewMessage, Content, Engagement, Notification, AuditLog, StageDefinition,
     StageTemplate, EmployeeStagePath, OfferWorkflow, STATUS_CHOICES,
 )
+<<<<<<< HEAD
 from ..models_offers import (
     OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer, OfferFieldValue,
     SYSTEM_OFFER_PLACEHOLDER_KEYS,
 )
+=======
+from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, Offer, OfferFieldValue
+>>>>>>> origin/main
 
 from ..services import log_activity, notify, onboarding_progress_percent
 from ..services.stage_service import advance_employee_to_stage, set_stage_due_date_override, get_stage_progress
@@ -189,7 +197,11 @@ def import_employees(request):
 
     if request.GET.get("template"):
         from ..exporters import csv_response
+<<<<<<< HEAD
         example = ["Jane Doe", "jane.doe@company.com", "EMP-1001", "Engineering",
+=======
+        example = ["Test Employee", "testemployee1@company.com", "EMP-1001", "Engineering",
+>>>>>>> origin/main
                    "Software Engineer", "M1", "Lahore", "Monthly", "Permanent",
                    "1995-04-21", "female", "2026-07-01"]
         return csv_response("employee_import_template.csv", IMPORT_COLUMNS, [example])
@@ -481,7 +493,14 @@ def reset_user_password(request, user_id):
             description=f"Administrator reset the password for {user.email}",
         )
         messages.success(request, f"Temporary password for {user.full_name}: {temp_password}")
+<<<<<<< HEAD
     next_url = request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER")
+=======
+    next_url = request.POST.get("next") or request.GET.get("next")
+    # Validate next_url to prevent open redirect (must be a relative path)
+    if next_url and (next_url.startswith('http') or not next_url.startswith('/')):
+        next_url = None
+>>>>>>> origin/main
     if not next_url:
         if user.role == "employee":
             next_url = reverse("admin_employee_detail", args=[user.id])
@@ -496,7 +515,10 @@ def offers(request):
     offer_templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
     email_templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
     offer_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
+<<<<<<< HEAD
     offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
+=======
+>>>>>>> origin/main
     offers_qs = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
 
     scoped_users = scoped_employee_qs(request.user, User.objects.filter(role__in=_employee_role_keys()).exclude(status="deleted"))
@@ -551,6 +573,7 @@ def offer_templates_manage(request):
         return redirect("admin_offer_templates")
 
     templates = OfferTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferTemplate.objects.all()
+<<<<<<< HEAD
     offer_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferFieldDefinition.objects.all()
     offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
     return render(request, "admin/offer_templates.html", {
@@ -558,6 +581,9 @@ def offer_templates_manage(request):
         "offer_fields": offer_fields,
         "company_name": request.user.tenant.name if request.user.tenant else "",
     })
+=======
+    return render(request, "admin/offer_templates.html", {"templates": templates.order_by("name")})
+>>>>>>> origin/main
 
 
 @permission_required("manage_templates")
@@ -604,6 +630,7 @@ def offer_email_templates_manage(request):
         return redirect("admin_offer_email_templates")
 
     templates = OfferEmailTemplate.objects.filter(tenant=request.user.tenant) if request.user.tenant else OfferEmailTemplate.objects.all()
+<<<<<<< HEAD
     offer_fields = (OfferFieldDefinition.objects.filter(tenant=request.user.tenant)
                     if request.user.tenant else OfferFieldDefinition.objects.all())
     offer_fields = offer_fields.exclude(key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS).order_by("order", "name")
@@ -612,6 +639,9 @@ def offer_email_templates_manage(request):
         "offer_fields": offer_fields,
         "company_name": request.user.tenant.name if request.user.tenant else "",
     })
+=======
+    return render(request, "admin/offer_email_templates.html", {"templates": templates.order_by("name")})
+>>>>>>> origin/main
 
 
 @permission_required("manage_email_templates")
@@ -648,6 +678,7 @@ def send_offer(request):
         messages.error(request, "Salary and proposed start date are required.")
         return redirect("admin_offers")
 
+<<<<<<< HEAD
     custom_fields = OfferFieldDefinition.objects.filter(tenant=request.user.tenant).exclude(
         key__in=SYSTEM_OFFER_PLACEHOLDER_KEYS
     ) if request.user.tenant else OfferFieldDefinition.objects.none()
@@ -660,6 +691,8 @@ def send_offer(request):
         if value:
             custom_values.append((field, value))
 
+=======
+>>>>>>> origin/main
     email_template_id = request.POST.get("email_template_id")
     offer_template_id = request.POST.get("offer_template_id")
     email_template = None
@@ -719,9 +752,12 @@ def send_offer(request):
                value=str(value),
            )
 
+<<<<<<< HEAD
     for field, value in custom_values:
         OfferFieldValue.objects.create(offer=offer, field_definition=field, value=value)
 
+=======
+>>>>>>> origin/main
     from ..views.offer_api_views import _perform_offer_send
     tokens = _perform_offer_send(offer, acting_user=request.user, request=request)
     salary_display = f"{currency} {salary}"
@@ -926,7 +962,11 @@ def dashboard(request):
     dashboard_review_title = "Medical Submissions Awaiting Review" if can_medical_review else "Awaiting Your Review"
     dashboard_review_queue = _attach_current_stage_info(list(dashboard_review_queue)) if dashboard_review_queue else []
 
+<<<<<<< HEAD
     response = render(request, "admin/dashboard.html", {
+=======
+    return render(request, "admin/dashboard.html", {
+>>>>>>> origin/main
         "stats": stats, "recent": recent, "review_queue": review_queue,
         "learning_stats": learning_stats,
         "can_approve_medical": request.user.has_perm_key("approve_medical"),
@@ -943,9 +983,12 @@ def dashboard(request):
         "is_super_admin": is_super_admin,
         "is_admin": is_admin,
     })
+<<<<<<< HEAD
     if request.GET.get("branding_preview") == "1":
         response["X-Frame-Options"] = "SAMEORIGIN"
     return response
+=======
+>>>>>>> origin/main
 
 
 @staff_required
@@ -1991,7 +2034,10 @@ CMS_KINDS = [
     ("management_message", "Management Messages"),
     ("event", "Upcoming Events"),
     ("news", "Latest News"),
+<<<<<<< HEAD
     ("portal_resource", "Resources & Perks"),
+=======
+>>>>>>> origin/main
     ("portal_gallery", "Gallery"),
     ("portal_video", "Videos"),
 ]
@@ -2000,6 +2046,7 @@ CMS_KINDS = [
 @permission_required("manage_landing_page")
 @require_http_methods(["GET", "POST"])
 def portal_cms(request):
+<<<<<<< HEAD
     """Manage tenant-scoped content displayed on the employee landing and resources pages."""
     valid = {k for k, _ in CMS_KINDS}
 
@@ -2051,16 +2098,34 @@ def portal_cms(request):
                     c.file = request.FILES["file"]
                 c.save()
                 messages.success(request, "Content updated.")
+=======
+    """Manage the landing-page content: sliders, management messages, gallery, videos."""
+    valid = {k for k, _ in CMS_KINDS}
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "delete":
+            Content.objects.filter(id=request.POST.get("item_id"),
+                                   kind__in=valid).delete()
+            messages.success(request, "Item removed.")
+        elif action == "toggle":
+            c = Content.objects.filter(id=request.POST.get("item_id"), kind__in=valid).first()
+            if c:
+                c.is_active = not c.is_active
+                c.save(update_fields=["is_active"])
+>>>>>>> origin/main
         else:  # add
             kind = request.POST.get("kind")
             if kind not in valid:
                 messages.error(request, "Unknown content type.")
                 return redirect("admin_portal_cms")
             meta = {}
+<<<<<<< HEAD
             if request.POST.get("category"):
                 category = request.POST.get("category").strip()
             else:
                 category = ""
+=======
+>>>>>>> origin/main
             if request.POST.get("video_url"):
                 meta["video_url"] = request.POST.get("video_url").strip()
             if request.POST.get("link"):
@@ -2086,7 +2151,10 @@ def portal_cms(request):
             c = Content(
                 kind=kind, tenant=request.user.tenant,
                 title=(request.POST.get("title") or "").strip(),
+<<<<<<< HEAD
                 category=category,
+=======
+>>>>>>> origin/main
                 body=(request.POST.get("body") or "").strip(),
                 meta=meta, display_order=order, is_active=True,
                 created_by=request.user,
@@ -2097,6 +2165,7 @@ def portal_cms(request):
             messages.success(request, "Added to the landing page.")
         return redirect("admin_portal_cms")
 
+<<<<<<< HEAD
     query = Content.objects.all()
     if request.user.tenant_id:
         query = query.filter(Q(tenant_id=request.user.tenant_id) | Q(tenant__isnull=True))
@@ -2107,6 +2176,11 @@ def portal_cms(request):
         "grouped": grouped,
         "resources_count": len(grouped.get("portal_resource", [])),
     })
+=======
+    grouped = {k: list(Content.objects.filter(kind=k).order_by("display_order", "-created_at"))
+               for k, _ in CMS_KINDS}
+    return render(request, "admin/portal_cms.html", {"kinds": CMS_KINDS, "grouped": grouped})
+>>>>>>> origin/main
 
 
 @permission_required("manage_organization")
@@ -2118,6 +2192,7 @@ def organization(request):
         action = request.POST.get("action")
         kind = request.POST.get("kind") or "department"
         tab = kind if kind in valid_kinds else "department"
+<<<<<<< HEAD
         if action == "save_company_name":
             tab = "company_profile"
         elif action in {"add_offer_placeholder", "update_offer_placeholder", "delete_offer_placeholder"}:
@@ -2186,6 +2261,9 @@ def organization(request):
                     field.delete()
                     messages.success(request, "Placeholder deleted.")
         elif action == "import_options":
+=======
+        if action == "import_options":
+>>>>>>> origin/main
             uploaded_file = request.FILES.get("import_file")
             if not uploaded_file:
                 messages.error(request, "Choose a file to import.")
@@ -2264,14 +2342,20 @@ def organization(request):
         return redirect(f"{reverse('admin_organization')}?tab={tab}")
 
     tab = request.GET.get("tab") or "department"
+<<<<<<< HEAD
     tenant = request.user.tenant
+=======
+>>>>>>> origin/main
     return render(request, "admin/organization.html", {
         "kinds": ORG_KINDS,
         "options": _org_options(),
         "active_tab": tab,
+<<<<<<< HEAD
         "company_name": tenant.name if tenant else "",
         "offer_placeholders": OfferFieldDefinition.objects.filter(tenant=tenant).order_by("order", "name") if tenant else [],
         "can_manage_offer_placeholders": request.user.role == "super_admin",
+=======
+>>>>>>> origin/main
     })
 
 
@@ -2296,10 +2380,21 @@ def email_settings(request):
             return redirect("admin_email_settings")
         for key in SMTP_KEYS:
             AppSetting.set(key, (request.POST.get(key) or "").strip(), user=request.user)
+<<<<<<< HEAD
         # Password: only overwrite when a new value is provided.
         new_pw = request.POST.get("smtp_password")
         if new_pw:
             AppSetting.set("smtp_password", new_pw, user=request.user)
+=======
+        # Passwords: only overwrite when a new value is provided.
+        new_pw = request.POST.get("smtp_password")
+        if new_pw:
+            AppSetting.set("smtp_password", new_pw, user=request.user)
+        
+        new_resend = request.POST.get("resend_api_key")
+        if new_resend:
+            AppSetting.set("resend_api_key", new_resend, user=request.user)
+>>>>>>> origin/main
         for flag in SMTP_FLAGS:
             AppSetting.set(flag, "true" if request.POST.get(flag) else "false", user=request.user)
         log_activity(request, action="update_smtp_settings", entity_type="settings",
@@ -2311,6 +2406,10 @@ def email_settings(request):
     smtp["smtp_use_tls"] = (AppSetting.get("smtp_use_tls", "true") or "true").lower() == "true"
     smtp["smtp_use_ssl"] = (AppSetting.get("smtp_use_ssl", "false") or "false").lower() == "true"
     smtp["has_password"] = bool(AppSetting.get("smtp_password"))
+<<<<<<< HEAD
+=======
+    smtp["has_resend_api_key"] = bool(AppSetting.get("resend_api_key"))
+>>>>>>> origin/main
     return render(request, "admin/email_settings.html", {
         "smtp": smtp, "configured": smtp_configured(),
     })
@@ -2500,6 +2599,7 @@ def email_templates(request):
             messages.success(request, "Email templates saved.")
         return redirect("admin_email_templates")
 
+<<<<<<< HEAD
     email_tags = dict(EMAIL_TAGS)
     if request.user.tenant:
         email_tags["company"] = ("Company / tenant name", request.user.tenant.name)
@@ -2513,6 +2613,11 @@ def email_templates(request):
     return render(request, "admin/email_templates.html", {
         "templates": all_email_templates(),
         "email_tags": [{"tag": k, "desc": v[0], "sample": v[1]} for k, v in email_tags.items()],
+=======
+    return render(request, "admin/email_templates.html", {
+        "templates": all_email_templates(),
+        "email_tags": [{"tag": k, "desc": v[0], "sample": v[1]} for k, v in EMAIL_TAGS.items()],
+>>>>>>> origin/main
     })
 
 
@@ -3473,6 +3578,7 @@ def offers_bulk_zip_export_view(request):
     offers = Offer.objects.filter(tenant=request.user.tenant) if request.user.tenant else Offer.objects.all()
     
     zip_buffer = io.BytesIO()
+<<<<<<< HEAD
     try:
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for offer in offers:
@@ -3485,6 +3591,14 @@ def offers_bulk_zip_export_view(request):
         if isinstance(exc, PDFGenerationError):
             return HttpResponse(str(exc), status=503, content_type="text/plain; charset=utf-8")
         raise
+=======
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for offer in offers:
+            html = offer.rendered_html or f"<h1>Offer {offer.offer_number}</h1><p>Candidate: {offer.candidate_name}</p>"
+            pdf_bytes = render_html_to_pdf(html)
+            filename = f"Offer_{offer.offer_number}_{offer.candidate_name.replace(' ', '_')}.pdf"
+            zf.writestr(filename, pdf_bytes)
+>>>>>>> origin/main
 
     zip_buffer.seek(0)
     filename = f"Offers_Export_{timezone.now():%Y%m%d_%H%M%S}.zip"

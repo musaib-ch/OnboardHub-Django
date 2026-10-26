@@ -2,10 +2,15 @@
 {% load onboard_extras %}
 {% block title %}Email Templates{% endblock %}
 {% block extra_head %}
+<<<<<<< HEAD
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 var lastEmailPlaceholderEditor = null;
 var lastEmailPlaceholderField = null;
+=======
+<script src="https://cdn.tiny.cloud/1/ysfy365so9hk57a7ogcu1vo8dzsv7kuc8ntl4mjzwvzueh94/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+>>>>>>> origin/main
 tinymce.init({
   selector: 'textarea.rich-editor',
   plugins: 'lists link image table code help',
@@ -19,12 +24,15 @@ tinymce.init({
   relative_urls: false,
   paste_as_text: false,
   content_css: false,
+<<<<<<< HEAD
     setup: function(editor) {
         editor.on('focus', function() {
             lastEmailPlaceholderEditor = editor;
             lastEmailPlaceholderField = null;
         });
     },
+=======
+>>>>>>> origin/main
 });
 </script>
 {% endblock %}
@@ -116,7 +124,11 @@ tinymce.init({
             <div style="max-height: 400px; overflow-y: auto;">
                 {% for item in email_tags %}
                 <div class="mb-3 pb-3 border-bottom">
+<<<<<<< HEAD
                     <button type="button" class="btn btn-sm btn-outline-primary mb-1" onclick="insertEmailVariable('{{ item.tag|escapejs }}')"><code>&#123;&#123;{{ item.tag }}&#125;&#125;</code><i class="bi bi-plus ms-1"></i></button>
+=======
+                    <code class="bg-light px-2 py-1 rounded d-block mb-1">{% verbatim %}{{{% endverbatim %}}{{ item.tag }}{% verbatim %}}}{% endverbatim %}</code>
+>>>>>>> origin/main
                     <p class="small mb-1"><strong>{{ item.desc }}</strong></p>
                     <p class="small text-muted mb-0">Example: <em>{{ item.sample }}</em></p>
                 </div>
@@ -126,6 +138,7 @@ tinymce.init({
     </div>
 </div>
 
+<<<<<<< HEAD
 <script>
 function insertEmailVariable(key) {
     var token = String.fromCharCode(123, 123) + key + String.fromCharCode(125, 125);
@@ -152,4 +165,6 @@ document.addEventListener('focusin', function(event) {
 });
 </script>
 
+=======
+>>>>>>> origin/main
 {% endblock %}

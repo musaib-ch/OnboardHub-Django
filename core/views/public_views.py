@@ -1,4 +1,8 @@
 """Public (unauthenticated) form submission."""
+<<<<<<< HEAD
+=======
+import bleach
+>>>>>>> origin/main
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -8,10 +12,15 @@ from ..models import Form, FormResponse
 
 @require_http_methods(["GET", "POST"])
 def public_form(request, token):
+<<<<<<< HEAD
     # Lookup by token or fallback ID
     form = Form.objects.filter(share_token=token).first()
     if not form and token.isdigit():
         form = Form.objects.filter(id=int(token)).first()
+=======
+    # Lookup by token only (never by raw ID — prevents enumeration)
+    form = Form.objects.filter(share_token=token).first()
+>>>>>>> origin/main
 
     if not form:
         return render(request, "public/form_closed.html", {
@@ -19,7 +28,11 @@ def public_form(request, token):
             "message": "The requested form or survey link does not exist or has been removed."
         })
 
+<<<<<<< HEAD
     # Auto generate share_token if missing
+=======
+    # Auto-generate share_token if missing
+>>>>>>> origin/main
     if not form.share_token:
         form.generate_share_token()
         form.save(update_fields=["share_token"])
@@ -41,23 +54,55 @@ def public_form(request, token):
         })
 
     if request.method == "POST":
+<<<<<<< HEAD
         answers, files = {}, {}
+=======
+        answers = {}
+>>>>>>> origin/main
         for field in form.get_all_fields():
             name = field["field_name"]
             key = f"field_{name}"
             if field.get("field_type") == "checkbox":
                 answers[name] = request.POST.getlist(key)
             else:
+<<<<<<< HEAD
                 answers[name] = request.POST.get(key, "")
+=======
+                # Sanitize free-text answers to strip any HTML/script tags
+                raw = request.POST.get(key, "")
+                answers[name] = bleach.clean(raw, tags=[], strip=True)
+
+        # Sanitize respondent identity fields
+        respondent_name = bleach.clean(
+            (request.POST.get("respondent_name") or "").strip(), tags=[], strip=True
+        ) or None
+        respondent_email = bleach.clean(
+            (request.POST.get("respondent_email") or "").strip(), tags=[], strip=True
+        ) or None
+
+        ip_address = (
+            request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+            or request.META.get("REMOTE_ADDR")
+        )
+
+>>>>>>> origin/main
         FormResponse.objects.create(
             form=form,
             employee=None,
             answers=answers,
+<<<<<<< HEAD
             files=files,
             is_draft=False,
             respondent_name=(request.POST.get("respondent_name") or "").strip() or None,
             respondent_email=(request.POST.get("respondent_email") or "").strip() or None,
             ip_address=request.META.get("REMOTE_ADDR"),
+=======
+            files={},
+            is_draft=False,
+            respondent_name=respondent_name,
+            respondent_email=respondent_email,
+            ip_address=ip_address,
+>>>>>>> origin/main
         )
         return redirect("public_thank_you")
 

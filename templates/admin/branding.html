@@ -4,8 +4,25 @@
 
 {% block extra_head %}
 <style>
+<<<<<<< HEAD
     .brand-preview-frame { width: 100%; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
     .brand-preview-frame iframe { display: block; width: 1280px; height: 760px; border: 0; transform-origin: top left; pointer-events: none; }
+=======
+    /* Live-preview mock — scoped CSS variables drive everything inside it. */
+    .brand-preview { border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; }
+    .brand-preview .bp-nav { background: var(--bp-sidebar); color: var(--bp-navtext); padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+    .brand-preview .bp-nav .bp-link { color: var(--bp-navtext); opacity: .82; font-weight: 500; font-size: .85rem; padding: 6px 12px; border-radius: 999px; }
+    .brand-preview .bp-nav .bp-link.active { background: var(--bp-active); color: var(--bp-navactive); opacity: 1; }
+    .brand-preview .bp-body { background: var(--bp-page); padding: 20px; }
+    .brand-preview .bp-card { background: var(--bp-cardbg); border: 1px solid #eef; border-radius: var(--bp-radlg); padding: 18px; box-shadow: var(--bp-shadow); }
+    .brand-preview .bp-h { font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .brand-preview .bp-btn { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: var(--bp-radbtn); font-weight: 500; font-size: .85rem; border: none; }
+    .brand-preview .bp-btn-primary { background: var(--bp-primary); color: #fff; }
+    .brand-preview .bp-btn-outline { background: transparent; border: 1px solid var(--bp-primary); color: var(--bp-primary); }
+    .brand-preview .bp-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--bp-primary) 14%, #fff); color: var(--bp-primary); }
+    .brand-preview .bp-input { width: 100%; border: 1px solid #d8dee9; border-radius: var(--bp-radsm); padding: 8px 12px; font-size: .85rem; }
+    .brand-preview, .brand-preview * { font-family: var(--bp-font), sans-serif; }
+>>>>>>> origin/main
     .swatch { width: 38px; height: 38px; border-radius: 8px; border: 1px solid #d8dee9; padding: 0; cursor: pointer; }
     .preset-chip { cursor: pointer; border: 1px solid #e5e7eb; border-radius: 10px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; }
     .preset-dots { display: inline-flex; gap: 3px; }
@@ -25,7 +42,13 @@
 <form method="POST" enctype="multipart/form-data" id="brandForm">
     {% csrf_token %}
     <div class="row g-4">
+<<<<<<< HEAD
         <div class="col-lg-6">
+=======
+        {# ── Controls ── #}
+        <div class="col-lg-6">
+            {# ── Identity Card ── #}
+>>>>>>> origin/main
             <div class="glass-card mb-4">
                 <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#br_identity" aria-expanded="true">
                     <h6 class="mb-0 fw-semibold"><i class="bi bi-card-image me-2 text-primary"></i>Identity</h6>
@@ -40,6 +63,10 @@
                 </div></div>
             </div>
 
+<<<<<<< HEAD
+=======
+            {# ── Portal Colors Card ── #}
+>>>>>>> origin/main
             <div class="glass-card mb-4">
                 <div class="card-header collapsible-header d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#br_colors" aria-expanded="true">
                     <h6 class="mb-0 fw-semibold"><i class="bi bi-palette2 me-2 text-primary"></i>Portal Colors</h6>
@@ -164,9 +191,56 @@
                     </div>
                 </div>
 
+<<<<<<< HEAD
                 <div class="brand-preview-frame" id="brandPreviewFrameWrap">
                     <iframe id="brandPreviewFrame" title="Full-page branding preview" src="{% url 'admin_dashboard' %}?branding_preview=1" loading="eager"></iframe>
                 </div>
+=======
+                {# Portal Mockup #}
+                <div class="brand-preview" id="brandPreview">
+                    <div class="bp-nav">
+                        <strong id="bpTitle" style="font-size:1.05rem;">OnboardHub</strong>
+                        <span class="bp-link active">Dashboard</span>
+                        <span class="bp-link">People</span>
+                        <span class="bp-link">Onboarding</span>
+                    </div>
+                    <div class="bp-body">
+                        <div class="bp-h" style="font-size:1.3rem;">Welcome back 👋</div>
+                        <div class="mb-3" style="color:#6b7280;font-size:.85rem;">Here's a preview of your portal styling.</div>
+                        <div class="bp-card mb-3">
+                            <div class="bp-h">Onboarding progress</div>
+                            <div class="mb-3"><span class="bp-badge">Pre-Onboarding</span></div>
+                            <button type="button" class="bp-btn bp-btn-primary me-2">Continue</button>
+                            <button type="button" class="bp-btn bp-btn-outline">View details</button>
+                        </div>
+                        <div class="bp-card">
+                            <div class="bp-h" style="margin-bottom:10px;">Quick form</div>
+                            <input class="bp-input mb-2" placeholder="Full name">
+                            <button type="button" class="bp-btn bp-btn-primary">Submit</button>
+                        </div>
+                    </div>
+                </div>
+
+                {# Login Screen Mockup #}
+                <div class="login-preview" id="loginPreview" style="display:none; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; min-height:340px; position:relative; padding:24px; color:#fff; transition:all 0.3s ease;">
+                    <div id="lpLogoWrap" class="d-flex align-items-center gap-2 mb-4">
+                        {% if logo %}<img src="/{{ logo }}" style="height:28px; border-radius:6px; object-fit:contain;">{% else %}<div style="width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;"><i class="bi bi-shield-check"></i></div>{% endif %}
+                        <strong id="lpLogoText" style="font-size:0.95rem;">OnboardHub</strong>
+                    </div>
+                    <div class="mb-4">
+                        <h4 id="lpTitle" class="fw-bold mb-1" style="font-size:1.35rem;">Welcome Back</h4>
+                        <p id="lpSubtitle" class="small opacity-75 mb-0">Your onboarding journey begins here.</p>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.95); border-radius:12px; padding:16px; color:#1e293b;">
+                        <div class="small fw-semibold mb-2" style="color:var(--lp-primary,#1d2b4f);">Sign In</div>
+                        <div class="mb-2" style="height:28px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;"></div>
+                        <div class="mb-3" style="height:28px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;"></div>
+                        <div id="lpBtn" style="height:32px; background:var(--lp-accent,#324b8a); border-radius:6px; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:0.8rem;">Sign In</div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="applyToPage()"><i class="bi bi-window-fullscreen me-1"></i>Preview on the whole page (unsaved)</button>
+>>>>>>> origin/main
             </div>
         </div>
     </div>
@@ -216,6 +290,7 @@
         previewLogin();
     }
 
+<<<<<<< HEAD
     var previewMode = "portal";
     var previewFrame = document.getElementById("brandPreviewFrame");
 
@@ -287,10 +362,16 @@
 
     function switchPreviewMode(mode){
         previewMode = mode;
+=======
+    function switchPreviewMode(mode){
+        var bp = document.getElementById("brandPreview");
+        var lp = document.getElementById("loginPreview");
+>>>>>>> origin/main
         var btnP = document.getElementById("btnPrevPortal");
         var btnL = document.getElementById("btnPrevLogin");
 
         if(mode === 'login'){
+<<<<<<< HEAD
             if(previewFrame && previewFrame.dataset.mode !== "login"){
                 previewFrame.dataset.mode = "login";
                 previewFrame.src = "{% url 'login' %}?branding_preview=1";
@@ -314,6 +395,96 @@
 
     function previewLogin(){
         applyPreviewTheme();
+=======
+            if(bp) bp.style.display = 'none';
+            if(lp) lp.style.display = 'block';
+            if(btnP){ btnP.classList.remove('btn-primary', 'active'); btnP.classList.add('btn-outline-primary'); }
+            if(btnL){ btnL.classList.remove('btn-outline-primary'); btnL.classList.add('btn-primary', 'active'); }
+            previewLogin();
+        } else {
+            if(lp) lp.style.display = 'none';
+            if(bp) bp.style.display = 'block';
+            if(btnL){ btnL.classList.remove('btn-primary', 'active'); btnL.classList.add('btn-outline-primary'); }
+            if(btnP){ btnP.classList.remove('btn-outline-primary'); btnP.classList.add('btn-primary', 'active'); }
+            preview();
+        }
+    }
+
+    function applyVars(target){
+        var p=val("c_primary_color"), a=val("c_accent_color");
+        var s=target.style;
+        s.setProperty("--bp-primary",p); s.setProperty("--bp-accent",a);
+        s.setProperty("--bp-sidebar",val("c_sidebar_bg")); s.setProperty("--bp-active",val("c_sidebar_active"));
+        s.setProperty("--bp-navtext",val("c_nav_text_color")); s.setProperty("--bp-navactive",val("c_nav_active_text_color"));
+        s.setProperty("--bp-page",val("c_page_bg_color"));
+        s.setProperty("--bp-font",val("f_font_family"));
+        var rad=RADIUS_MAP[val("f_radius_scale")]||RADIUS_MAP.rounded;
+        s.setProperty("--bp-radsm",rad[0]); s.setProperty("--bp-radlg",rad[2]);
+        var bs=val("f_button_style"); s.setProperty("--bp-radbtn", bs==="pill"?"999px":bs==="square"?"6px":rad[0]);
+        s.setProperty("--bp-cardbg", val("f_card_style")==="flat"?"#ffffff":"rgba(255,255,255,0.95)");
+        s.setProperty("--bp-shadow", val("f_card_style")==="flat"?"0 1px 3px rgba(15,23,42,.08)":"0 8px 32px rgba(31,38,135,.1)");
+    }
+    function preview(){
+        var titleElem = document.getElementById("bpTitle");
+        if(titleElem) titleElem.textContent = val("f_site_title") || "OnboardHub";
+        var bp = document.getElementById("brandPreview");
+        if(bp) applyVars(bp);
+    }
+
+    function previewLogin(){
+        var lp = document.getElementById("loginPreview");
+        if(!lp) return;
+
+        var sync = document.getElementById("f_login_sync") ? document.getElementById("f_login_sync").checked : true;
+        var pCol = sync ? val("c_primary_color") : val("c_login_primary");
+        var aCol = sync ? val("c_accent_color") : val("c_login_accent");
+        if(!pCol) pCol = "#1d2b4f";
+        if(!aCol) aCol = "#324b8a";
+
+        var bgStyle = val("f_login_bg_style") || "gradient";
+        if(bgStyle === "dark"){
+            lp.style.background = pCol;
+        } else if(bgStyle === "sleek"){
+            lp.style.background = "radial-gradient(ellipse at top left, " + aCol + " 0%, " + pCol + " 75%)";
+        } else {
+            lp.style.background = "linear-gradient(148deg, " + pCol + " 0%, " + aCol + " 100%)";
+        }
+
+        lp.style.setProperty("--lp-primary", pCol);
+        lp.style.setProperty("--lp-accent", aCol);
+
+        var titleElem = document.getElementById("lpTitle");
+        if(titleElem) titleElem.textContent = val("f_login_welcome_title") || "Welcome Back";
+
+        var subElem = document.getElementById("lpSubtitle");
+        if(subElem) subElem.textContent = val("f_login_welcome_subtitle") || "Your onboarding journey begins here.";
+
+        var logoWrap = document.getElementById("lpLogoWrap");
+        var showLogo = document.getElementById("f_login_logo") ? document.getElementById("f_login_logo").checked : true;
+        if(logoWrap) logoWrap.style.display = showLogo ? "flex" : "none";
+
+        var logoText = document.getElementById("lpLogoText");
+        if(logoText) logoText.textContent = val("f_site_title") || "OnboardHub";
+    }
+
+    function applyToPage(){
+        var root=document.documentElement;
+        root.style.setProperty("--primary",val("c_primary_color"));
+        root.style.setProperty("--accent",val("c_accent_color"));
+        root.style.setProperty("--primary-rgb",hexToRgb(val("c_primary_color")));
+        root.style.setProperty("--accent-rgb",hexToRgb(val("c_accent_color")));
+        root.style.setProperty("--system-primary",val("c_primary_color"));
+        root.style.setProperty("--system-primary-hover",val("c_accent_color"));
+        root.style.setProperty("--sidebar-bg",val("c_sidebar_bg"));
+        root.style.setProperty("--sidebar-active",val("c_sidebar_active"));
+        root.style.setProperty("--nav-text",val("c_nav_text_color"));
+        root.style.setProperty("--page-bg",val("c_page_bg_color"));
+        root.style.setProperty("--app-font",val("f_font_family"));
+        var rad=RADIUS_MAP[val("f_radius_scale")]||RADIUS_MAP.rounded;
+        root.style.setProperty("--radius-sm",rad[0]); root.style.setProperty("--radius-md",rad[1]);
+        root.style.setProperty("--radius-lg",rad[2]); root.style.setProperty("--radius-xl",rad[3]);
+        document.body.className = "theme-density-"+val("f_density")+" theme-btn-"+val("f_button_style")+" theme-card-"+val("f_card_style");
+>>>>>>> origin/main
     }
 
     // presets UI
@@ -326,10 +497,13 @@
             pc.appendChild(chip);
         });
     }
+<<<<<<< HEAD
     previewFrame.dataset.mode = "portal";
     previewFrame.addEventListener("load", function(){ fitPreviewFrame(); applyPreviewTheme(); });
     window.addEventListener("resize", fitPreviewFrame);
     if(window.ResizeObserver){ new ResizeObserver(fitPreviewFrame).observe(document.getElementById("brandPreviewFrameWrap")); }
+=======
+>>>>>>> origin/main
     preview();
     previewLogin();
 </script>

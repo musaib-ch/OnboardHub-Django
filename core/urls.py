@@ -3,14 +3,22 @@ from django.urls import path
 from .views import (auth_views, employee_views, admin_views, public_views,
                     common_views, content_views, training_views, analytics_views, signature_views,
                     assessment_views, session_views, onboarding_plan_views, chat_views, zoom_settings_views,
+<<<<<<< HEAD
                     stage_config_views, quiz_views, offer_views, offer_api_views, public_offer_views, buddy_views)
+=======
+                    stage_config_views, quiz_views, offer_views, offer_api_views, public_offer_views, buddy_views,
+                    log_views)
+>>>>>>> origin/main
 
 urlpatterns = [
     # ── Public / dispatch ───────────────────────────────────────────────
     path("", common_views.index, name="index"),
     path("portal/", common_views.portal, name="portal"),
+<<<<<<< HEAD
     path("employee/directory/", common_views.employee_directory, name="employee_directory"),
     path("employee/resources/", common_views.employee_resources, name="employee_resources"),
+=======
+>>>>>>> origin/main
 
     # ── Auth ────────────────────────────────────────────────────────────
     path("login/", auth_views.login_view, name="login"),
@@ -111,6 +119,10 @@ urlpatterns = [
     path("admin/settings/email-templates/", admin_views.email_templates, name="admin_email_templates"),
     path("admin/settings/email-logs/", admin_views.email_logs, name="admin_email_logs"),
     path("admin/settings/email-statistics/", admin_views.email_statistics, name="admin_email_statistics"),
+<<<<<<< HEAD
+=======
+    path("admin/settings/logs/", log_views.system_logs, name="admin_system_logs"),
+>>>>>>> origin/main
     path("admin/settings/offer-templates/", admin_views.offer_templates_manage, name="admin_offer_templates"),
     path("admin/settings/offer-templates/<int:template_id>/delete/", admin_views.offer_template_delete, name="admin_offer_template_delete"),
     path("admin/settings/offer-email-templates/", admin_views.offer_email_templates_manage, name="admin_offer_email_templates"),
@@ -211,7 +223,10 @@ urlpatterns = [
 
     # ── Quiz module ──────────────────────────────────────────────────────
     # Admin
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
     path("admin/quizzes/<int:quiz_id>/responses/", quiz_views.quiz_responses, name="quiz_responses"),
     path("admin/quizzes/<int:quiz_id>/preview/", quiz_views.quiz_preview, name="quiz_preview"),
     # Employee

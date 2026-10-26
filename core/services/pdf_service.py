@@ -8,12 +8,17 @@ except ImportError:
     XHTML2PDF_AVAILABLE = False
 
 
+<<<<<<< HEAD
 class PDFGenerationError(Exception):
     """Raised when an offer cannot be rendered as a valid PDF."""
 
 
 def render_html_to_pdf(html_content: str) -> bytes:
     """Render HTML to valid PDF bytes or raise a clear generation error."""
+=======
+def render_html_to_pdf(html_content: str) -> bytes:
+    """Render HTML string to PDF bytes. Uses xhtml2pdf if available."""
+>>>>>>> origin/main
     if "<html" not in html_content.lower():
         full_html = f"""<!DOCTYPE html>
 <html>
@@ -55,6 +60,7 @@ def render_html_to_pdf(html_content: str) -> bytes:
     else:
         full_html = html_content
 
+<<<<<<< HEAD
     if not XHTML2PDF_AVAILABLE:
         raise PDFGenerationError("PDF generation is unavailable. Install the project requirements and try again.")
 
@@ -68,11 +74,25 @@ def render_html_to_pdf(html_content: str) -> bytes:
     if not result or result.err or not pdf_bytes.startswith(b"%PDF-"):
         raise PDFGenerationError("The offer could not be rendered as a valid PDF.")
     return pdf_bytes
+=======
+    if XHTML2PDF_AVAILABLE:
+        try:
+            result_stream = io.BytesIO()
+            pdf = pisa.pisaDocument(io.BytesIO(full_html.encode("utf-8")), result_stream)
+            if pdf and not pdf.err:
+                return result_stream.getvalue()
+        except Exception:
+            pass
+
+    # Fallback to UTF-8 HTML string bytes if xhtml2pdf engine encounters syntax errors or fails
+    return full_html.encode("utf-8")
+>>>>>>> origin/main
 
 
 def generate_offer_pdf_response(offer, filename: str = None) -> HttpResponse:
     """Generate a downloadable PDF HttpResponse for a canonical Offer."""
     html_content = offer.rendered_html or offer.metadata.get("rendered_html") or f"<h1>Offer {offer.offer_number}</h1><p>Candidate: {offer.candidate_name}</p>"
+<<<<<<< HEAD
     try:
         pdf_bytes = render_html_to_pdf(html_content)
     except PDFGenerationError as exc:
@@ -83,4 +103,19 @@ def generate_offer_pdf_response(offer, filename: str = None) -> HttpResponse:
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
+=======
+    pdf_bytes = render_html_to_pdf(html_content)
+    
+    if filename is None:
+        filename = f"Offer_{offer.offer_number}.pdf"
+
+    if pdf_bytes.startswith(b"%PDF"):
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    else:
+        # Fallback response format if PDF binary header is not generated
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+>>>>>>> origin/main
     return response

@@ -36,6 +36,7 @@ LOGIN_SCREEN_DEFAULTS = {
 }
 
 
+<<<<<<< HEAD
 @require_http_methods(["GET", "POST"])
 def login_view(request):
     branding_preview = request.GET.get("branding_preview") == "1"
@@ -69,6 +70,8 @@ def login_view(request):
             return redirect("index")
         messages.error(request, "Invalid email or password. Please try again.")
 
+=======
+>>>>>>> origin/main
 def _get_login_settings():
     from ..models import AppSetting
     import json
@@ -79,10 +82,17 @@ def _get_login_settings():
             login_settings = json.loads(login_settings_raw)
         except Exception:
             pass
+<<<<<<< HEAD
             
     for k, v in LOGIN_SCREEN_DEFAULTS.items():
         login_settings.setdefault(k, v)
         
+=======
+
+    for k, v in LOGIN_SCREEN_DEFAULTS.items():
+        login_settings.setdefault(k, v)
+
+>>>>>>> origin/main
     theme_colors = {
         "classic_blue": ("#1d2b4f", "#324b8a"),
         "emerald": ("#047857", "#10b981"),
@@ -90,7 +100,11 @@ def _get_login_settings():
         "midnight": ("#0f172a", "#0ea5e9"),
         "rose": ("#881337", "#fb7185"),
     }
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> origin/main
     if login_settings.get("sync_portal_colors"):
         login_settings["primary_color"] = AppSetting.get("primary_color") or "#1d2b4f"
         login_settings["accent_color"] = AppSetting.get("accent_color") or "#324b8a"
@@ -108,8 +122,12 @@ def _get_login_settings():
 
 @require_http_methods(["GET", "POST"])
 def login_view(request):
+<<<<<<< HEAD
     branding_preview = request.GET.get("branding_preview") == "1"
     if request.user.is_authenticated and not branding_preview:
+=======
+    if request.user.is_authenticated:
+>>>>>>> origin/main
         return redirect("index")
 
     email = ""
@@ -142,15 +160,22 @@ def login_view(request):
     from ..models import AppSetting
     login_settings = _get_login_settings()
 
+<<<<<<< HEAD
     response = render(request, "login.html", {
+=======
+    return render(request, "login.html", {
+>>>>>>> origin/main
         "email": email,
         "login_settings": login_settings,
         "portal_name": AppSetting.get("site_title") or "OnboardHub",
         "portal_logo": AppSetting.get("site_logo") or "",
     })
+<<<<<<< HEAD
     if branding_preview:
         response["X-Frame-Options"] = "SAMEORIGIN"
     return response
+=======
+>>>>>>> origin/main
 
 
 @require_http_methods(["GET", "POST"])
@@ -216,7 +241,10 @@ def forgot_password(request):
                          entity_type="user", entity_id=user.id,
                          description=f"Password reset requested for {user.email}")
             from ..services.email_service import EmailService, _big_login_cta
+<<<<<<< HEAD
             from django.core.mail import get_connection
+=======
+>>>>>>> origin/main
             from ..models import AppSetting
             smtp_host = AppSetting.get("smtp_host") or ""
             if smtp_host.strip():
@@ -234,7 +262,12 @@ def forgot_password(request):
                 # No SMTP configured (dev) — surface the link so the flow stays usable.
                 messages.warning(request, f"Email is not configured. Reset link: {reset_url}")
         else:
+<<<<<<< HEAD
             messages.error(request, "Account not found for this email address.")
+=======
+            # Constant-time response to prevent email enumeration
+            messages.success(request, "If an account exists for this email, a reset link has been sent.")
+>>>>>>> origin/main
         return redirect("login")
     return render(request, "auth/forgot_password.html")
 
@@ -334,17 +367,26 @@ def notification_preferences(request):
     user = request.user
 
     if request.method == "POST":
+<<<<<<< HEAD
         # Get all preference keys from form
+=======
+>>>>>>> origin/main
         prefs = {}
         for key in DEFAULT_PREFERENCES.keys():
             prefs[key] = request.POST.get(f'pref_{key}') == 'on'
 
+<<<<<<< HEAD
         # Update global email notification setting
+=======
+>>>>>>> origin/main
         user.enable_email_notifications = request.POST.get('enable_email_notifications') == 'on'
         user.enable_in_app_notifications = request.POST.get('enable_in_app_notifications') == 'on'
         user.save()
 
+<<<<<<< HEAD
         # Update granular preferences
+=======
+>>>>>>> origin/main
         set_all_preferences(user, prefs)
 
         messages.success(request, "Notification preferences updated!")
@@ -429,6 +471,10 @@ def _validate_password(password, confirm):
 
 def _save_avatar(user, avatar):
     import os
+<<<<<<< HEAD
+=======
+    import uuid
+>>>>>>> origin/main
     from django.conf import settings
     ext = avatar.name.rsplit(".", 1)[-1].lower() if "." in avatar.name else ""
     if ext not in {"jpg", "jpeg", "png", "webp"}:
@@ -437,7 +483,12 @@ def _save_avatar(user, avatar):
         return "Avatar size must be less than 2MB."
     folder = os.path.join(settings.MEDIA_ROOT, "avatars")
     os.makedirs(folder, exist_ok=True)
+<<<<<<< HEAD
     filename = f"user_{user.id}_{avatar.name}"
+=======
+    # Use UUID to prevent filename collision/traversal
+    filename = f"user_{user.id}_{uuid.uuid4().hex}.{ext}"
+>>>>>>> origin/main
     with open(os.path.join(folder, filename), "wb") as fh:
         for chunk in avatar.chunks():
             fh.write(chunk)

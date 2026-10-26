@@ -10,7 +10,10 @@ import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+<<<<<<< HEAD
 from django.views.decorators.csrf import csrf_exempt
+=======
+>>>>>>> origin/main
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
@@ -200,11 +203,17 @@ def download_signature(request, sig_id):
     except Exception:
         return JsonResponse({'error': 'Invalid signature data'}, status=400)
 
+<<<<<<< HEAD
     response = redirect('/')
     response['Content-Type'] = 'image/png'
     response['Content-Disposition'] = f'attachment; filename="signature_{sig_id}.png"'
     response.content = image_data
 
+=======
+    from django.http import HttpResponse
+    response = HttpResponse(image_data, content_type='image/png')
+    response['Content-Disposition'] = f'attachment; filename="signature_{sig_id}.png"'
+>>>>>>> origin/main
     return response
 
 

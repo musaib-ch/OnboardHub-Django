@@ -11,6 +11,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 from ..decorators import login_required
+<<<<<<< HEAD
 from ..models_offers import (
     OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, OfferAttachment, Offer,
     OfferFieldValue, OfferStatusHistory, OfferSendToken, OfferApproval,
@@ -18,6 +19,9 @@ from ..models_offers import (
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+=======
+from ..models_offers import OfferTemplate, OfferEmailTemplate, OfferFieldDefinition, OfferAttachment, Offer, OfferFieldValue, OfferStatusHistory, OfferSendToken, OfferApproval
+>>>>>>> origin/main
 from django.template import engines
 from django.conf import settings
 import os
@@ -266,7 +270,10 @@ def offer_field_detail(request, field_id):
 # Image upload endpoint for WYSIWYG paste uploads
 @login_required
 @require_http_methods(['POST'])
+<<<<<<< HEAD
 @csrf_exempt
+=======
+>>>>>>> origin/main
 def offer_image_upload(request):
     # Require manage_templates permission to upload images for templates
     if not request.user.has_perm_key('manage_templates'):
@@ -282,7 +289,15 @@ def offer_image_upload(request):
         return HttpResponseBadRequest('Unsupported file type')
     # Save file to media and create OfferAttachment record attached to no offer (template upload)
     subdir = 'offer_images'
+<<<<<<< HEAD
     name = default_storage.save(os.path.join(subdir, up.name), ContentFile(up.read()))
+=======
+    # Sanitize filename to prevent path traversal
+    import uuid as _uuid
+    safe_ext = up.name.rsplit('.', 1)[-1].lower() if '.' in up.name else 'bin'
+    safe_name = f"{_uuid.uuid4().hex}.{safe_ext}"
+    name = default_storage.save(os.path.join(subdir, safe_name), ContentFile(up.read()))
+>>>>>>> origin/main
     url = default_storage.url(name)
     att = OfferAttachment.objects.create(
         template=None,
@@ -309,6 +324,7 @@ def offer_template_preview(request, template_id):
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except Exception:
         payload = {}
+<<<<<<< HEAD
     sample_context = payload.get('context') or {
         'candidate_name': 'Jane Doe',
         'candidate_email': 'jane@example.com',
@@ -316,6 +332,12 @@ def offer_template_preview(request, template_id):
     from ..services.template_context import tenant_template_context
     context = tenant_template_context(request.user.tenant)
     context.update(sample_context)
+=======
+    context = payload.get('context') or {
+        'candidate_name': 'Jane Doe',
+        'candidate_email': 'jane@example.com',
+    }
+>>>>>>> origin/main
     # Use Django template engine to render the HTML content safely
     django_engine = engines['django']
     template = django_engine.from_string(tpl.html_content or '')
@@ -459,6 +481,7 @@ def offer_render_preview(request, offer_id=None):
     if offer_id:
         o = get_object_or_404(Offer, id=offer_id)
         tpl = o.template
+<<<<<<< HEAD
         base_context = _build_offer_template_context(o)
     else:
         tpl_id = payload.get('template_id')
@@ -466,6 +489,21 @@ def offer_render_preview(request, offer_id=None):
         from ..services.template_context import tenant_template_context
         base_context = tenant_template_context(request.user.tenant)
         base_context.update(payload.get('context') or {})
+=======
+        base_context = {
+            'candidate_name': o.candidate_name,
+            'candidate_email': o.candidate_email,
+        }
+        # include existing field values
+        for fv in o.field_values.all():
+            key = fv.field_definition.key if fv.field_definition else None
+            if key:
+                base_context[key] = fv.value
+    else:
+        tpl_id = payload.get('template_id')
+        tpl = OfferTemplate.objects.filter(id=tpl_id).first() if tpl_id else None
+        base_context = payload.get('context') or {}
+>>>>>>> origin/main
     if not tpl:
         return HttpResponseBadRequest('Template not found')
     django_engine = engines['django']
@@ -474,6 +512,7 @@ def offer_render_preview(request, offer_id=None):
     return JsonResponse({'rendered_html': rendered})
 
 
+<<<<<<< HEAD
 def _build_offer_template_context(offer):
     from ..services.template_context import offer_template_context
     return offer_template_context(offer)
@@ -483,6 +522,17 @@ def _build_offer_template_context(offer):
 def _perform_offer_send(o, acting_user=None, request=None):
     """Render, snapshot, create tokens, enqueue email. Returns dict with tokens."""
     context = _build_offer_template_context(o)
+=======
+# Internal helper to perform the snapshot/send actions (re-usable by approval flow)
+def _perform_offer_send(o, acting_user=None, request=None):
+    """Render, snapshot, create tokens, enqueue email. Returns dict with tokens."""
+    # build context
+    context = {'candidate_name': o.candidate_name, 'candidate_email': o.candidate_email}
+    for fv in o.field_values.all():
+        key = fv.field_definition.key if fv.field_definition else None
+        if key:
+            context[key] = fv.value
+>>>>>>> origin/main
     django_engine = engines['django']
     tpl = o.template
     rendered = django_engine.from_string(tpl.html_content or '').render(context) if tpl else ''
@@ -512,11 +562,17 @@ def _perform_offer_send(o, acting_user=None, request=None):
 
     # Prepare email context
     email_context = {
+<<<<<<< HEAD
         **context,
         'candidate_name': o.candidate_name,
         'candidate_email': o.candidate_email,
         'offer_view_link': view_url,
         'offer_link': view_url,
+=======
+        'candidate_name': o.candidate_name,
+        'candidate_email': o.candidate_email,
+        'offer_view_link': view_url,
+>>>>>>> origin/main
         'offer_accept_link': accept_url,
         'offer_reject_link': reject_url,
         'offer_html': rendered,

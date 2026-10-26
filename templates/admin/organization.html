@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-header animate-fadeIn">
     <h1><i class="bi bi-sliders me-2"></i>Organization Setup</h1>
+<<<<<<< HEAD
     <p class="text-muted mb-0">Manage company identity, offer placeholders, and organizational structure.</p>
 </div>
 
@@ -14,6 +15,14 @@
         <button class="nav-link {% if active_tab == 'company_profile' %}active{% endif %}" id="tab-company-profile" data-bs-toggle="tab" data-bs-target="#content-company-profile" type="button" role="tab">Company Profile</button>
         <button class="nav-link {% if active_tab == 'placeholders' %}active{% endif %}" id="tab-placeholders" data-bs-toggle="tab" data-bs-target="#content-placeholders" type="button" role="tab">Shared Placeholders <span class="badge bg-secondary ms-2">{{ offer_placeholders|length }}</span></button>
         {% endif %}
+=======
+    <p class="text-muted mb-0">Manage organizational structure: departments, grades, locations, payroll, employee types, designations</p>
+</div>
+
+<!-- Type Tabs -->
+<div class="glass-card mb-4 animate-fadeIn delay-1">
+    <div class="nav nav-tabs flex-wrap" role="tablist">
+>>>>>>> origin/main
         {% for kind, label in kinds %}
         <button class="nav-link {% if active_tab == kind or not active_tab and forloop.first %}active{% endif %}" id="tab-{{ kind }}" data-bs-toggle="tab" data-bs-target="#content-{{ kind }}" type="button" role="tab">
             {{ label }}
@@ -25,6 +34,7 @@
 
 <!-- Tab Content -->
 <div class="tab-content">
+<<<<<<< HEAD
     {% if can_manage_offer_placeholders %}
     <div class="tab-pane fade {% if active_tab == 'company_profile' %}show active{% endif %}" id="content-company-profile" role="tabpanel" aria-labelledby="tab-company-profile">
         <section class="glass-card p-4">
@@ -74,6 +84,8 @@
         </section>
     </div>
     {% endif %}
+=======
+>>>>>>> origin/main
     {% for kind, label in kinds %}
     <div class="tab-pane fade {% if active_tab == kind or not active_tab and forloop.first %}show active{% endif %}" id="content-{{ kind }}" role="tabpanel">
         <div class="glass-card animate-fadeIn delay-2">
